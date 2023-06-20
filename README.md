@@ -1,2 +1,3 @@
-# instabook
-Create eBook from any page instantly and beautifully.
+# Instabook
+
+Create an eBook from any page instantly and beautifully.

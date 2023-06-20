@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "name": "Instabook",
+  "version": "1.0",
+  "author": "Bartosz Wójcik",
+  "homepage_url": "https://github.com/bartoffw/instabook",
+  "description": "Create an eBook from any page instantly and beautifully.",
+
+  "icons": {
+    "48": "icons/logo-48.png",
+    "96": "icons/logo-96.png"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["scripts/Readability.js"]
+    }
+  ],
+
+  "permissions": [
+    "activeTab"
+  ],
+
+  "browser_action": {
+    "default_icon": "icons/logo-32.png",
+    "default_title": "Instabook It!",
+    "default_popup": "menu.html"
+  }
+}
