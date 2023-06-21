@@ -14,7 +14,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["scripts/Readability.js"]
+      "js": ["scripts/jquery.min.js", "scripts/Readability.js", "scripts/purify.js", "scripts/common.js", "scripts/epub.js",
+        "scripts/jszip.min.js"]
     }
   ],
 
@@ -25,6 +26,6 @@
   "browser_action": {
     "default_icon": "icons/logo-32.png",
     "default_title": "Instabook It!",
-    "default_popup": "menu.html"
+    "default_popup": "popup.html"
   }
 }

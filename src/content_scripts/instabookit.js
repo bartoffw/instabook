@@ -14,15 +14,15 @@
      * create and style an IMG node pointing to
      * that image, then insert the node into the document.
      */
-    function doInstabook() {
+    function doInstabook(doPurify = true) {
         removeExistingBook();
-        const docClone = document.cloneNode(true);
-        const article = new Readability(docClone).parse();
+        const epub = new Epub(document);
+        epub.process();
 
         const readified = document.createElement("div");
         readified.setAttribute("id", "readable-content");
         readified.style.height = "100vh";
-        readified.innerHTML = article.content;
+        readified.innerHTML = epub.bookContent;
         document.body.appendChild(readified);
     }
 
@@ -42,7 +42,7 @@
      */
     browser.runtime.onMessage.addListener((message) => {
         if (message.command === "instabookit") {
-            doInstabook();
+            doInstabook(true); //message.purify);
         } else if (message.command === "reset") {
             removeExistingBook();
         }

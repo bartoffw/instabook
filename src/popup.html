@@ -3,11 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <link href="styles/bootstrap.min.css" rel="stylesheet">
-    <style>
-        #popup-content {
-            max-width: 400px;
-        }
-    </style>
+    <link href="popup.css" rel="stylesheet">
 </head>
 
 <body>
@@ -16,10 +12,11 @@
         Instabook It
     </div>
     <div class="card-body">
-        <button class="btn btn-primary">Do it</button>
+        <button class="btn btn-default pull-left action-btn" id="reset-btn">Reset</button>
+        <button class="btn btn-primary pull-right action-btn" id="convert-btn">Convert</button>
     </div>
 </div>
-<script src="scripts/Readability.js"></script>
-<script src="scripts/instabook.js"></script>
+<script src="scripts/jquery.min.js"></script>
+<script src="popup.js"></script>
 </body>
 </html>

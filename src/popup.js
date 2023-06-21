@@ -11,37 +11,35 @@ const hidePage = `body > :not(#readable-content) {
  * the content script in the page.
  */
 function listenForClicks() {
-    document.addEventListener("click", (e) => {
-        /**
-         * Insert the page-hiding CSS into the active tab,
-         * then get the beast URL and
-         * send a "instabookit" message to the content script in the active tab.
-         */
-        function instabookit(tabs) {
-            browser.tabs.insertCSS({ code: hidePage }).then(() => {
-                browser.tabs.sendMessage(tabs[0].id, {
-                    command: "instabookit"
-                });
+
+    function instabookIt(tabs) {
+        browser.tabs.insertCSS({ code: hidePage }).then(() => {
+            browser.tabs.sendMessage(tabs[0].id, {
+                command: "instabookit"/*,
+                purify: $('#purify').is(':checked')*/
             });
-        }
+        });
+    }
 
-        /**
-         * Just log the error to the console.
-         */
-        function reportError(error) {
-            console.error(`Could not instabook: ${error}`);
-        }
+    function reset(tabs) {
+        browser.tabs.removeCSS({ code: hidePage }).then(() => {
+            browser.tabs.sendMessage(tabs[0].id, {
+                command: "reset"
+            });
+        });
+    }
 
-        /**
-         * Get the active tab,
-         * then call "beastify()" or "reset()" as appropriate.
-         */
-        if (e.target.tagName !== "BUTTON" || !e.target.closest("#popup-content")) {
-            // Ignore when click is not on a button within <div id="popup-content">.
-            return;
-        }
+    /**
+     * Just log the error to the console.
+     */
+    function reportError(error) {
+        console.error(`Could not execute: ${error}`);
+    }
+
+    $(document).on('click', '.action-btn', function() {
+        console.log('clicked');
         browser.tabs.query({active: true, currentWindow: true})
-            .then(instabookit)
+            .then($(this).attr('id') === 'convert-btn' ? instabookIt : reset)
             .catch(reportError);
     });
 }
@@ -67,7 +65,8 @@ browser.tabs
     .catch(reportExecuteScriptError);
 
 function setTitle(tabs) {
-    document.querySelector("#page-title").textContent = tabs[0].title;
+    console.log('now!');
+    $("#page-title").text(tabs[0].title);
 }
 
 browser.tabs
