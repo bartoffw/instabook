@@ -15,15 +15,16 @@
      * that image, then insert the node into the document.
      */
     function doInstabook(doPurify = true) {
+        console.log('instabook!');
         removeExistingBook();
-        const epub = new Epub(document);
+        const epub = new Epub(document, window.location.href);
         epub.process();
 
-        const readified = document.createElement("div");
-        readified.setAttribute("id", "readable-content");
-        readified.style.height = "100vh";
-        readified.innerHTML = epub.bookContent;
-        document.body.appendChild(readified);
+        // const readified = document.createElement("div");
+        // readified.setAttribute("id", "readable-content");
+        // readified.style.height = "100vh";
+        // readified.innerHTML = epub.bookContent;
+        // document.body.appendChild(readified);
     }
 
     /**
@@ -41,6 +42,7 @@
      * Call "insertBeast()" or "removeExistingBeasts()".
      */
     browser.runtime.onMessage.addListener((message) => {
+        console.log('listened!');
         if (message.command === "instabookit") {
             doInstabook(true); //message.purify);
         } else if (message.command === "reset") {

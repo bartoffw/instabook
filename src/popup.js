@@ -13,20 +13,20 @@ const hidePage = `body > :not(#readable-content) {
 function listenForClicks() {
 
     function instabookIt(tabs) {
-        browser.tabs.insertCSS({ code: hidePage }).then(() => {
+        //browser.tabs.insertCSS({ code: hidePage }).then(() => {
             browser.tabs.sendMessage(tabs[0].id, {
                 command: "instabookit"/*,
                 purify: $('#purify').is(':checked')*/
             });
-        });
+        //});
     }
 
     function reset(tabs) {
-        browser.tabs.removeCSS({ code: hidePage }).then(() => {
+        //browser.tabs.removeCSS({ code: hidePage }).then(() => {
             browser.tabs.sendMessage(tabs[0].id, {
                 command: "reset"
             });
-        });
+        //});
     }
 
     /**
