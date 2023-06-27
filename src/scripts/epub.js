@@ -16,12 +16,14 @@ class Epub {
         this.#docClone = doc.cloneNode(true);
         this.#sourceUrl = sourceUrl;
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
+        console.log('ebook init');
     }
 
     process() {
+        console.log('process start');
         this.#bookId = 'epub-' + (Math.random() * 100000) + (new Date().getTime() / 1000);
         this.#parsedContent = this.#readability.parse();
-        this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
+        //this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
 
         console.log('processing images');
         this.#parsedContent.content = this.cleanupContent(
@@ -39,8 +41,6 @@ class Epub {
             this.#parsedContent.content + '\n' +
             '</body>\n' +
             '</html>';
-
-        this.prepareEpubFile();
     }
 
     processImages(content) {
@@ -61,7 +61,7 @@ class Epub {
         return DOMPurify.sanitize(content);
     }
 
-    prepareEpubFile() {
+    prepareEpubFile(imageContentPromise) {
         console.log('preparing ZIP');
         var zip = new JSZip();
         zip.file('mimetype', 'application/epub+zip');
@@ -84,7 +84,7 @@ class Epub {
         const that = this;
         this.imageUrls.forEach(function (imgUrl, idx) {
             const ext = that.extractExt(imgUrl);
-            images.file('img' + (idx + 1) + '.' + ext, $.get(imgUrl));
+            images.file('img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
         });
         console.log('finishing');
         styles.file('ebook.css', this.getBookStyles());
@@ -113,7 +113,7 @@ class Epub {
             '   <dc:title>' + this.#parsedContent.title + '</dc:title>' +
             (this.#parsedContent.byline ?
             '   <dc:creator>' + this.#parsedContent.byline + '</dc:creator>\n' : '') +
-            '   <dc:description>Read time: ' + this.#bookReadTime.minutes + ' minutes</dc:description>\n' +
+            '   <dc:description>Read time: ' + 0 /*this.#bookReadTime.minutes*/ + ' minutes</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
             '   <meta property="dcterms:modified">2022-07-15T23:46:34Z</meta>\n' +
             '   <dc:language>' + this.#bookLanguage + '</dc:language>\n' +
@@ -199,7 +199,7 @@ class Epub {
             '<body id="epub-title">\n' +
             '   <h1>' + this.#parsedContent.title + '</h1>\n' +
             '   <h2>' + this.#parsedContent.byline + '</h2>\n' +
-            '   <h3 dir="ltr" >Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
+            '   <h3 dir="ltr" >Read time: ' + 0 /*this.#bookReadTime.minutes*/ + ' minutes</h3>\n' +
             '   <h3><a href="' + this.#sourceUrl + '">' + this.#sourceUrl + '</a></h3>\n' +
             '</body>\n' +
             '</html>';

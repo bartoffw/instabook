@@ -11,11 +11,14 @@
     "96": "icons/logo-96.png"
   },
 
+  "background": {
+    "scripts": ["scripts/jquery.min.js", "scripts/Readability.js", "scripts/purify.js", "scripts/jszip.min.js", "scripts/epub.js", "scripts/background_script.js"]
+  },
+
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["scripts/jquery.min.js", "scripts/Readability.js", "scripts/purify.js", "scripts/common.js", "scripts/epub.js",
-        "scripts/jszip.min.js"]
+      "js": ["scripts/content_script.js"]
     }
   ],
 
@@ -26,6 +29,6 @@
   "browser_action": {
     "default_icon": "icons/logo-32.png",
     "default_title": "Instabook It!",
-    "default_popup": "popup.html"
+    "default_popup": "browser_action/popup.html"
   }
 }
