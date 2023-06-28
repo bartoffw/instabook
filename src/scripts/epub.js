@@ -13,7 +13,7 @@ class Epub {
     #bookReadTime;
 
     constructor(doc, sourceUrl, threshold = 500) {
-        this.#docClone = doc.cloneNode(true);
+        this.#docClone = doc; //.cloneNode(true);
         this.#sourceUrl = sourceUrl;
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
         console.log('ebook init');
@@ -61,37 +61,42 @@ class Epub {
         return DOMPurify.sanitize(content);
     }
 
-    prepareEpubFile(imageContentPromise) {
+    async prepareEpubFile(imageContentPromise) {
         console.log('preparing ZIP');
         var zip = new JSZip();
         zip.file('mimetype', 'application/epub+zip');
 
         console.log('preparing META');
-        var metaInf = zip.folder('META-INF');
-        metaInf.file('container.xml', this.getContainerXml());
+        zip.file('META-INF/container.xml', this.getContainerXml());
 
         console.log('preparing OEBPS');
-        var oebps = zip.folder('OEBPS');
-        oebps.file('content.opf', this.getContentOpf());
-        oebps.file('toc.ncx', this.getTocNcx());
-        oebps.file('toc.xhtml', this.getTocXhtml());
-
-        var images = oebps.folder('images'),
-            styles = oebps.folder('styles'),
-            pages = oebps.folder('pages');
+        zip.file('OEBPS/content.opf', this.getContentOpf());
+        zip.file('OEBPS/toc.ncx', this.getTocNcx());
+        zip.file('OEBPS/toc.xhtml', this.getTocXhtml());
 
         console.log('preparing images');
         const that = this;
-        this.imageUrls.forEach(function (imgUrl, idx) {
+        for (let idx = 0; idx < this.imageUrls.length; idx++) {
+            const imgUrl = this.imageUrls[idx];
             const ext = that.extractExt(imgUrl);
-            images.file('img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
-        });
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
+        }
+        // this.imageUrls.forEach(function (imgUrl, idx) {
+        //     const ext = that.extractExt(imgUrl);
+        //     const response = await imageContentPromise(imgUrl);
+        //         .then((response) => {
+        //             zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, response);
+        //         });
+        // });
         console.log('finishing');
-        styles.file('ebook.css', this.getBookStyles());
-        pages.file('title.xhtml', this.getCover());
-        pages.file('content.xhtml', this.bookContent);
+        zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
+        zip.file('OEBPS/pages/title.xhtml', this.getCover());
+        zip.file('OEBPS/pages/content.xhtml', this.bookContent);
 
-        zip.generateAsync({ type: 'blob'}).then(function (content) {
+        zip.generateAsync({
+            type: 'blob',
+            mimeType: 'application/epub+zip'
+        }).then((content) => {
             saveAs(content, 'book-' + that.#bookId + '.epub');
         });
     }

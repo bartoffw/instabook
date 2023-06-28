@@ -8,7 +8,7 @@ document.addEventListener('click', (event) => {
                 //url
                 //console.log(tabs[0]);
                 browser.tabs
-                    .sendMessage(tabs[0].id, 'get')
+                    .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
                         browser.runtime.sendMessage({
                             type: 'convert',
