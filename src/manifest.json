@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["scripts/jquery.min.js", "scripts/content_script.js"]
+      "js": ["scripts/jquery.min.js", "scripts/jszip-utils.min.js", "scripts/content_script.js"]
     }
   ],
 

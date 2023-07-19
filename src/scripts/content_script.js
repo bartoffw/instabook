@@ -4,13 +4,20 @@ browser.runtime.onMessage.addListener(request => {
     }
     else if (request.type === 'img') {
         return new Promise((resolve, reject) => {
-            $.get(request.url)
+            JSZipUtils.getBinaryContent(request.url, function (err, data) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(data);
+                }
+            });
+            /*$.get(request.url)
                 .then((content) => {
                     resolve(content);
                 })
-                /*.error((error) => {
+                .error((error) => {
                     reject(error);
-                })*/;
+                });*/
         });
     }
 });

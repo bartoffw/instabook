@@ -12,6 +12,8 @@ class Epub {
     #bookLanguage = 'en';
     #bookReadTime;
 
+    #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
+
     constructor(doc, sourceUrl, threshold = 500) {
         this.#docClone = doc; //.cloneNode(true);
         this.#sourceUrl = sourceUrl;
@@ -48,20 +50,24 @@ class Epub {
         this.#imageTags = $(content).find('img');
         this.#imageTags.each(function (idx, image) {
             const url = image.src;
-            that.#imageUrls.push(url);
             const ext = that.extractExt(url);
-            const newName = 'images/img' + (idx + 1) + '.' + ext;
-            that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext + '" />');
-            content = content.replaceAll(url, '../' + newName);
+            if (that.#allowedImgExtensions.includes(ext)) {
+                that.#imageUrls.push(url);
+                const newName = 'images/img' + (idx + 1) + '.' + ext;
+                that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext + '" />');
+                content = content.replaceAll(url, '../' + newName);
+            }
         });
         return content;
     }
 
     cleanupContent(content) {
-        return DOMPurify.sanitize(content);
+        content = DOMPurify.sanitize(content); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
+        let doc = new DOMParser().parseFromString(content, 'text/html');
+        return new XMLSerializer().serializeToString(doc);
     }
 
-    async prepareEpubFile(imageContentPromise) {
+    prepareEpubFile(imageContentPromise) {
         console.log('preparing ZIP');
         var zip = new JSZip();
         zip.file('mimetype', 'application/epub+zip');
@@ -81,13 +87,6 @@ class Epub {
             const ext = that.extractExt(imgUrl);
             zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
         }
-        // this.imageUrls.forEach(function (imgUrl, idx) {
-        //     const ext = that.extractExt(imgUrl);
-        //     const response = await imageContentPromise(imgUrl);
-        //         .then((response) => {
-        //             zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, response);
-        //         });
-        // });
         console.log('finishing');
         zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
         zip.file('OEBPS/pages/title.xhtml', this.getCover());
