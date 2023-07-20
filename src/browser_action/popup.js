@@ -4,9 +4,6 @@ document.addEventListener('click', (event) => {
 
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
-                //title
-                //url
-                //console.log(tabs[0]);
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
@@ -29,3 +26,13 @@ document.addEventListener('click', (event) => {
         console.log('Reset!');
     }
 });
+
+function reportExecuteScriptError(error) {
+    // document.querySelector("#popup-content").classList.add("d-none");
+    // document.querySelector("#error-content").classList.remove("d-none");
+    console.error(`Failed to execute the content script: ${error.message}`);
+}
+
+browser.tabs
+    .query({ currentWindow: true, active: true })
+    .then((tabs) => { $("#page-title").text(tabs[0].title); }, reportExecuteScriptError);

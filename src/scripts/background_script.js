@@ -7,7 +7,6 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
         const epub = new Epub(doc, msg.url);
         epub.process();
 
-        // TODO: download images
         epub.prepareEpubFile((imgUrl) => {
             return new Promise((resolve, reject) => {
                 browser.tabs.query({currentWindow: true, active: true})
