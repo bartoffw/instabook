@@ -40,11 +40,11 @@ There are no configuration options yet, but it's on our roadmap.
 
 ## Troubleshooting
 
-No issues reported yet. Please submit any problems you find on the [GitHub page](https://github.com/bartoffw/instabook).
+No issues reported yet. Please submit any problems you find on the [GitHub page](https://github.com/bartoffw/instabook/issues).
 
 ## Contributing
 
-Propositions for new features are welcome. Please submit them on the [GitHub page](https://github.com/bartoffw/instabook).
+Propositions for new features are welcome. Please submit them on the [GitHub page](https://github.com/bartoffw/instabook/issues).
 
 ## License
 

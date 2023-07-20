@@ -32,7 +32,9 @@ class Epub {
         this.#parsedContent.content = this.cleanupContent(
             this.processSvgs(
                 this.processImages(
-                    this.#parsedContent.content
+                    this.processIframes(
+                        this.#parsedContent.content
+                    )
                 )
             )
         );
@@ -48,6 +50,25 @@ class Epub {
             this.#parsedContent.content + '\n' +
             '</body>\n' +
             '</html>';
+    }
+
+    processIframes(content) {
+        let $content = $('<div />', { html: content });
+        let serializer = new XMLSerializer();
+        $content.find('iframe').each(function (index, iFrame) {
+            if (!iFrame.contentDocument || !iFrame.contentDocument.body) {
+                return true;
+            }
+            // add width & height because the result image was too big
+            let bbox = iFrame.getBoundingClientRect();
+            let newWidth = bbox.width ? bbox.width +'px' : '100%';
+            let newHeight = bbox.height ? bbox.height +'px' : 'auto';
+            let $iframe = $('<div style="width:'+newWidth+';height:'+newHeight+'"></div>');
+            $iframe.html(iFrame.contentDocument.body.innerHTML);
+            $(iFrame).replaceWith($iframe);
+        });
+        content = $content.html();
+        return content;
     }
 
     processImages(content) {
