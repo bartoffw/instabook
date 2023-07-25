@@ -7,9 +7,6 @@ Create an eBook from any page instantly and beautifully.
 Instabook is a browser extension that allows you to convert any web page into an ebook for free.
 With Instabook, you can save web pages as EPUBs and read them offline on your computer or ebook reader.
 
-The extension is utilizing the [Readability](https://github.com/mozilla/readability) library to generate the ebook content.
-It's the same library that is used by Mozilla Firefox in the [Firefox Reader View](https://support.mozilla.org/kb/firefox-reader-view-clutter-free-web-pages). 
-
 ## Installation
 
 To install Instabook, just download and install the latest version of the extension from your browser's extension page.
@@ -45,6 +42,12 @@ No issues reported yet. Please submit any problems you find on the [GitHub page]
 ## Contributing
 
 Propositions for new features are welcome. Please submit them on the [GitHub page](https://github.com/bartoffw/instabook/issues).
+
+## Credits
+
+* The extension is utilizing the [Readability](https://github.com/mozilla/readability) library to generate the ebook content.
+It's the same library that is used by Mozilla Firefox in the [Firefox Reader View](https://support.mozilla.org/kb/firefox-reader-view-clutter-free-web-pages).
+* The extension is inspired by [alexadam/save-as-ebook](https://github.com/alexadam/save-as-ebook) extension
 
 ## License
 

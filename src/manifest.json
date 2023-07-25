@@ -12,7 +12,8 @@
   },
 
   "background": {
-    "scripts": ["scripts/jquery.min.js", "scripts/Readability.js", "scripts/purify.js", "scripts/filesaver.min.js", "scripts/jszip.min.js", "scripts/epub.js", "scripts/background_script.js"]
+    "scripts": ["scripts/jquery.min.js", "scripts/Readability.js", "scripts/purify.js", "scripts/filesaver.min.js", "scripts/jszip.min.js", "scripts/epub.js", "scripts/background_script.js"],
+    "persistent": false
   },
 
   "content_scripts": [

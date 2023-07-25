@@ -1,10 +1,8 @@
-console.log('Hey, background script.');
-
 browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
     if (msg.type === 'convert') {
         const parser = new DOMParser();
         const doc = parser.parseFromString(msg.html, 'text/html');
-        const epub = new Epub(doc, msg.url);
+        const epub = new Epub(doc, msg.url, msg.iframes);
         epub.process();
 
         epub.prepareEpubFile((imgUrl) => {

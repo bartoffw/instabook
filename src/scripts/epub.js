@@ -4,9 +4,11 @@ class Epub {
     #sourceUrl;
     #htmlContent;
     #parsedContent;
+    #iframes;
     #imageUrls = [];
     #imageTags;
     #imageItems = [];
+    //#imageElements = [];
 
     #bookId;
     #bookLanguage = 'en';
@@ -14,28 +16,29 @@ class Epub {
 
     #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
 
-    constructor(doc, sourceUrl, threshold = 500) {
-        this.#docClone = doc; //.cloneNode(true);
+    constructor(doc, sourceUrl, iframes, threshold = 500) {
+        this.#iframes = iframes;
+        this.#docClone = this.processIframes(doc); //.cloneNode(true);
         this.#sourceUrl = sourceUrl;
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
         console.log('ebook init');
+        console.log(this.#iframes);
+    }
+
+    check() {
+        return this.#readability.parse();
     }
 
     process() {
-        console.log('process start');
         this.#bookId = 'epub-' + (Math.random() * 100000) + (new Date().getTime() / 1000);
         this.#parsedContent = this.#readability.parse();
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
 
         console.log('processing images');
-        // TODO: extract canvas, mathml and iframes
+        // TODO: extract iframes
         this.#parsedContent.content = this.cleanupContent(
-            this.processSvgs(
-                this.processImages(
-                    this.processIframes(
-                        this.#parsedContent.content
-                    )
-                )
+            this.processImages(
+                this.#parsedContent.content
             )
         );
 
@@ -44,7 +47,7 @@ class Epub {
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
             '<head>\n' +
             '  <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
-            '  <title>' + this.#parsedContent.title + '</title>\n' +
+            '  <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
             this.#parsedContent.content + '\n' +
@@ -52,40 +55,59 @@ class Epub {
             '</html>';
     }
 
-    processIframes(content) {
-        let $content = $('<div />', { html: content });
-        let serializer = new XMLSerializer();
-        $content.find('iframe').each(function (index, iFrame) {
+    processIframes(doc) {
+        let $doc = $(doc);
+        $doc.find('iframe').each(function (index, iFrame) {
             if (!iFrame.contentDocument || !iFrame.contentDocument.body) {
                 return true;
             }
-            // add width & height because the result image was too big
-            let bbox = iFrame.getBoundingClientRect();
-            let newWidth = bbox.width ? bbox.width +'px' : '100%';
-            let newHeight = bbox.height ? bbox.height +'px' : 'auto';
-            let $iframe = $('<div style="width:'+newWidth+';height:'+newHeight+'"></div>');
+            let $iframe = $('<div style="width:100%;height:auto"></div>');
             $iframe.html(iFrame.contentDocument.body.innerHTML);
             $(iFrame).replaceWith($iframe);
         });
-        content = $content.html();
-        return content;
+        return $doc.get(0);
     }
 
     processImages(content) {
         const that = this;
+        const serializer = new XMLSerializer();
         let replacePairs = {};
         let $content = $('<div />', { html: content });
+        // <img> tags
         this.#imageTags = $content.find('img');
         this.#imageTags.each(function (idx, image) {
             $(image).removeAttr('sizes');
             const url = image.src;
             const ext = that.extractExt(url);
             if (that.#allowedImgExtensions.includes(ext)) {
+                //that.#imageElements.push(image);
                 that.#imageUrls.push(url);
                 const newName = 'images/img' + (idx + 1) + '.' + ext;
                 that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext + '" />');
                 replacePairs[url] = '../' + newName;
             }
+        });
+        // <svg> tags
+        $content.find('svg').each(function (index, elem) {
+            let bbox = elem.getBoundingClientRect();
+            let newWidth = bbox.width ? bbox.width : '100%';
+            let newHeight = bbox.height ? bbox.height : 'auto';
+            let svgXml = serializer.serializeToString(elem);
+            let imgSrc = 'data:image/svg+xml;base64,' + window.btoa(svgXml);
+            $(elem).replaceWith('<img src="' + imgSrc + '" width="'+newWidth+'" height="'+newHeight+'" />');
+        });
+        // <canvas> tags
+        $content.find('canvas').each(function (index, elem) {
+            try {
+                let imgUrl = elem.toDataURL('image/jpg');
+                $(elem).replaceWith('<img src="' + imgUrl + '" alt="" />');
+            } catch (e) {
+                console.log(e)
+            }
+        });
+        // MathML objects
+        $content.find('span[id^="MathJax-Element-"]').each(function (index, elem) {
+            $(elem).replaceWith('<span>' + elem.getAttribute('data-mathml') + '</span>');
         });
         content = $content.html();
         for (const prop in replacePairs) {
@@ -94,26 +116,17 @@ class Epub {
         return content;
     }
 
-    processSvgs(content) {
-        let $content = $('<div />', { html: content });
-        let serializer = new XMLSerializer();
-        $content.find('svg').each(function (index, elem) {
-            // add width & height because the result image was too big
-            let bbox = elem.getBoundingClientRect();
-            let newWidth = bbox.width ? bbox.width : '100%';
-            let newHeight = bbox.height ? bbox.height : 'auto';
-            let svgXml = serializer.serializeToString(elem);
-            let imgSrc = 'data:image/svg+xml;base64,' + window.btoa(svgXml);
-            $(elem).replaceWith('<img src="' + imgSrc + '" width="'+newWidth+'" height="'+newHeight+'" />');
-        });
-        content = $content.html();
-        return content;
-    }
-
     cleanupContent(content) {
         content = DOMPurify.sanitize(content); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
-        let doc = new DOMParser().parseFromString(content, 'text/html');
-        return new XMLSerializer().serializeToString(doc);
+        return new XMLSerializer().serializeToString(
+            new DOMParser().parseFromString(content, 'text/html')
+        );
+    }
+
+    stripHtml(content) {
+        let div = document.createElement('div');
+        div.innerHTML = content;
+        return div.textContent || div.innerText || '';
     }
 
     prepareEpubFile(imageContentPromise) {
@@ -145,10 +158,26 @@ class Epub {
             type: 'blob',
             mimeType: 'application/epub+zip'
         }).then((content) => {
-            let filename = that.#parsedContent.title + ' (Instabooked).epub';
+            let filename = this.stripHtml(that.#parsedContent.title) + ' (Instabooked).epub';
             saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
         });
     }
+
+    /*getImageViaCanvas(img) {
+        let canvas = document.createElement('canvas');
+        let ctx = canvas.getContext('2d');
+        img.crossOrigin = "anonymous";
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        let content = '';
+        try {
+            content = canvas.toDataURL();
+        } catch (e) {
+            console.log(e);
+        }
+        return content;
+    }*/
 
     getContainerXml() {
         return '<?xml version="1.0"?>\n' +
@@ -164,9 +193,9 @@ class Epub {
             '<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="book-id" version="3.0">\n' +
             '<metadata>\n' +
             '   <dc:type>Web page</dc:type>\n' +
-            '   <dc:title>' + this.#parsedContent.title + '</dc:title>' +
+            '   <dc:title>' + this.stripHtml(this.#parsedContent.title) + '</dc:title>' +
             (this.#parsedContent.byline ?
-            '   <dc:creator>' + this.#parsedContent.byline + '</dc:creator>\n' : '') +
+            '   <dc:creator>' + this.stripHtml(this.#parsedContent.byline) + '</dc:creator>\n' : '') +
             '   <dc:description>Read time: ' + this.#bookReadTime.minutes + ' minutes</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
             '   <meta property="dcterms:modified">2022-07-15T23:46:34Z</meta>\n' +
@@ -202,10 +231,10 @@ class Epub {
             '   <meta name="dtb:maxPageNumber" content="0"/>\n' +
             '</head>\n' +
             '<docTitle>\n' +
-            '   <text>' + this.#parsedContent.title + '</text>\n' +
+            '   <text>' + this.stripHtml(this.#parsedContent.title) + '</text>\n' +
             '</docTitle>\n' +
             '<docAuthor>\n' +
-            '   <text>' + this.#parsedContent.byline + '</text>\n' +
+            '   <text>' + this.stripHtml(this.#parsedContent.byline) + '</text>\n' +
             '</docAuthor>\n' +
             '<navMap>\n' +
             '   <navPoint class="title" id="navPoint-titlepage" playOrder="1">\n' +
@@ -235,7 +264,7 @@ class Epub {
             '   <nav id="toc" epub:type="toc">\n' +
             '       <h1 class="frontmatter">Table of Contents</h1>\n' +
             '       <ol class="contents">\n' +
-            '           <li><a href="pages/content.xhtml">' + this.#parsedContent.title + '</a></li>\n' +
+            '           <li><a href="pages/content.xhtml">' + this.stripHtml(this.#parsedContent.title) + '</a></li>\n' +
             '       </ol>\n' +
             '   </nav>\n' +
             '</body>\n' +
@@ -248,13 +277,13 @@ class Epub {
             '<!DOCTYPE html>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
             '<head>\n' +
-            '   <title>' + this.#parsedContent.title + '</title>\n' +
+            '   <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
             '<body id="epub-title">\n' +
-            '   <h1>' + this.#parsedContent.title + '</h1>\n' +
+            '   <h1>' + this.stripHtml(this.#parsedContent.title) + '</h1>\n' +
             (this.#parsedContent.byline ?
-            '   <h2>' + this.#parsedContent.byline + '</h2>\n' : '') +
+            '   <h2>' + this.stripHtml(this.#parsedContent.byline) + '</h2>\n' : '') +
             '   <h3 dir="ltr" >Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
             '   <h3><a href="' + this.#sourceUrl + '">Downloaded from ' + domain + '</a></h3>\n' +
             '</body>\n' +
@@ -262,7 +291,7 @@ class Epub {
     }
 
     getBookStyles() {
-        return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } body { padding: 0; margin: 1em; font-family: georgia, times new roman, times roman, times, roman, serif; } #epub-title { padding-top: 50px; } #epub-title div { padding-bottom: 50px; margin-bottom: 50px; border-bottom: 2px solid #d5eeab; } #epub-title img { border:0; height: 32px; width: 160px; } h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } div, p.img, p img { margin: 1em 0; text-align: justify; text-indent: 0; } p img { display: block; max-width: 100%; height: auto; } p { margin: 0; text-align: justify; text-indent: 2em; } span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } #epub-title h2,#epub-title h3,#disclaimer h1 { margin: 0; padding: 0; } #epub-title h1 { margin: 0 0 1em 0; } h1 { font-weight: bold; font-size: 1.2em; } #epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } #disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } #epub-title div, #epub-title h1, #epub-title h2, #epub-title h3 { text-align: center; padding: 0 0.5em; } #epub-title div { margin-top: 1em; } #disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; }'; // TODO
+        return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } body { padding: 0; margin: 1em; font-family: georgia, times new roman, times roman, times, roman, serif; } #epub-title { padding-top: 50px; } #epub-title div { padding-bottom: 50px; margin-bottom: 50px; border-bottom: 2px solid #d5eeab; } #epub-title img { border:0; height: 32px; width: 160px; } h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } div, p.img, p img { margin: 1em 0; text-align: justify; text-indent: 0; } p img { display: block; max-width: 100%; height: auto; } p { margin: 0; text-align: justify; text-indent: 2em; } span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } #epub-title h2,#epub-title h3,#disclaimer h1 { margin: 0; padding: 0; } #epub-title h1 { margin: 0 0 1em 0; } h1 { font-weight: bold; font-size: 1.2em; } #epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } #disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } #epub-title div, #epub-title h1, #epub-title h2, #epub-title h3 { text-align: center; padding: 0 0.5em; } #epub-title div { margin-top: 1em; } #disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; }'; // TODO
     }
 
     estimateReadingTime(plainText, wpm = 200) {
@@ -292,4 +321,8 @@ class Epub {
     get imageUrls() {
         return this.#imageUrls;
     }
+
+    /*get imageElements() {
+        return this.#imageElements;
+    }*/
 }

@@ -11,7 +11,8 @@ document.addEventListener('click', (event) => {
                             type: 'convert',
                             title: tabs[0].title,
                             url: tabs[0].url,
-                            html: response
+                            html: response.html,
+                            iframes: response.iframes
                         });
                     })
                     .catch(error => {
