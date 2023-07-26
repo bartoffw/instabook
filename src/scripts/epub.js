@@ -5,10 +5,10 @@ class Epub {
     #htmlContent;
     #parsedContent;
     #iframes;
+    #images;
     #imageUrls = [];
-    #imageTags;
     #imageItems = [];
-    //#imageElements = [];
+    #coverImage = null;
 
     #bookId;
     #bookLanguage = 'en';
@@ -16,13 +16,13 @@ class Epub {
 
     #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
 
-    constructor(doc, sourceUrl, iframes, threshold = 500) {
+    constructor(doc, sourceUrl, iframes, images, threshold = 500) {
         this.#iframes = iframes;
+        this.#images = images;
         this.#docClone = this.processIframes(doc); //.cloneNode(true);
         this.#sourceUrl = sourceUrl;
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
         console.log('ebook init');
-        console.log(this.#iframes);
     }
 
     check() {
@@ -35,7 +35,6 @@ class Epub {
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
 
         console.log('processing images');
-        // TODO: extract iframes
         this.#parsedContent.content = this.cleanupContent(
             this.processImages(
                 this.#parsedContent.content
@@ -56,14 +55,16 @@ class Epub {
     }
 
     processIframes(doc) {
-        let $doc = $(doc);
-        $doc.find('iframe').each(function (index, iFrame) {
-            if (!iFrame.contentDocument || !iFrame.contentDocument.body) {
-                return true;
+        let $doc = $(doc), url = null;
+        const iframes = this.iframes;
+        $doc.find('iframe').each(function (index, element) {
+            url = element.src.replace('moz-extension:', '');
+            console.log('iframe: ' + url + ' - ' + ((url in iframes) ? 'YES' : 'NO'));
+            if (url in iframes) {
+                $(element).replaceWith('<div style="width:100%;height:auto">' + iframes[url] + '</div>');
+            } else {
+                $(element).replaceWith('');
             }
-            let $iframe = $('<div style="width:100%;height:auto"></div>');
-            $iframe.html(iFrame.contentDocument.body.innerHTML);
-            $(iFrame).replaceWith($iframe);
         });
         return $doc.get(0);
     }
@@ -71,20 +72,21 @@ class Epub {
     processImages(content) {
         const that = this;
         const serializer = new XMLSerializer();
-        let replacePairs = {};
         let $content = $('<div />', { html: content });
+        const images = this.images;
         // <img> tags
-        this.#imageTags = $content.find('img');
-        this.#imageTags.each(function (idx, image) {
-            $(image).removeAttr('sizes');
-            const url = image.src;
+        $content.find('img').each(function (idx, image) {
+            const url = image.src.replace('moz-extension:', '');
             const ext = that.extractExt(url);
-            if (that.#allowedImgExtensions.includes(ext)) {
-                //that.#imageElements.push(image);
+            //console.log('image: ' + url + ' with ext: ' + ext + ' - ' + ((url in images) ? 'YES' : 'NO'));
+            if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                 that.#imageUrls.push(url);
                 const newName = 'images/img' + (idx + 1) + '.' + ext;
                 that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext + '" />');
-                replacePairs[url] = '../' + newName;
+                $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
+                if (!that.#coverImage) {
+                    that.#coverImage = newName;
+                }
             }
         });
         // <svg> tags
@@ -94,7 +96,7 @@ class Epub {
             let newHeight = bbox.height ? bbox.height : 'auto';
             let svgXml = serializer.serializeToString(elem);
             let imgSrc = 'data:image/svg+xml;base64,' + window.btoa(svgXml);
-            $(elem).replaceWith('<img src="' + imgSrc + '" width="'+newWidth+'" height="'+newHeight+'" />');
+            $(elem).replaceWith('<img src="' + imgSrc + '" width="'+newWidth+'" height="'+newHeight+'" alt="img" />');
         });
         // <canvas> tags
         $content.find('canvas').each(function (index, elem) {
@@ -102,18 +104,14 @@ class Epub {
                 let imgUrl = elem.toDataURL('image/jpg');
                 $(elem).replaceWith('<img src="' + imgUrl + '" alt="" />');
             } catch (e) {
-                console.log(e)
+                console.log(e);
             }
         });
         // MathML objects
         $content.find('span[id^="MathJax-Element-"]').each(function (index, elem) {
             $(elem).replaceWith('<span>' + elem.getAttribute('data-mathml') + '</span>');
         });
-        content = $content.html();
-        for (const prop in replacePairs) {
-            content = content.replaceAll(prop, replacePairs[prop]);
-        }
-        return content;
+        return $content.html();
     }
 
     cleanupContent(content) {
@@ -147,7 +145,11 @@ class Epub {
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = that.extractExt(imgUrl);
-            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, this.images[imgUrl].split(',')[1], { base64: true });
+            //zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
+            if (idx === 0) {
+                zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
+            }
         }
         console.log('finishing');
         zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
@@ -280,12 +282,15 @@ class Epub {
             '   <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
-            '<body id="epub-title">\n' +
+            '<body id="epub-title" style="display:relative">\n' +
             '   <h1>' + this.stripHtml(this.#parsedContent.title) + '</h1>\n' +
             (this.#parsedContent.byline ?
             '   <h2>' + this.stripHtml(this.#parsedContent.byline) + '</h2>\n' : '') +
             '   <h3 dir="ltr" >Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
             '   <h3><a href="' + this.#sourceUrl + '">Downloaded from ' + domain + '</a></h3>\n' +
+            (this.#coverImage ?
+            //'   <div style="position:absolute;bottom:0;left:0;right:0;top:0;background-image:url(' + this.#coverImage + ');background-size:contain"></div>' : '') +
+            '   <img src="' + this.#coverImage + '" style="width:auto;height:auto;text-align:center" alt="cover" />' : '') +
             '</body>\n' +
             '</html>';
     }
@@ -303,9 +308,9 @@ class Epub {
     }
 
     extractExt(fileName) {
-        let ext = fileName.split('.').pop();
-        if (ext === fileName) {
-            ext = 'png';
+        let ext = fileName.split('.').pop().toLowerCase();
+        if (ext === fileName || ext.length > 4) {
+            ext = 'jpg';
         }
         return ext;
     }
@@ -314,15 +319,15 @@ class Epub {
         return this.#parsedContent.content;
     }
 
-    get imageTags() {
-        return this.#imageTags;
+    get images() {
+        return this.#images;
+    }
+
+    get iframes() {
+        return this.#iframes;
     }
 
     get imageUrls() {
         return this.#imageUrls;
     }
-
-    /*get imageElements() {
-        return this.#imageElements;
-    }*/
 }

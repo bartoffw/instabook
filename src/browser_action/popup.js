@@ -7,12 +7,14 @@ document.addEventListener('click', (event) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
+                        //console.log(response.iframes);
                         browser.runtime.sendMessage({
                             type: 'convert',
                             title: tabs[0].title,
                             url: tabs[0].url,
                             html: response.html,
-                            iframes: response.iframes
+                            iframes: response.iframes,
+                            images: response.images
                         });
                     })
                     .catch(error => {

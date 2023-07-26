@@ -2,7 +2,7 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
     if (msg.type === 'convert') {
         const parser = new DOMParser();
         const doc = parser.parseFromString(msg.html, 'text/html');
-        const epub = new Epub(doc, msg.url, msg.iframes);
+        const epub = new Epub(doc, msg.url, msg.iframes, msg.images);
         epub.process();
 
         epub.prepareEpubFile((imgUrl) => {
