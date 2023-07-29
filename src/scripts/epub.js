@@ -9,6 +9,7 @@ class Epub {
     #imageUrls = [];
     #imageItems = [];
     #coverImage = null;
+    #coverPath = null;
 
     #bookId;
     #bookLanguage = 'en';
@@ -74,6 +75,13 @@ class Epub {
         const serializer = new XMLSerializer();
         let $content = $('<div />', { html: content });
         const images = this.images;
+        // get cover image
+        if (Object.keys(images).length > 0) {
+            const firstImage = Object.keys(images)[0];
+            if (firstImage.length > 0) {
+                that.#coverImage = firstImage;
+            }
+        }
         // <img> tags
         $content.find('img').each(function (idx, image) {
             const url = image.src.replace('moz-extension:', '');
@@ -84,9 +92,6 @@ class Epub {
                 const newName = 'images/img' + (idx + 1) + '.' + ext;
                 that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext + '" />');
                 $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
-                if (!that.#coverImage) {
-                    that.#coverImage = newName;
-                }
             }
         });
         // <svg> tags
@@ -145,12 +150,17 @@ class Epub {
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = that.extractExt(imgUrl);
-            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, this.images[imgUrl].split(',')[1], { base64: true });
-            //zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(imgUrl));
-            if (idx === 0) {
-                zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            }
+            const imgPromise = imageContentPromise(imgUrl);
+            //zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, this.images[imgUrl].split(',')[1], { base64: true });
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imgPromise);
         }
+        // if (that.#coverImage) {
+        //     console.log(that.#coverImage);
+        //     const ext = that.extractExt(that.#coverImage);
+        //     //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
+        //     zip.file('OEBPS/images/cover.' + ext, imageContentPromise(that.#coverImage));
+        //     that.#coverPath = '../cover.' + ext;
+        // }
         console.log('finishing');
         zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
         zip.file('OEBPS/pages/title.xhtml', this.getCover());
@@ -288,9 +298,9 @@ class Epub {
             '   <h2>' + this.stripHtml(this.#parsedContent.byline) + '</h2>\n' : '') +
             '   <h3 dir="ltr" >Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
             '   <h3><a href="' + this.#sourceUrl + '">Downloaded from ' + domain + '</a></h3>\n' +
-            (this.#coverImage ?
+            (this.#coverPath ?
             //'   <div style="position:absolute;bottom:0;left:0;right:0;top:0;background-image:url(' + this.#coverImage + ');background-size:contain"></div>' : '') +
-            '   <img src="' + this.#coverImage + '" style="width:auto;height:auto;text-align:center" alt="cover" />' : '') +
+            '   <img src="' + this.#coverPath + '" style="width:auto;height:auto;text-align:center" alt="cover" />' : '') +
             '</body>\n' +
             '</html>';
     }
