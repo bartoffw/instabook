@@ -8,15 +8,27 @@
 
 <body>
 <div class="card" id="popup-content">
-    <div class="card-header" id="page-title">
+    <!--<div class="card-header" id="">
         Instabook It
-    </div>
-    <div class="alert alert-danger d-none" id="error-content">
-        <p>There was an error.</p>
-    </div>
+    </div>-->
     <div class="card-body">
-        <button class="btn btn-default pull-left action-btn" id="reset-btn">Reset</button>
-        <button class="btn btn-primary pull-right action-btn" id="convert-btn">Convert</button>
+        <div class="book-preview">
+            <div class="bg-image"></div>
+            <div class="text-section">
+                <h2 id="page-title"></h2>
+                <h3 id="read-time">Read time: <span id="time-field"></span></h3>
+                <h3>Downloaded from <span id="url-field"></span></h3>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer">
+        <div class="alert alert-danger d-none" id="error-content">
+            <p>There was an error.</p>
+        </div>
+        <div class="d-grid">
+            <!-- <button class="btn btn-default pull-left action-btn" id="reset-btn">Reset</button> -->
+            <button class="btn btn-primary action-btn" id="convert-btn" disabled>Convert</button>
+        </div>
     </div>
 </div>
 <script src="../scripts/jquery.min.js"></script>

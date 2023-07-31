@@ -11,11 +11,13 @@ browser.runtime.onMessage.addListener(request => {
 
         $('img').each(function() {
             // remove lazy loading for images
-            if ($(this).attr('data-src')) {
+            if (this.hasAttribute('data-src') && !this.hasAttribute('src')) {
                 $(this).attr('src', $(this).attr('data-src'));
                 $(this).removeAttr('data-src');
             }
-            $(this).removeAttr('loading');
+            if (this.hasAttribute('loading')) {
+                $(this).removeAttr('loading');
+            }
         });
 
         //return getPageData();
@@ -29,14 +31,21 @@ browser.runtime.onMessage.addListener(request => {
                 } else {
                     if (data.length > 0) {
                         resolve(data);
-                    } else if (request.url in imageList) {
+                    } else {
+                        setTimeout(() => {
+                            JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
+                                err ? reject(err) : resolve(data);
+                            });
+                        }, 200);
+                    }
+                    /*if (request.url in imageList) {
                         const imageUrl = getImageViaCanvas(imageList[request.url]);
                         if (imageUrl.trim().length > 0) {
                             fetch(imageUrl).then(res => resolve(res.blob()));
                         } else {
                             resolve('');
                         }
-                    }
+                    }*/
                 }
             });
             // $.get(request.url)
@@ -47,6 +56,9 @@ browser.runtime.onMessage.addListener(request => {
             //         reject(error);
             //     });
         });
+    }
+    else if (request.type === 'cover') {
+        return Promise.resolve($('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '');
     }
 });
 
