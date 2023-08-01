@@ -57,8 +57,18 @@ browser.runtime.onMessage.addListener(request => {
             //     });
         });
     }
-    else if (request.type === 'cover') {
-        return Promise.resolve($('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '');
+    else if (request.type === 'images') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(document.documentElement.outerHTML, 'text/html');
+        const epub = new Epub(doc, '', {}, {});
+        const parsedInfo = epub.check();
+        return Promise.resolve({
+            cover: $('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '',
+            readTime: parsedInfo.readTime,
+            images: parsedInfo.images.map((url) => {
+                return getAbsoluteUrl(url);
+            })
+        });
     }
 });
 

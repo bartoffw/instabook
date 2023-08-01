@@ -45,18 +45,30 @@ browser.tabs
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
                 browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'cover' })
+                    .sendMessage(tabs[0].id, { type: 'images' })
                     .then(response => {
-                        if (response.length > 0) {
-                            $('<img/>').attr('src', response).on('load', () => {
+                        $('#time-field').html(response.readTime.minutes + ' minutes');
+                        if (response.cover.length > 0) {
+                            $('<img/>').attr('src', response.cover).on('load', () => {
                                 $(this).remove();
-                                $('.bg-image').css('background-image', 'url(' + response + ')');
-                                $('#convert-btn').prop('disabled', false);
+                                $('.bg-image').css('background-image', 'url(' + response.cover + ')');
+                                //$('#convert-btn').prop('disabled', false);
                             });
-                        } else {
+                        } /*else {
                             $('#convert-btn').prop('disabled', false);
-                        }
+                        }*/
                         $('#url-field').html('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
+                        let imgLeft = response.images.length;
+                        for (let i = 0; i < response.images.length; i++) {
+                            let imgUrl = response.images[i];
+                            $('<img/>').attr('src', imgUrl).on('load', () => {
+                                //$(this).remove();
+                                imgLeft--;
+                                if (imgLeft <= 0) {
+                                    $('#convert-btn').prop('disabled', false);
+                                }
+                            });
+                        }
                     })
                     .catch(error => {
                         console.error('Error on send message: ' + error)

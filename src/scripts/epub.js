@@ -27,7 +27,20 @@ class Epub {
     }
 
     check() {
-        return this.#readability.parse();
+        const content = this.#readability.parse();
+        const parsedContent = this.cleanupContent(
+            content.content
+        );
+        const $content = $('<div />', { html: parsedContent });
+        let imgUrls = [];
+        $content.find('img').each((idx, image) => {
+            imgUrls.push(image.hasAttribute('data-src') ? image['data-src'] : image.src);
+        });
+        return {
+            content: parsedContent,
+            readTime: this.estimateReadingTime(content.textContent),
+            images: imgUrls
+        };
     }
 
     process() {
