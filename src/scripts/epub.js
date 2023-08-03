@@ -31,15 +31,15 @@ class Epub {
         const parsedContent = this.cleanupContent(
             content.content
         );
-        const $content = $('<div />', { html: parsedContent });
+        /*const $content = $('<div />', { html: parsedContent });
         let imgUrls = [];
         $content.find('img').each((idx, image) => {
             imgUrls.push(image.hasAttribute('data-src') ? image['data-src'] : image.src);
-        });
+        });*/
         return {
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
-            images: imgUrls
+            //images: imgUrls
         };
     }
 
@@ -163,9 +163,9 @@ class Epub {
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = that.extractExt(imgUrl);
-            const imgPromise = imageContentPromise(imgUrl);
+            const imgPromise = imageContentPromise(that.getAbsoluteUrl(imgUrl));
             //zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, this.images[imgUrl].split(',')[1], { base64: true });
-            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imgPromise);
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imgPromise, { binary: true });
         }
         // if (that.#coverImage) {
         //     console.log(that.#coverImage);
@@ -336,6 +336,68 @@ class Epub {
             ext = 'jpg';
         }
         return ext;
+    }
+
+    getAbsoluteUrl(urlStr) {
+        if (!urlStr) {
+            return '';
+        }
+        if (urlStr.length === 0) {
+            return '';
+        }
+        try {
+            urlStr = decodeHtmlEntity(urlStr);
+            let currentUrl = getCurrentUrl();
+            let originUrl = getOriginUrl();
+            let absoluteUrl = urlStr;
+
+            originUrl = removeEndingSlash(originUrl)
+            currentUrl = removeEndingSlash(currentUrl)
+
+            if (urlStr.indexOf('//') === 0) {
+                absoluteUrl = window.location.protocol + urlStr;
+            } else if (urlStr.indexOf('/') === 0) {
+                absoluteUrl = originUrl + urlStr;
+            } else if (urlStr.indexOf('#') === 0) {
+                absoluteUrl = currentUrl + urlStr;
+            } else if (urlStr.indexOf('http') !== 0) {
+                absoluteUrl = currentUrl + '/' + urlStr;
+            }
+            return 'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl);
+        } catch (e) {
+            console.log('Error:', e);
+            return urlStr;
+        }
+    }
+
+    decodeHtmlEntity(str) {
+        return str.replace(/&#(\d+);/g, function(match, dec) {
+            return String.fromCharCode(dec);
+        });
+    }
+
+    getCurrentUrl() {
+        let url = window.location.href;
+        if (url.indexOf('?') > 0) {
+            url = window.location.href.split('?')[0];
+        }
+        url = url.substring(0, url.lastIndexOf('/') + 1);
+        return url;
+    }
+
+    getOriginUrl() {
+        let originUrl = window.location.origin;
+        if (!originUrl) {
+            originUrl = window.location.protocol + "//" + window.location.host;
+        }
+        return originUrl;
+    }
+
+    removeEndingSlash(inputStr) {
+        if (inputStr.endsWith('/')) {
+            return inputStr.substring(0, inputStr.length - 1);
+        }
+        return inputStr;
     }
 
     get bookContent() {

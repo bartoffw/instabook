@@ -6,8 +6,17 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
         epub.process();
 
         epub.prepareEpubFile((imgUrl) => {
+            console.log(imgUrl);
             return new Promise((resolve, reject) => {
-                browser.tabs.query({currentWindow: true, active: true})
+                JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                    console.log(err, data);
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(data);
+                    }
+                });
+                /*browser.tabs.query({currentWindow: true, active: true})
                     .then((tabs) => {
                         browser.tabs
                             .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
@@ -21,7 +30,7 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
                     })
                     .catch(error => {
                         console.error('Error on tab query: ' + error)
-                    });
+                    });*/
             })
         });
     }

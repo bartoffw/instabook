@@ -23,38 +23,43 @@ browser.runtime.onMessage.addListener(request => {
         //return getPageData();
         return Promise.resolve(getPageData());
     }
+    else if (request.type === 'url') {
+
+    }
     else if (request.type === 'img') {
         return new Promise((resolve, reject) => {
-            JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
-                if (err) {
-                    reject(err);
-                } else {
-                    if (data.length > 0) {
-                        resolve(data);
-                    } else {
-                        setTimeout(() => {
-                            JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
-                                err ? reject(err) : resolve(data);
-                            });
-                        }, 200);
-                    }
-                    /*if (request.url in imageList) {
-                        const imageUrl = getImageViaCanvas(imageList[request.url]);
-                        if (imageUrl.trim().length > 0) {
-                            fetch(imageUrl).then(res => resolve(res.blob()));
-                        } else {
-                            resolve('');
-                        }
-                    }*/
-                }
-            });
-            // $.get(request.url)
-            //     .then((content) => {
-            //         resolve(content);
-            //     })
-            //     .error((error) => {
-            //         reject(error);
-            //     });
+            console.log(getAbsoluteUrl(request.url));
+            // JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
+            //     console.log(err, data);
+            //     if (err) {
+            //         reject(err);
+            //     } else {
+            //         resolve(data);
+            //         /*if (data.length > 0) {
+            //             resolve(data);
+            //         } else {
+            //             setTimeout(() => {
+            //                 JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
+            //                     err ? reject(err) : resolve(data);
+            //                 });
+            //             }, 200);
+            //         }*/
+            //         /*if (request.url in imageList) {
+            //             const imageUrl = getImageViaCanvas(imageList[request.url]);
+            //             if (imageUrl.trim().length > 0) {
+            //                 fetch(imageUrl).then(res => resolve(res.blob()));
+            //             } else {
+            //                 resolve('');
+            //             }
+            //         }*/
+            //     }
+            // });
+            $.get(getAbsoluteUrl(request.url), function(content) {
+                console.log(content);
+                resolve(content);
+            });//.fail((error) => {
+            //    reject(error);
+            //});
         });
     }
     else if (request.type === 'images') {
@@ -65,9 +70,9 @@ browser.runtime.onMessage.addListener(request => {
         return Promise.resolve({
             cover: $('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '',
             readTime: parsedInfo.readTime,
-            images: parsedInfo.images.map((url) => {
+            /*images: parsedInfo.images.map((url) => {
                 return getAbsoluteUrl(url);
-            })
+            })*/
         });
     }
 });
@@ -159,7 +164,7 @@ function getAbsoluteUrl(urlStr) {
         } else if (urlStr.indexOf('http') !== 0) {
             absoluteUrl = currentUrl + '/' + urlStr;
         }
-        return absoluteUrl;
+        return 'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl);
     } catch (e) {
         console.log('Error:', e);
         return urlStr;

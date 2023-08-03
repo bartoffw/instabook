@@ -52,13 +52,13 @@ browser.tabs
                             $('<img/>').attr('src', response.cover).on('load', () => {
                                 $(this).remove();
                                 $('.bg-image').css('background-image', 'url(' + response.cover + ')');
-                                //$('#convert-btn').prop('disabled', false);
+                                $('#convert-btn').prop('disabled', false);
                             });
-                        } /*else {
+                        } else {
                             $('#convert-btn').prop('disabled', false);
-                        }*/
+                        }
                         $('#url-field').html('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
-                        let imgLeft = response.images.length;
+                        /*let imgLeft = response.images.length;
                         for (let i = 0; i < response.images.length; i++) {
                             let imgUrl = response.images[i];
                             $('<img/>').attr('src', imgUrl).on('load', () => {
@@ -68,7 +68,7 @@ browser.tabs
                                     $('#convert-btn').prop('disabled', false);
                                 }
                             });
-                        }
+                        }*/
                     })
                     .catch(error => {
                         console.error('Error on send message: ' + error)
