@@ -109,7 +109,9 @@ browser.runtime.onMessage.addListener(request => {
     return {
         html: document.documentElement.outerHTML,
         iframes: iframes,
-        images: images
+        images: images,
+        currentUrl: getCurrentUrl(),
+        originUrl: getOriginUrl()
     }
 }
 

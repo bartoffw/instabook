@@ -14,7 +14,9 @@ document.addEventListener('click', (event) => {
                             url: tabs[0].url,
                             html: response.html,
                             iframes: response.iframes,
-                            images: response.images
+                            images: response.images,
+                            currentUrl: response.currentUrl,
+                            originUrl: response.originUrl
                         });
                     })
                     .catch(error => {
