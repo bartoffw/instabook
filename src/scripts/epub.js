@@ -27,8 +27,6 @@ class Epub {
         this.#currentUrl = currentUrl;
         this.#originUrl = originUrl;
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
-        console.log(images);
-        console.log('ebook init');
     }
 
     check() {
@@ -154,14 +152,14 @@ class Epub {
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = that.extractExt(imgUrl);
-            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(that.getAbsoluteUrl(imgUrl)), { binary: true });
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(that.getAbsoluteUrl(imgUrl), false), { binary: true });
         }
         if (that.#coverImage) {
             console.log('cover: ' + that.#coverImage);
             const ext = that.extractExt(that.#coverImage);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(that.getAbsoluteUrl(that.#coverImage)), { binary: true });
-            that.#coverPath = '../images/cover.' + ext;
+            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(that.getAbsoluteUrl(that.#coverImage), true), { binary: true });
+            that.#coverPath = 'images/cover.' + ext;
         }
         console.log('finishing');
         zip.file('OEBPS/content.opf', this.getContentOpf());
@@ -215,7 +213,7 @@ class Epub {
             '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n' +
             '   ' + this.#imageItems.join('\n   ') +
             (this.#coverImage ?
-            '   <item id="cover-image" href="' + this.#coverPath + '" media-type="image/' + ext + '" />' : '') +
+            '   <item id="cover-image" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx">\n' +
             '   <itemref idref="title" linear="yes" />\n' +
@@ -288,6 +286,8 @@ class Epub {
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
             '<body id="epub-title" style="display:relative">\n' +
+            /*(this.#coverPath ?
+            '   <div class="bg-image" style="background-image: url(../' + this.#coverPath + ')"></div>\n' : '') +*/
             '   <div class="text-section">\n' +
             '       <h1>' + this.stripHtml(this.#parsedContent.title) + '</h1>\n' +
             (this.#parsedContent.byline ?
@@ -296,7 +296,7 @@ class Epub {
             '       <h3><a href="' + this.#sourceUrl + '">Downloaded from ' + domain + '</a></h3>\n' +
             '   </div>\n' +
             (this.#coverPath ?
-            '   <div class="image"><img src="' + this.#coverPath + '" alt="cover" /></div>\n' : '') +
+            '   <div class="image"><img src="../' + this.#coverPath + '" alt="cover" /></div>\n' : '') +
             '</body>\n' +
             '</html>';
     }
@@ -304,14 +304,14 @@ class Epub {
     getBookStyles() {
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
             'body { padding: 0; margin: 1em; font-family: georgia, times new roman, times roman, times, roman, serif; position: relative } ' +
-            '#epub-title { padding-top: 50px; } #epub-title div { padding-bottom: 50px; margin-bottom: 50px; border-bottom: 2px solid #d5eeab; } ' +
-            '#epub-title img { border:0; height: 32px; width: 160px; } ' +
+            '#epub-title { padding-top: 50px; } ' +
+            '#epub-title img { border:0; height: auto; width: 100%; } ' +
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
             'div, p.img, p img { margin: 1em 0; text-align: justify; text-indent: 0; } ' +
-            'p img { display: block; max-width: 100%; height: auto; } ' +
+            'img { display: block; width: 100%; max-width: 100%; height: auto; } ' +
             'p { margin: 0; text-align: justify; text-indent: 2em; } ' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
-            '#epub-title h2,#epub-title h3,#disclaimer h1 { margin: 0; padding: 0; } ' +
+            '#epub-title h2, #epub-title h3, #disclaimer h1 { margin: 0; padding: 0; } ' +
             '#epub-title h1 { margin: 0 0 1em 0; } h1 { font-weight: bold; font-size: 1.2em; } ' +
             '#epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } ' +
             '#disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } ' +
@@ -319,10 +319,10 @@ class Epub {
             '#epub-title div { margin-top: 1em; } ' +
             '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
-            'table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; } ' /*+
-            '.bg-image, .text-section { position: absolute; top: 0; left: 0; width: 100%; page-break-inside: avoid !important; page-break-after: always !important } ' +
+            'table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; } ' +
+            '.bg-image, .text-section { position: absolute; top: 0; left: 0; width: 100% } ' +
             '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover } ' +
-            '.text-section { background-color: rgba(255, 255, 255, 0.6) }'*/;
+            '.text-section { background-color: rgba(255, 255, 255, 0.6) }';
     }
 
     estimateReadingTime(plainText, wpm = 200) {
@@ -331,6 +331,51 @@ class Epub {
             'minutes': Math.floor(totalWords / wpm),
             'seconds': Math.floor(totalWords % wpm / (wpm / 60))
         };
+    }
+
+    prepareCoverImage(imageUrl) {
+        // from: https://pqina.nl/blog/cropping-images-to-an-aspect-ratio-with-javascript/
+        return new Promise((resolve) => {
+            const aspectRatio = 0.75; // 4:3 ratio in portrait mode
+            const inputImage = new Image();
+            inputImage.crossOrigin = 'anonymous';
+            inputImage.onload = () => {
+                // let's store the width and height of our image
+                const inputWidth = inputImage.naturalWidth;
+                const inputHeight = inputImage.naturalHeight;
+
+                // get the aspect ratio of the input image
+                const inputImageAspectRatio = inputWidth / inputHeight;
+
+                // if it's bigger than our target aspect ratio
+                let outputWidth = inputWidth;
+                let outputHeight = inputHeight;
+                if (inputImageAspectRatio > aspectRatio) {
+                    outputWidth = inputHeight * aspectRatio;
+                } else if (inputImageAspectRatio < aspectRatio) {
+                    outputHeight = inputWidth / aspectRatio;
+                }
+
+                // calculate the position to draw the image at
+                const outputX = (outputWidth - inputWidth) * 0.5;
+                const outputY = (outputHeight - inputHeight) * 0.5;
+
+                // create a canvas that will present the output image
+                const outputImage = document.createElement('canvas');
+
+                // set it to the same size as the image
+                outputImage.width = outputWidth;
+                outputImage.height = outputHeight;
+
+                // draw our image at position 0, 0 on the canvas
+                const ctx = outputImage.getContext('2d');
+                ctx.drawImage(inputImage, outputX, outputY);
+                outputImage.toBlob((blob) => {
+                    resolve(blob);
+                }, 'image/jpg', 0.8);
+            };
+            inputImage.src = imageUrl;
+        });
     }
 
     extractExt(fileName) {

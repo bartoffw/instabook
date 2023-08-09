@@ -5,17 +5,22 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
         const epub = new Epub(doc, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl);
         epub.process();
 
-        epub.prepareEpubFile((imgUrl) => {
+        epub.prepareEpubFile((imgUrl, isCover) => {
             console.log(imgUrl);
             return new Promise((resolve, reject) => {
-                JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                    console.log(err, data);
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(data);
-                    }
-                });
+                if (isCover) {
+                    epub.prepareCoverImage(imgUrl).then(response => {
+                        resolve(response);
+                    });
+                } else {
+                    JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(data);
+                        }
+                    });
+                }
                 /*browser.tabs.query({currentWindow: true, active: true})
                     .then((tabs) => {
                         browser.tabs
