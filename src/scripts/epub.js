@@ -285,44 +285,47 @@ class Epub {
             '   <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
-            '<body id="epub-title" style="display:relative">\n' +
+            '<body id="epub-title">\n' +
             /*(this.#coverPath ?
             '   <div class="bg-image" style="background-image: url(../' + this.#coverPath + ')"></div>\n' : '') +*/
+            (this.#coverPath ?
+            '   <div class="image"><img src="../' + this.#coverPath + '" alt="cover" /></div>\n' : '') +
             '   <div class="text-section">\n' +
             '       <h1>' + this.stripHtml(this.#parsedContent.title) + '</h1>\n' +
             (this.#parsedContent.byline ?
             '       <h2>' + this.stripHtml(this.#parsedContent.byline) + '</h2>\n' : '') +
-            '       <h3 dir="ltr" >Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
-            '       <h3><a href="' + this.#sourceUrl + '">Downloaded from ' + domain + '</a></h3>\n' +
+            '       <h3 dir="ltr">Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
+            '       <h3>Downloaded from <a href="' + this.#sourceUrl + '">' + domain + '</a></h3>\n' +
             '   </div>\n' +
-            (this.#coverPath ?
-            '   <div class="image"><img src="../' + this.#coverPath + '" alt="cover" /></div>\n' : '') +
             '</body>\n' +
             '</html>';
     }
 
     getBookStyles() {
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
-            'body { padding: 0; margin: 1em; font-family: georgia, times new roman, times roman, times, roman, serif; position: relative } ' +
-            '#epub-title { padding-top: 50px; } ' +
-            '#epub-title img { border:0; height: auto; width: 100%; } ' +
+            'body { padding: 0; margin: 1em; font-family: georgia, times new roman, times roman, times, roman, serif } ' +
+            //'#epub-title img { border:0; height: auto; width: 100%; } ' +
+            'h1 { font-weight: bold; font-size: 1.2em; } ' +
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
-            'div, p.img, p img { margin: 1em 0; text-align: justify; text-indent: 0; } ' +
-            'img { display: block; width: 100%; max-width: 100%; height: auto; } ' +
+            'div, p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
+            'img { text-align: center; min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
             'p { margin: 0; text-align: justify; text-indent: 2em; } ' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
-            '#epub-title h2, #epub-title h3, #disclaimer h1 { margin: 0; padding: 0; } ' +
-            '#epub-title h1 { margin: 0 0 1em 0; } h1 { font-weight: bold; font-size: 1.2em; } ' +
-            '#epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } ' +
-            '#disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } ' +
-            '#epub-title div, #epub-title h1, #epub-title h2, #epub-title h3 { text-align: center; padding: 0 0.5em; } ' +
-            '#epub-title div { margin-top: 1em; } ' +
-            '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
             'table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; } ' +
-            '.bg-image, .text-section { position: absolute; top: 0; left: 0; width: 100% } ' +
+            '#disclaimer h1 { margin: 0; padding: 0; } ' +
+            '#disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } ' +
+            '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
+            '#epub-title { position: relative } ' +
+            '#epub-title h1, #epub-title h2, #epub-title h3 { margin: 0 1.5em; padding: 1em 1.5em; text-align: center } ' +
+            '#epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } ' +
+            '#epub-title h1 { margin-top: 2em; font-size: 1.7em } ' +
+            '#epub-title div { text-align: center } ' +
+            '#epub-title .image { padding-top: 0.5em } ' +
+            '#epub-title .image, .text-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center } ' +
+            '#epub-title .image img { display: inline-block; width: 100%; max-width: 100%; height: auto; } ' +
             '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover } ' +
-            '.text-section { background-color: rgba(255, 255, 255, 0.6) }';
+            '#epub-title h1, #epub-title h2, #epub-title h3 { background-color: rgba(255, 255, 255, 0.6) }';
     }
 
     estimateReadingTime(plainText, wpm = 200) {
@@ -372,7 +375,7 @@ class Epub {
                 ctx.drawImage(inputImage, outputX, outputY);
                 outputImage.toBlob((blob) => {
                     resolve(blob);
-                }, 'image/jpg', 0.8);
+                }, 'image/jpg', 0.75);
             };
             inputImage.src = imageUrl;
         });
