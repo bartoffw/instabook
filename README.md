@@ -1,6 +1,6 @@
 # Instabook
 
-Create an eBook from any page instantly and beautifully.
+Create an eBook from any web page instantly and beautifully.
 
 ## Description
 
@@ -18,8 +18,8 @@ To use Instabook, follow these steps:
 
 1. Navigate to the web page you want to convert.
 2. Click the Instabook icon in your browser's toolbar.
-3. Click "Convert".
-4. Wait for the conversion process to complete.
+3. Click "Download".
+4. Wait for the download process to complete.
 5. Enjoy!
 
 ## Roadmap

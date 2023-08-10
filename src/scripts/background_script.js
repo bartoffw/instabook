@@ -1,4 +1,5 @@
 browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
+    /** Received the Convert/Download action **/
     if (msg.type === 'convert') {
         const parser = new DOMParser();
         const doc = parser.parseFromString(msg.html, 'text/html');
@@ -6,7 +7,6 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
         epub.process();
 
         epub.prepareEpubFile((imgUrl, isCover) => {
-            console.log(imgUrl);
             return new Promise((resolve, reject) => {
                 if (isCover) {
                     epub.prepareCoverImage(imgUrl).then(response => {
@@ -39,6 +39,7 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             })
         });
     }
+    /** Received the Reset action (not used currently) **/
     else if (msg.type === 'reset') {
         console.log('Reset msg');
     }

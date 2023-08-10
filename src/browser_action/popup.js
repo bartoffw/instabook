@@ -1,13 +1,20 @@
+let pageUrl = '',
+    pageTitle = '';
+
+/**
+ * Listening for extension UI events
+ */
 document.addEventListener('click', (event) => {
     if (event.target.id === 'convert-btn') {
-        console.log('Convert!');
+        $('#error-content').hide();
 
+        /** Send the Get message to the content script to get the page content and meta info **/
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
-                        //console.log(response.iframes);
+                        console.log(response.iframes);
                         browser.runtime.sendMessage({
                             type: 'convert',
                             title: tabs[0].title,
@@ -20,10 +27,12 @@ document.addEventListener('click', (event) => {
                         });
                     })
                     .catch(error => {
+                        $('#error-content').html(getErrorText()).show();
                         console.error('Error on send message: ' + error)
                     });
             })
             .catch(error => {
+                $('#error-content').html(getErrorText()).show();
                 console.error('Error on tab query: ' + error)
             });
     }
@@ -38,11 +47,19 @@ function reportExecuteScriptError(error) {
     console.error(`Failed to execute the content script: ${error.message}`);
 }
 
+function getErrorText() {
+    return 'Could not download the ebook. ' +
+        'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&title=' + encodeURIComponent('Error on ' + pageUrl) + '">on GitHub using this link</a>.';
+}
+
+/**
+ * Getting the cover image and read time from the content script
+ */
 browser.tabs
     .query({ currentWindow: true, active: true })
     .then((tabs) => {
-        const pageUrl = tabs[0].url,
-            pageTitle = tabs[0].title;
+        pageUrl = tabs[0].url;
+        pageTitle = tabs[0].title;
         $("#page-title").text(pageTitle);
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
@@ -53,30 +70,21 @@ browser.tabs
                         if (response.cover.length > 0) {
                             $('<img/>').attr('src', response.cover).on('load', () => {
                                 $(this).remove();
-                                $('.bg-image').css('background-image', 'url(' + response.cover + ')');
+                                $('#bg-image').css('background-image', 'url(' + response.cover + ')');
                                 $('#convert-btn').prop('disabled', false);
                             });
                         } else {
                             $('#convert-btn').prop('disabled', false);
                         }
                         $('#url-field').html('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
-                        /*let imgLeft = response.images.length;
-                        for (let i = 0; i < response.images.length; i++) {
-                            let imgUrl = response.images[i];
-                            $('<img/>').attr('src', imgUrl).on('load', () => {
-                                //$(this).remove();
-                                imgLeft--;
-                                if (imgLeft <= 0) {
-                                    $('#convert-btn').prop('disabled', false);
-                                }
-                            });
-                        }*/
                     })
                     .catch(error => {
+                        $('#error-content').html(getErrorText()).show();
                         console.error('Error on send message: ' + error)
                     });
             })
             .catch(error => {
+                $('#error-content').html(getErrorText()).show();
                 console.error('Error on tab query: ' + error)
             });
     }, reportExecuteScriptError);

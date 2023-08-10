@@ -22,10 +22,10 @@ class Epub {
     constructor(doc, sourceUrl, iframes, images, currentUrl, originUrl, threshold = 500) {
         this.#iframes = iframes;
         this.#images = images;
-        this.#docClone = this.processIframes(doc); //.cloneNode(true);
         this.#sourceUrl = sourceUrl;
         this.#currentUrl = currentUrl;
         this.#originUrl = originUrl;
+        this.#docClone = this.processIframes(doc); //.cloneNode(true);
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
     }
 
@@ -67,9 +67,9 @@ class Epub {
 
     processIframes(doc) {
         let $doc = $(doc), url = null;
-        const iframes = this.iframes;
+        const iframes = this.iframes, that = this;
         $doc.find('iframe').each(function (index, element) {
-            url = element.src.replace('moz-extension:', '');
+            url = that.cleanupUrl(element.src);
             console.log('iframe: ' + url + ' - ' + ((url in iframes) ? 'YES' : 'NO'));
             if (url in iframes) {
                 $(element).replaceWith('<div style="width:100%;height:auto">' + iframes[url] + '</div>');
@@ -176,6 +176,8 @@ class Epub {
         }).then((content) => {
             let filename = this.stripHtml(that.#parsedContent.title) + ' (Instabooked).epub';
             saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
+        }, (error) => {
+
         });
     }
 
@@ -309,7 +311,7 @@ class Epub {
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
             'div, p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
             'img { text-align: center; min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
-            'p { margin: 0; text-align: justify; text-indent: 2em; } ' +
+            //'p { margin: 0; text-align: justify; text-indent: 2em; } ' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
             'table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; } ' +
@@ -317,7 +319,7 @@ class Epub {
             '#disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } ' +
             '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
             '#epub-title { position: relative } ' +
-            '#epub-title h1, #epub-title h2, #epub-title h3 { margin: 0 1.5em; padding: 1em 1.5em; text-align: center } ' +
+            '#epub-title h1, #epub-title h2, #epub-title h3 { margin: 0; padding: 1em 3em; text-align: center } ' +
             '#epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } ' +
             '#epub-title h1 { margin-top: 2em; font-size: 1.7em } ' +
             '#epub-title div { text-align: center } ' +
@@ -389,11 +391,18 @@ class Epub {
         return ext;
     }
 
-    getAbsoluteUrl(urlStr) {
-        if (!urlStr) {
+    cleanupUrl(urlStr) {
+        if (!urlStr || urlStr.length === 0) {
             return '';
         }
-        if (urlStr.length === 0) {
+        if (urlStr.indexOf('moz-extension://') === 0) {
+            urlStr = urlStr.substring(urlStr.indexOf('/', 16) + 1);
+        }
+        return urlStr;
+    }
+
+    getAbsoluteUrl(urlStr, addProxy = true) {
+        if (!urlStr || urlStr.length === 0) {
             return '';
         }
         try {
@@ -411,7 +420,9 @@ class Epub {
             } else if (urlStr.indexOf('http') !== 0) {
                 absoluteUrl = currentUrl + '/' + urlStr;
             }
-            return 'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl);
+            return addProxy ?
+                'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl) :
+                absoluteUrl;
         } catch (e) {
             console.log('Error:', e);
             return urlStr;

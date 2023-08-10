@@ -3,11 +3,10 @@ let imageList = {};
 browser.runtime.onMessage.addListener(request => {
     if (request.type === 'get') {
         // TODO:
-        //  - get meta - og:title, og:description, og:image (as a cover?)
+        //  - get meta - og:title, og:description
         //  - content validation before downloading:
         //    - check if all images can be loaded
         //    - check the text length
-        //    - maybe show the cover page with image
 
         $('img').each(function() {
             // remove lazy loading for images
@@ -20,11 +19,7 @@ browser.runtime.onMessage.addListener(request => {
             }
         });
 
-        //return getPageData();
         return Promise.resolve(getPageData());
-    }
-    else if (request.type === 'url') {
-
     }
     else if (request.type === 'img') {
         return new Promise((resolve, reject) => {
@@ -77,7 +72,7 @@ browser.runtime.onMessage.addListener(request => {
     }
 });
 
-/*async*/ function getPageData() {
+function getPageData() {
     const imgElements = document.getElementsByTagName('img'),
         iframeElements = document.getElementsByTagName('iframe');
     let images = {}, iframes = {},
@@ -100,9 +95,9 @@ browser.runtime.onMessage.addListener(request => {
 
     for (let i = 0; i < iframeElements.length; i++) {
         iframe = iframeElements[i];
-        url = $(iframe).attr('src');
+        url = cleanupUrl($(iframe).attr('src'));
         if (!(url in iframes)) {
-            iframes[url] = /*await*/ getIframeContent(iframe);
+            iframes[url] = getIframeContent(iframe);
         }
     }
 
@@ -141,11 +136,18 @@ function delay(millisecs) {
     });
 }
 
-function getAbsoluteUrl(urlStr) {
-    if (!urlStr) {
+function cleanupUrl(urlStr) {
+    if (!urlStr || urlStr.length === 0) {
         return '';
     }
-    if (urlStr.length === 0) {
+    if (urlStr.indexOf('moz-extension://') === 0) {
+        urlStr = urlStr.substring(urlStr.indexOf('/', 16) + 1);
+    }
+    return urlStr;
+}
+
+function getAbsoluteUrl(urlStr, addProxy = true) {
+    if (!urlStr || urlStr.length === 0) {
         return '';
     }
     try {
@@ -166,7 +168,9 @@ function getAbsoluteUrl(urlStr) {
         } else if (urlStr.indexOf('http') !== 0) {
             absoluteUrl = currentUrl + '/' + urlStr;
         }
-        return 'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl);
+        return addProxy ?
+            'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl):
+            absoluteUrl;
     } catch (e) {
         console.log('Error:', e);
         return urlStr;

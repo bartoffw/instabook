@@ -2,27 +2,40 @@
     max-width: 300px;
     overflow: hidden;
 }
-.book-preview {
+#error-content {
+    display: none;
+    font-size: 0.9em;
+    padding: 0.5em;
+}
+#error-content p {
+    margin-bottom: 0;
+}
+#extension-version a {
+    font-size: 0.8em;
+}
+#book-preview {
     width: 250px;
     height: 333px;
     position: relative;
+    margin-bottom: 0.5em;
 }
-.bg-image, .text-section {
+#bg-image, #text-section {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
 }
-.bg-image {
+#bg-image {
     background-position: bottom;
     background-repeat: no-repeat;
     background-size: cover;
 }
 h1, h2, h3 {
+    margin: 0;
     padding: 0.8em;
     text-align: center;
-    background-color: rgba(255, 255, 255, 0.6);
+    background-color: rgba(255, 255, 255, 0.7);
 }
 h1 {
     padding: 0.6em;
