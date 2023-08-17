@@ -167,7 +167,7 @@ class Epub {
         zip.file('OEBPS/toc.xhtml', this.getTocXhtml());
 
         zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
-        zip.file('OEBPS/pages/title.xhtml', this.getCover());
+        zip.file('OEBPS/pages/cover.xhtml', this.getCover());
         zip.file('OEBPS/pages/content.xhtml', this.bookContent);
 
         zip.generateAsync({
@@ -195,13 +195,16 @@ class Epub {
         return '<?xml version="1.0" encoding="UTF-8"?>\n' +
             '<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="book-id" version="3.0">\n' +
             '<metadata>\n' +
+            '   <meta name="generator" content="Instabook" />\n' +
+            (this.#coverImage ?
+            '   <meta name="cover" content="cover_img" />\n' : '') +
             '   <dc:type>Web page</dc:type>\n' +
             '   <dc:title>' + this.stripHtml(this.#parsedContent.title) + '</dc:title>' +
             (this.#parsedContent.byline ?
             '   <dc:creator>' + this.stripHtml(this.#parsedContent.byline) + '</dc:creator>\n' : '') +
             '   <dc:description>Read time: ' + this.#bookReadTime.minutes + ' minutes</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
-            '   <meta property="dcterms:modified">2022-07-15T23:46:34Z</meta>\n' +
+            '   <meta property="dcterms:modified">2022-07-15T23:46:34Z</meta>\n' + // FIXME - modified date
             '   <dc:language>' + this.#bookLanguage + '</dc:language>\n' +
             '   <dc:source>' + this.#sourceUrl + '</dc:source>\n' +
             (this.#coverImage ?
@@ -211,18 +214,18 @@ class Epub {
             '   <item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav" />\n' +
             '   <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml" />\n' +
             '   <item id="styles" href="styles/ebook.css" media-type="text/css" />\n' +
-            '   <item id="title" href="pages/title.xhtml" media-type="application/xhtml+xml" />\n' +
+            '   <item id="cover" href="pages/cover.xhtml" media-type="application/xhtml+xml" />\n' +
             '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n' +
             '   ' + this.#imageItems.join('\n   ') +
             (this.#coverImage ?
-            '   <item id="cover-image" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
+            '   <item id="cover_image" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx">\n' +
-            '   <itemref idref="title" linear="yes" />\n' +
+            '   <itemref idref="cover" linear="yes" />\n' +
             '   <itemref idref="content" linear="yes" />\n' +
             '</spine>\n' +
             '<guide>\n' +
-            '   <reference type="title-page" title="Title Page" href="pages/title.xhtml"/>\n' +
+            '   <reference type="cover" title="Cover" href="pages/cover.xhtml"/>\n' +
             '   <reference type="text" title="Content" href="pages/content.xhtml"/>\n' +
             '</guide>\n' +
             '</package>';
@@ -246,9 +249,9 @@ class Epub {
             '<navMap>\n' +
             '   <navPoint class="title" id="navPoint-titlepage" playOrder="1">\n' +
             '       <navLabel>\n' +
-            '           <text>Title</text>\n' +
+            '           <text>Cover</text>\n' +
             '       </navLabel>\n' +
-            '       <content src="pages/title.xhtml"/>\n' +
+            '       <content src="pages/cover.xhtml"/>\n' +
             '   </navPoint>\n' +
             '   <navPoint class="section" id="navPoint-1" playOrder="2">\n' +
             '       <navLabel>\n' +
@@ -279,7 +282,6 @@ class Epub {
     }
 
     getCover() {
-        const domain = (new URL(this.#sourceUrl)).hostname;
         return '<?xml version="1.0" encoding="UTF-8" ?>\n' +
             '<!DOCTYPE html>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
@@ -287,30 +289,21 @@ class Epub {
             '   <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
-            '<body id="epub-title">\n' +
-            /*(this.#coverPath ?
-            '   <div class="bg-image" style="background-image: url(../' + this.#coverPath + ')"></div>\n' : '') +*/
+            '<body>\n' +
             (this.#coverPath ?
-            '   <div class="image"><img src="../' + this.#coverPath + '" alt="cover" /></div>\n' : '') +
-            '   <div class="text-section">\n' +
-            '       <h1>' + this.stripHtml(this.#parsedContent.title) + '</h1>\n' +
-            (this.#parsedContent.byline ?
-            '       <h2>' + this.stripHtml(this.#parsedContent.byline) + '</h2>\n' : '') +
-            '       <h3 dir="ltr">Read time: ' + this.#bookReadTime.minutes + ' minutes</h3>\n' +
-            '       <h3>Downloaded from <a href="' + this.#sourceUrl + '">' + domain + '</a></h3>\n' +
-            '   </div>\n' +
+            '   <div class="cover-image"><img src="../' + this.#coverPath + '" alt="cover" /></div>\n' : '') +
             '</body>\n' +
             '</html>';
     }
 
     getBookStyles() {
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
-            'body { padding: 0; margin: 1em; font-family: georgia, times new roman, times roman, times, roman, serif } ' +
-            //'#epub-title img { border:0; height: auto; width: 100%; } ' +
+            'body { padding: 0; margin: 1em; text-align: left; font-family: georgia, times new roman, times roman, times, roman, serif } ' +
             'h1 { font-weight: bold; font-size: 1.2em; } ' +
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
             'div, p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
-            'img { text-align: center; min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
+            'li { text-align: left } ' +
+            'img { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
             //'p { margin: 0; text-align: justify; text-indent: 2em; } ' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
@@ -318,16 +311,9 @@ class Epub {
             '#disclaimer h1 { margin: 0; padding: 0; } ' +
             '#disclaimer h2 { font-weight: bold; font-size: 1.1em; text-align: center; } ' +
             '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
-            '#epub-title { position: relative } ' +
-            '#epub-title h1, #epub-title h2, #epub-title h3 { margin: 0; padding: 1em 3em; text-align: center } ' +
-            '#epub-title h2, #epub-title h3 { font-weight: normal; font-size: 1.1em; } ' +
-            '#epub-title h1 { margin-top: 2em; font-size: 1.7em } ' +
-            '#epub-title div { text-align: center } ' +
-            '#epub-title .image { padding-top: 0.5em } ' +
-            '#epub-title .image, .text-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center } ' +
-            '#epub-title .image img { display: inline-block; width: 100%; max-width: 100%; height: auto; } ' +
-            '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover } ' +
-            '#epub-title h1, #epub-title h2, #epub-title h3 { background-color: rgba(255, 255, 255, 0.6) }';
+            '.cover-image, .cover-image, .cover-image img { text-align:center; padding:0; margin:0 } ' +
+            '.cover-image img { height: 100%; max-width: 100%; text-align: center } ' +
+            '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover }';
     }
 
     estimateReadingTime(plainText, wpm = 200) {
@@ -339,6 +325,7 @@ class Epub {
     }
 
     prepareCoverImage(imageUrl) {
+        const that = this;
         // from: https://pqina.nl/blog/cropping-images-to-an-aspect-ratio-with-javascript/
         return new Promise((resolve) => {
             const aspectRatio = 0.75; // 4:3 ratio in portrait mode
@@ -375,12 +362,72 @@ class Epub {
                 // draw our image at position 0, 0 on the canvas
                 const ctx = outputImage.getContext('2d');
                 ctx.drawImage(inputImage, outputX, outputY);
+
+                // add text on the image
+                let currentPosY = 0;
+                currentPosY = that.drawTitle(
+                    ctx, that.bookTitle, 20, 'small-caps bold', 30, outputWidth,
+                    outputHeight * 0.05, 'rgba(255, 255, 255, 0.6)'
+                );
+                currentPosY = that.drawTitle(
+                    ctx, 'Read time: ' + that.bookReadTime + ' minutes', 12, '', 22, outputWidth,
+                    currentPosY, 'rgba(255, 255, 255, 0.6)'
+                );
+                that.drawTitle(
+                    ctx, 'Downloaded from ' + that.sourceDomain, 12, '', 22, outputWidth,
+                    currentPosY, 'rgba(255, 255, 255, 0.6)'
+                );
+
+                // https://stackoverflow.com/questions/57403688/how-can-i-implement-word-wrap-and-carriage-returns-in-canvas-filltext
+                // https://stackoverflow.com/questions/49614129/wrap-text-within-rect-without-overflowing-it-fiddle-canvas-html5
+
                 outputImage.toBlob((blob) => {
                     resolve(blob);
                 }, 'image/jpg', 0.75);
             };
             inputImage.src = imageUrl;
         });
+    }
+
+    drawTitle(context, text, fontSize, fontStyle, lineHeight, bgWidth, startY, bgColor = null) {
+        const words = text.split(' '),
+            startX = bgWidth / 2,
+            maxWidth = 0.9 * bgWidth,
+            realStartY = startY, bgMargin = lineHeight / 2;
+
+
+        // lower y for the text
+        startY += fontSize;
+        context.font = fontStyle + ' ' + fontSize + 'pt arial';
+        let line = '', lines = [], textHeight = 0;
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = context.measureText(testLine);
+            const testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                lines.push(line);
+                line = words[n] + ' ';
+            } else {
+                line = testLine;
+            }
+        }
+        if (line.length > 0) {
+            lines.push(line);
+        }
+        textHeight = lines.length * lineHeight;
+
+        if (bgColor) {
+            context.fillStyle = bgColor;
+            context.fillRect(0, realStartY, bgWidth, textHeight + bgMargin);
+            startY += bgMargin;
+        }
+        context.fillStyle = 'black';
+        context.textAlign = 'center';
+        for (let i = 0; i < lines.length; i++) {
+            context.fillText(lines[i], startX, startY);
+            startY += lineHeight;
+        }
+        return realStartY + textHeight + bgMargin;
     }
 
     extractExt(fileName) {
@@ -442,8 +489,28 @@ class Epub {
         return inputStr;
     }
 
+    get bookTitle() {
+        return this.stripHtml(this.#parsedContent.title);
+    }
+
+    get bookByline() {
+        return this.#parsedContent.byline ? this.#parsedContent.byline : null;
+    }
+
     get bookContent() {
         return this.#parsedContent.content;
+    }
+
+    get bookReadTime() {
+        return this.#bookReadTime.minutes;
+    }
+
+    get sourceUrl() {
+        return this.#sourceUrl;
+    }
+
+    get sourceDomain() {
+        return (new URL(this.#sourceUrl)).hostname;
     }
 
     get images() {
