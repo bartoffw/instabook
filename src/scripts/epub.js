@@ -131,8 +131,9 @@ class Epub {
     cleanupContent(content) {
         content = DOMPurify.sanitize(content); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
         return new XMLSerializer().serializeToString(
-            new DOMParser().parseFromString(content, 'text/html')
-        );
+                new DOMParser().parseFromString(content, 'text/html')
+            ).replace('<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>', '')
+            .replace('</body></html>', '');
     }
 
     stripHtml(content) {
@@ -207,18 +208,16 @@ class Epub {
             '   <meta property="dcterms:modified">2022-07-15T23:46:34Z</meta>\n' + // FIXME - modified date
             '   <dc:language>' + this.#bookLanguage + '</dc:language>\n' +
             '   <dc:source>' + this.#sourceUrl + '</dc:source>\n' +
-            (this.#coverImage ?
-            '   <meta name="cover" content="cover-image"/>' : '') +
             '</metadata>\n' +
             '<manifest>\n' +
-            '   <item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav" />\n' +
             '   <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml" />\n' +
             '   <item id="styles" href="styles/ebook.css" media-type="text/css" />\n' +
             '   <item id="cover" href="pages/cover.xhtml" media-type="application/xhtml+xml" />\n' +
+            '   <item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav" />\n' +
             '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n' +
             '   ' + this.#imageItems.join('\n   ') +
             (this.#coverImage ?
-            '   <item id="cover_image" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
+            '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx">\n' +
             '   <itemref idref="cover" linear="yes" />\n' +
@@ -247,17 +246,17 @@ class Epub {
             '   <text>' + this.stripHtml(this.#parsedContent.byline) + '</text>\n' +
             '</docAuthor>\n' +
             '<navMap>\n' +
-            '   <navPoint class="title" id="navPoint-titlepage" playOrder="1">\n' +
+            '   <navPoint class="cover" id="navPoint-titlepage" playOrder="1">\n' +
             '       <navLabel>\n' +
             '           <text>Cover</text>\n' +
             '       </navLabel>\n' +
-            '       <content src="pages/cover.xhtml"/>\n' +
+            '       <content src="pages/cover.xhtml"></content>\n' +
             '   </navPoint>\n' +
-            '   <navPoint class="section" id="navPoint-1" playOrder="2">\n' +
+            '   <navPoint class="text" id="navPoint-1" playOrder="2">\n' +
             '       <navLabel>\n' +
             '           <text>Content</text>\n' +
             '       </navLabel>\n' +
-            '       <content src="pages/content.xhtml"/>\n' +
+            '       <content src="pages/content.xhtml"></content>\n' +
             '   </navPoint>\n' +
             '</navMap>\n' +
             '</ncx>';
@@ -267,7 +266,7 @@ class Epub {
         return '<?xml version="1.0" encoding="utf-8"?>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n' +
             '<head>\n' +
-            '   <title>toc.xhtml</title>\n' +
+            '   <title>Table of Contents</title>\n' +
             '<link href="styles/ebook.css" rel="stylesheet" type="text/css" />\n' +
             '</head>\n' +
             '<body>\n' +
@@ -299,12 +298,13 @@ class Epub {
     getBookStyles() {
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
             'body { padding: 0; margin: 1em; text-align: left; font-family: georgia, times new roman, times roman, times, roman, serif } ' +
+            'div, p { margin: 0.5em 0; text-align: left } ' +
+            'ul, ol, li { padding-left: 0.4em; margin-left: 0.2em } ' +
+            'li { text-align: left } ' +
             'h1 { font-weight: bold; font-size: 1.2em; } ' +
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
-            'div, p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
-            'li { text-align: left } ' +
+            'p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
             'img { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
-            //'p { margin: 0; text-align: justify; text-indent: 2em; } ' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
             'table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; } ' +
