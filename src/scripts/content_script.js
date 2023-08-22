@@ -62,9 +62,12 @@ browser.runtime.onMessage.addListener(request => {
         const doc = parser.parseFromString(document.documentElement.outerHTML, 'text/html');
         const epub = new Epub(doc, '', {}, {});
         const parsedInfo = epub.check();
+        console.log(parsedInfo);
         return Promise.resolve({
             cover: $('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '',
             readTime: parsedInfo.readTime,
+            title: parsedInfo.title,
+            author: parsedInfo.author
             /*images: parsedInfo.images.map((url) => {
                 return getAbsoluteUrl(url);
             })*/

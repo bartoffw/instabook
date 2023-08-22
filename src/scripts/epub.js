@@ -37,12 +37,14 @@ class Epub {
         return {
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
+            title: this.stripHtml(content.title),
+            author: this.stripHtml(content.byline)
             //images: imgUrls
         };
     }
 
     process() {
-        this.#bookId = 'epub-' + (Math.random() * 100000) + (new Date().getTime() / 1000);
+        this.#bookId = 'instabook-' + this.generateUuidv4();
         this.#parsedContent = this.#readability.parse();
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
 
@@ -99,7 +101,7 @@ class Epub {
             if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                 that.#imageUrls.push(url);
                 const newName = 'images/img' + (idx + 1) + '.' + ext;
-                that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext + '" />');
+                that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />');
                 $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
             }
         });
@@ -129,7 +131,10 @@ class Epub {
     }
 
     cleanupContent(content) {
-        content = DOMPurify.sanitize(content); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
+        const config = {
+            FORBID_TAGS: ['span']
+        };
+        content = DOMPurify.sanitize(content, config); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
         return new XMLSerializer().serializeToString(
                 new DOMParser().parseFromString(content, 'text/html')
             ).replace('<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>', '')
@@ -192,7 +197,7 @@ class Epub {
     }
 
     getContentOpf() {
-        const ext = this.extractExt(this.#coverImage);
+        const ext = this.extractExt(this.#coverImage).replace('jpg', 'jpeg');
         return '<?xml version="1.0" encoding="UTF-8"?>\n' +
             '<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="book-id" version="3.0">\n' +
             '<metadata>\n' +
@@ -369,6 +374,12 @@ class Epub {
                     ctx, that.bookTitle, 20, 'small-caps bold', 30, outputWidth,
                     outputHeight * 0.05, 'rgba(255, 255, 255, 0.6)'
                 );
+                if (this.#parsedContent.byline) {
+                    currentPosY = that.drawTitle(
+                        ctx, this.#parsedContent.byline, 13, 'bold', 23, outputWidth,
+                        currentPosY, 'rgba(255, 255, 255, 0.6)'
+                    );
+                }
                 currentPosY = that.drawTitle(
                     ctx, 'Read time: ' + that.bookReadTime + ' minutes', 12, '', 22, outputWidth,
                     currentPosY, 'rgba(255, 255, 255, 0.6)'
@@ -383,7 +394,7 @@ class Epub {
 
                 outputImage.toBlob((blob) => {
                     resolve(blob);
-                }, 'image/jpg', 0.75);
+                }, 'image/jpeg', 0.85);
             };
             inputImage.src = imageUrl;
         });
@@ -487,6 +498,15 @@ class Epub {
             return inputStr.substring(0, inputStr.length - 1);
         }
         return inputStr;
+    }
+
+    generateUuidv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+            .replace(/[xy]/g, function (c) {
+                const r = Math.random() * 16 | 0,
+                    v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
     }
 
     get bookTitle() {

@@ -33,13 +33,16 @@
 }
 h1, h2, h3 {
     margin: 0;
-    padding: 0.8em;
+    padding: 0.6em;
     text-align: center;
     background-color: rgba(255, 255, 255, 0.7);
 }
 h1 {
-    padding: 0.6em;
+    margin-top: 0.5em;
+    padding: 0.5em;
     font-size: 1em;
+    font-weight: bold;
+    font-variant: small-caps;
 }
 h2 {
     font-size: 0.9em;
@@ -50,4 +53,7 @@ h3 {
 h2, h3 {
     font-size: 0.8em;
     font-weight: normal;
+}
+#author-field {
+    font-weight: bold;
 }

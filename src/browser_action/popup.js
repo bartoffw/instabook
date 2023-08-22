@@ -48,7 +48,7 @@ function reportExecuteScriptError(error) {
 }
 
 function getErrorText() {
-    return 'Could not download the ebook. ' +
+    return 'Could not generate the ebook. ' +
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&title=' + encodeURIComponent('Error on ' + pageUrl) + '">on GitHub using this link</a>.';
 }
 
@@ -60,12 +60,17 @@ browser.tabs
     .then((tabs) => {
         pageUrl = tabs[0].url;
         pageTitle = tabs[0].title;
-        $("#page-title").text(pageTitle);
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'images' })
                     .then(response => {
+                        $("#page-title").html(response.title.length > 0 ? response.title : pageTitle);
+                        if (response.author.length > 0) {
+                            $('#author-field').html(response.author).show();
+                        } else {
+                            $('#author-field').hide();
+                        }
                         $('#time-field').html(response.readTime.minutes + ' minutes');
                         if (response.cover.length > 0) {
                             $('<img/>').attr('src', response.cover).on('load', () => {
@@ -76,7 +81,7 @@ browser.tabs
                         } else {
                             $('#convert-btn').prop('disabled', false);
                         }
-                        $('#url-field').html('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
+                        $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
                     })
                     .catch(error => {
                         $('#error-content').html(getErrorText()).show();
