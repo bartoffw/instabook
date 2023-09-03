@@ -23,7 +23,7 @@ browser.runtime.onMessage.addListener(request => {
     }
     else if (request.type === 'img') {
         return new Promise((resolve, reject) => {
-            console.log(getAbsoluteUrl(request.url));
+            //console.log(getAbsoluteUrl(request.url));
             // JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
             //     console.log(err, data);
             //     if (err) {
@@ -50,19 +50,18 @@ browser.runtime.onMessage.addListener(request => {
             //     }
             // });
             $.get(getAbsoluteUrl(request.url), function(content) {
-                console.log(content);
+                //console.log(content);
                 resolve(content);
             });//.fail((error) => {
             //    reject(error);
             //});
         });
     }
-    else if (request.type === 'images') {
+    else if (request.type === 'preview') {
         const parser = new DOMParser();
         const doc = parser.parseFromString(document.documentElement.outerHTML, 'text/html');
         const epub = new Epub(doc, '', {}, {});
         const parsedInfo = epub.check();
-        console.log(parsedInfo);
         return Promise.resolve({
             cover: $('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '',
             readTime: parsedInfo.readTime,
@@ -172,7 +171,7 @@ function getAbsoluteUrl(urlStr, addProxy = true) {
             absoluteUrl = currentUrl + '/' + urlStr;
         }
         return addProxy ?
-            'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl):
+            'https://mri9ed2to8.execute-api.us-east-1.amazonaws.com/dev/cors-proxy?url=' + encodeURIComponent(absoluteUrl):
             absoluteUrl;
     } catch (e) {
         console.log('Error:', e);

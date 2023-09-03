@@ -7,6 +7,7 @@ let pageUrl = '',
 document.addEventListener('click', (event) => {
     if (event.target.id === 'convert-btn') {
         $('#error-content').hide();
+        btnLoading();
 
         /** Send the Get message to the content script to get the page content and meta info **/
         browser.tabs.query({currentWindow: true, active: true})
@@ -14,7 +15,6 @@ document.addEventListener('click', (event) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
-                        console.log(response.iframes);
                         browser.runtime.sendMessage({
                             type: 'convert',
                             title: tabs[0].title,
@@ -28,11 +28,13 @@ document.addEventListener('click', (event) => {
                     })
                     .catch(error => {
                         $('#error-content').html(getErrorText()).show();
+                        btnLoading(false);
                         console.error('Error on send message: ' + error)
                     });
             })
             .catch(error => {
                 $('#error-content').html(getErrorText()).show();
+                btnLoading(false);
                 console.error('Error on tab query: ' + error)
             });
     }
@@ -52,6 +54,16 @@ function getErrorText() {
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&title=' + encodeURIComponent('Error on ' + pageUrl) + '">on GitHub using this link</a>.';
 }
 
+function btnLoading(isLoading = true) {
+    if (isLoading) {
+        $('#convert-spinner').removeClass('visually-hidden');
+        $('#convert-btn').prop('disabled', true);
+    } else {
+        $('#convert-spinner').addClass('visually-hidden');
+        $('#convert-btn').prop('disabled', false);
+    }
+}
+
 /**
  * Getting the cover image and read time from the content script
  */
@@ -63,7 +75,7 @@ browser.tabs
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
                 browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'images' })
+                    .sendMessage(tabs[0].id, { type: 'preview' })
                     .then(response => {
                         $("#page-title").html(response.title.length > 0 ? response.title : pageTitle);
                         if (response.author.length > 0) {
@@ -85,11 +97,13 @@ browser.tabs
                     })
                     .catch(error => {
                         $('#error-content').html(getErrorText()).show();
+                        btnLoading(false);
                         console.error('Error on send message: ' + error)
                     });
             })
             .catch(error => {
                 $('#error-content').html(getErrorText()).show();
+                btnLoading(false);
                 console.error('Error on tab query: ' + error)
             });
     }, reportExecuteScriptError);

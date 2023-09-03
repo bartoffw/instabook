@@ -47,6 +47,7 @@ class Epub {
         this.#bookId = 'instabook-' + this.generateUuidv4();
         this.#parsedContent = this.#readability.parse();
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
+        this.#bookLanguage = this.#parsedContent.lang;
 
         this.#parsedContent.content = this.cleanupContent(
             this.processImages(
@@ -72,7 +73,6 @@ class Epub {
         const iframes = this.iframes, that = this;
         $doc.find('iframe').each(function (index, element) {
             url = that.cleanupUrl(element.src);
-            console.log('iframe: ' + url + ' - ' + ((url in iframes) ? 'YES' : 'NO'));
             if (url in iframes) {
                 $(element).replaceWith('<div style="width:100%;height:auto">' + iframes[url] + '</div>');
             } else {
@@ -153,7 +153,6 @@ class Epub {
 
         zip.file('META-INF/container.xml', this.getContainerXml());
 
-        console.log('preparing images');
         const that = this;
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
@@ -161,13 +160,11 @@ class Epub {
             zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(that.getAbsoluteUrl(imgUrl), false), { binary: true });
         }
         if (that.#coverImage) {
-            console.log('cover: ' + that.#coverImage);
             const ext = that.extractExt(that.#coverImage);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
             zip.file('OEBPS/images/cover.' + ext, imageContentPromise(that.getAbsoluteUrl(that.#coverImage), true), { binary: true });
             that.#coverPath = 'images/cover.' + ext;
         }
-        console.log('finishing');
         zip.file('OEBPS/content.opf', this.getContentOpf());
         zip.file('OEBPS/toc.ncx', this.getTocNcx());
         zip.file('OEBPS/toc.xhtml', this.getTocXhtml());
@@ -180,10 +177,13 @@ class Epub {
             type: 'blob',
             mimeType: 'application/epub+zip'
         }).then((content) => {
+            $('#convert-btn').prop('disabled', false);
+            $('#convert-spinner').removeClass('visually-hidden');
             let filename = this.stripHtml(that.#parsedContent.title) + ' (Instabooked).epub';
             saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
         }, (error) => {
-
+            $('#convert-btn').prop('disabled', false);
+            $('#convert-spinner').removeClass('visually-hidden');
         });
     }
 
@@ -210,6 +210,7 @@ class Epub {
             '   <dc:creator>' + this.stripHtml(this.#parsedContent.byline) + '</dc:creator>\n' : '') +
             '   <dc:description>Read time: ' + this.#bookReadTime.minutes + ' minutes</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
+            '   <dc:publisher>Instabook (https://instabook.site)</dc:publisher>\n' +
             '   <meta property="dcterms:modified">2022-07-15T23:46:34Z</meta>\n' + // FIXME - modified date
             '   <dc:language>' + this.#bookLanguage + '</dc:language>\n' +
             '   <dc:source>' + this.#sourceUrl + '</dc:source>\n' +
@@ -224,7 +225,7 @@ class Epub {
             (this.#coverImage ?
             '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
             '</manifest>\n' +
-            '<spine toc="ncx">\n' +
+            '<spine toc="ncx"' + (this.dirRtl ? ' page-progression-direction="rtl"' : '') + '>\n' +
             '   <itemref idref="cover" linear="yes" />\n' +
             '   <itemref idref="content" linear="yes" />\n' +
             '</spine>\n' +
@@ -479,7 +480,7 @@ class Epub {
                 absoluteUrl = currentUrl + '/' + urlStr;
             }
             return addProxy ?
-                'https://corsproxy.io/?' + encodeURIComponent(absoluteUrl) :
+                'https://mri9ed2to8.execute-api.us-east-1.amazonaws.com/dev/cors-proxy?url=' + encodeURIComponent(absoluteUrl) :
                 absoluteUrl;
         } catch (e) {
             console.log('Error:', e);
@@ -543,5 +544,9 @@ class Epub {
 
     get imageUrls() {
         return this.#imageUrls;
+    }
+
+    get dirRtl() {
+        return this.#parsedContent.dir === 'rtl';
     }
 }
