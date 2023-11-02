@@ -19,7 +19,7 @@ class Epub {
 
     #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
 
-    constructor(doc, sourceUrl, iframes, images, currentUrl, originUrl, threshold = 500) {
+    constructor(doc, sourceUrl = '', iframes = {}, images = {}, currentUrl = '', originUrl = '', threshold = 500) {
         this.#iframes = iframes;
         this.#images = images;
         this.#sourceUrl = sourceUrl;
@@ -34,7 +34,10 @@ class Epub {
         const parsedContent = this.cleanupContent(
             content.content
         );
+        const coverUrl = $(this.#docClone).find('meta[property="og:image"]:eq(0)').length > 0 ?
+            $(this.#docClone).find('meta[property="og:image"]:eq(0)').attr('content') : '';
         return {
+            cover: coverUrl,
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
             title: this.stripHtml(content.title),
@@ -44,7 +47,7 @@ class Epub {
     }
 
     process() {
-        this.#bookId = 'instabook-' + this.generateUuidv4();
+        this.#bookId = 'instabook-' + Epub.generateUuidv4();
         this.#parsedContent = this.#readability.parse();
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
         this.#bookLanguage = this.#parsedContent.lang;
@@ -72,7 +75,7 @@ class Epub {
         let $doc = $(doc), url = null;
         const iframes = this.iframes, that = this;
         $doc.find('iframe').each(function (index, element) {
-            url = that.cleanupUrl(element.src);
+            url = Epub.cleanupUrl(element.src);
             if (url in iframes) {
                 $(element).replaceWith('<div style="width:100%;height:auto">' + iframes[url] + '</div>');
             } else {
@@ -147,7 +150,7 @@ class Epub {
         return div.textContent || div.innerText || '';
     }
 
-    prepareEpubFile(imageContentPromise) {
+    async prepareEpubFile(imageContentPromise) {
         var zip = new JSZip();
         zip.file('mimetype', 'application/epub+zip');
 
@@ -157,12 +160,12 @@ class Epub {
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = that.extractExt(imgUrl);
-            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(that.getAbsoluteUrl(imgUrl), false), { binary: true });
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(Epub.getAbsoluteUrl(imgUrl, that.#currentUrl, that.#originUrl), false), { binary: true });
         }
         if (that.#coverImage) {
             const ext = that.extractExt(that.#coverImage);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(that.getAbsoluteUrl(that.#coverImage), true), { binary: true });
+            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(that.#coverImage, that.#currentUrl, that.#originUrl), true), { binary: true });
             that.#coverPath = 'images/cover.' + ext;
         }
         zip.file('OEBPS/content.opf', this.getContentOpf());
@@ -173,7 +176,7 @@ class Epub {
         zip.file('OEBPS/pages/cover.xhtml', this.getCover());
         zip.file('OEBPS/pages/content.xhtml', this.bookContent);
 
-        zip.generateAsync({
+        await zip.generateAsync({
             type: 'blob',
             mimeType: 'application/epub+zip'
         }).then((content) => {
@@ -330,6 +333,11 @@ class Epub {
         };
     }
 
+    /**
+     * Prepares the cover image for the epub
+     * @param imageUrl
+     * @returns {Promise<unknown>}
+     */
     prepareCoverImage(imageUrl) {
         const that = this;
         // from: https://pqina.nl/blog/cropping-images-to-an-aspect-ratio-with-javascript/
@@ -450,7 +458,7 @@ class Epub {
         return ext;
     }
 
-    cleanupUrl(urlStr) {
+    static cleanupUrl(urlStr) {
         if (!urlStr || urlStr.length === 0) {
             return '';
         }
@@ -460,14 +468,14 @@ class Epub {
         return urlStr;
     }
 
-    getAbsoluteUrl(urlStr, addProxy = true) {
+    static getAbsoluteUrl(urlStr, currentUrl, originUrl, addProxy = true) {
         if (!urlStr || urlStr.length === 0) {
             return '';
         }
         try {
-            urlStr = this.decodeHtmlEntity(urlStr);
-            let currentUrl = this.removeEndingSlash(this.#currentUrl);
-            let originUrl = this.removeEndingSlash(this.#originUrl);
+            urlStr = Epub.decodeHtmlEntity(urlStr);
+            currentUrl = Epub.removeEndingSlash(currentUrl);
+            originUrl = Epub.removeEndingSlash(originUrl);
             let absoluteUrl = urlStr;
 
             if (urlStr.indexOf('//') === 0) {
@@ -480,34 +488,12 @@ class Epub {
                 absoluteUrl = currentUrl + '/' + urlStr;
             }
             return addProxy ?
-                'https://mri9ed2to8.execute-api.us-east-1.amazonaws.com/dev/cors-proxy?url=' + encodeURIComponent(absoluteUrl) :
+                Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
                 absoluteUrl;
         } catch (e) {
             console.log('Error:', e);
             return urlStr;
         }
-    }
-
-    decodeHtmlEntity(str) {
-        return str.replace(/&#(\d+);/g, function(match, dec) {
-            return String.fromCharCode(dec);
-        });
-    }
-
-    removeEndingSlash(inputStr) {
-        if (inputStr.endsWith('/')) {
-            return inputStr.substring(0, inputStr.length - 1);
-        }
-        return inputStr;
-    }
-
-    generateUuidv4() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-            .replace(/[xy]/g, function (c) {
-                const r = Math.random() * 16 | 0,
-                    v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
     }
 
     get bookTitle() {
@@ -548,5 +534,37 @@ class Epub {
 
     get dirRtl() {
         return this.#parsedContent.dir === 'rtl';
+    }
+
+    static get proxyUrl() {
+        return 'https://mri9ed2to8.execute-api.us-east-1.amazonaws.com/dev/cors-proxy?url=';
+    }
+
+    static removeEndingSlash(inputStr) {
+        if (inputStr.endsWith('/')) {
+            return inputStr.substring(0, inputStr.length - 1);
+        }
+        return inputStr;
+    }
+
+    static generateUuidv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+            .replace(/[xy]/g, function (c) {
+                const r = Math.random() * 16 | 0,
+                    v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+    }
+
+    static decodeHtmlEntity(str) {
+        return str.replace(/&#(\d+);/g, function(match, dec) {
+            return String.fromCharCode(dec);
+        });
+    }
+
+    static delay(millisecs) {
+        return new Promise(resolve => {
+            setTimeout(resolve, millisecs);
+        });
     }
 }

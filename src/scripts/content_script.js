@@ -1,6 +1,7 @@
 let imageList = {};
 
 browser.runtime.onMessage.addListener(request => {
+    /** get page data needed to generate the epub file **/
     if (request.type === 'get') {
         // TODO:
         //  - get meta - og:title, og:description
@@ -21,6 +22,7 @@ browser.runtime.onMessage.addListener(request => {
 
         return Promise.resolve(getPageData());
     }
+    /** UNUSED: get specific image **/
     else if (request.type === 'img') {
         return new Promise((resolve, reject) => {
             //console.log(getAbsoluteUrl(request.url));
@@ -49,7 +51,7 @@ browser.runtime.onMessage.addListener(request => {
             //         }*/
             //     }
             // });
-            $.get(getAbsoluteUrl(request.url), function(content) {
+            $.get(Epub.getAbsoluteUrl(request.url, getCurrentUrl(), getOriginUrl()), function(content) {
                 //console.log(content);
                 resolve(content);
             });//.fail((error) => {
@@ -57,23 +59,23 @@ browser.runtime.onMessage.addListener(request => {
             //});
         });
     }
+    /** get the ebook cover preview in the popup **/
     else if (request.type === 'preview') {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(document.documentElement.outerHTML, 'text/html');
-        const epub = new Epub(doc, '', {}, {});
+        const epub = new Epub(
+            (new DOMParser()).parseFromString(document.documentElement.outerHTML, 'text/html')
+        );
         const parsedInfo = epub.check();
-        return Promise.resolve({
-            cover: $('meta[property="og:image"]:eq(0)').length > 0 ? $('meta[property="og:image"]:eq(0)').attr('content') : '',
-            readTime: parsedInfo.readTime,
-            title: parsedInfo.title,
-            author: parsedInfo.author
-            /*images: parsedInfo.images.map((url) => {
-                return getAbsoluteUrl(url);
-            })*/
-        });
+        return Promise.resolve(parsedInfo);
+        /*images: parsedInfo.images.map((url) => {
+            return getAbsoluteUrl(url);
+        })*/
     }
 });
 
+/**
+ * Get page data required to generate the complete epub file
+ * @returns {{currentUrl: string, images: {}, originUrl: string, html: string, iframes: {}}}
+ */
 function getPageData() {
     const imgElements = document.getElementsByTagName('img'),
         iframeElements = document.getElementsByTagName('iframe');
@@ -97,7 +99,7 @@ function getPageData() {
 
     for (let i = 0; i < iframeElements.length; i++) {
         iframe = iframeElements[i];
-        url = cleanupUrl($(iframe).attr('src'));
+        url = Epub.cleanupUrl($(iframe).attr('src'));
         if (!(url in iframes)) {
             iframes[url] = getIframeContent(iframe);
         }
@@ -132,59 +134,6 @@ function getPageData() {
     return $(iframe).contents().find('body').html();
 }
 
-function delay(millisecs) {
-    return new Promise(resolve => {
-        setTimeout(resolve, millisecs);
-    });
-}
-
-function cleanupUrl(urlStr) {
-    if (!urlStr || urlStr.length === 0) {
-        return '';
-    }
-    if (urlStr.indexOf('moz-extension://') === 0) {
-        urlStr = urlStr.substring(urlStr.indexOf('/', 16) + 1);
-    }
-    return urlStr;
-}
-
-function getAbsoluteUrl(urlStr, addProxy = true) {
-    if (!urlStr || urlStr.length === 0) {
-        return '';
-    }
-    try {
-        urlStr = decodeHtmlEntity(urlStr);
-        let currentUrl = getCurrentUrl();
-        let originUrl = getOriginUrl();
-        let absoluteUrl = urlStr;
-
-        originUrl = removeEndingSlash(originUrl)
-        currentUrl = removeEndingSlash(currentUrl)
-
-        if (urlStr.indexOf('//') === 0) {
-            absoluteUrl = window.location.protocol + urlStr;
-        } else if (urlStr.indexOf('/') === 0) {
-            absoluteUrl = originUrl + urlStr;
-        } else if (urlStr.indexOf('#') === 0) {
-            absoluteUrl = currentUrl + urlStr;
-        } else if (urlStr.indexOf('http') !== 0) {
-            absoluteUrl = currentUrl + '/' + urlStr;
-        }
-        return addProxy ?
-            'https://mri9ed2to8.execute-api.us-east-1.amazonaws.com/dev/cors-proxy?url=' + encodeURIComponent(absoluteUrl):
-            absoluteUrl;
-    } catch (e) {
-        console.log('Error:', e);
-        return urlStr;
-    }
-}
-
-function decodeHtmlEntity(str) {
-    return str.replace(/&#(\d+);/g, function(match, dec) {
-        return String.fromCharCode(dec);
-    });
-}
-
 function getCurrentUrl() {
     let url = window.location.href;
     if (url.indexOf('?') > 0) {
@@ -200,11 +149,4 @@ function getOriginUrl() {
         originUrl = window.location.protocol + "//" + window.location.host;
     }
     return originUrl;
-}
-
-function removeEndingSlash(inputStr) {
-    if (inputStr.endsWith('/')) {
-        return inputStr.substring(0, inputStr.length - 1);
-    }
-    return inputStr;
 }

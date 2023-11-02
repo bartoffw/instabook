@@ -15,15 +15,17 @@ document.addEventListener('click', (event) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
-                        browser.runtime.sendMessage({
-                            type: 'convert',
-                            title: tabs[0].title,
-                            url: tabs[0].url,
-                            html: response.html,
-                            iframes: response.iframes,
-                            images: response.images,
-                            currentUrl: response.currentUrl,
-                            originUrl: response.originUrl
+                        let responseData = response;
+                        responseData.type = 'convert';
+                        responseData.title = tabs[0].title;
+                        responseData.url = tabs[0].url;
+                        const result = browser.runtime.sendMessage(responseData);
+                        result.then((message) => {
+                            btnLoading(false);
+                        }, (error) => {
+                            $('#error-content').html(getErrorText()).show();
+                            btnLoading(false);
+                            console.error('Error on background script query: ' + error)
                         });
                     })
                     .catch(error => {
