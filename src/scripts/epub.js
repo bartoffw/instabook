@@ -12,6 +12,7 @@ class Epub {
     #coverPath = null;
     #currentUrl;
     #originUrl;
+    #defaultCoverUrl;
 
     #bookId;
     #bookLanguage = 'en';
@@ -19,12 +20,17 @@ class Epub {
 
     #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
 
-    constructor(doc, sourceUrl = '', iframes = {}, images = {}, currentUrl = '', originUrl = '', threshold = 500) {
+    constructor(docHTML, sourceUrl = '', iframes = {}, images = {}, currentUrl = '', originUrl = '',
+                defaultCoverUrl = '', threshold = 500) {
         this.#iframes = iframes;
         this.#images = images;
         this.#sourceUrl = sourceUrl;
         this.#currentUrl = currentUrl;
         this.#originUrl = originUrl;
+        this.#htmlContent = docHTML;
+        this.#defaultCoverUrl = defaultCoverUrl;
+
+        const doc = (new DOMParser()).parseFromString(docHTML, 'text/html');
         this.#docClone = this.processIframes(doc); //.cloneNode(true);
         this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
     }
@@ -34,10 +40,12 @@ class Epub {
         const parsedContent = this.cleanupContent(
             content.content
         );
-        const coverUrl = $(this.#docClone).find('meta[property="og:image"]:eq(0)').length > 0 ?
-            $(this.#docClone).find('meta[property="og:image"]:eq(0)').attr('content') : '';
+        const ogImg = $(this.#docClone).find('meta[property="og:image"]:eq(0)');
+        const img = $(this.#htmlContent).find('img:eq(0)');
+        const coverUrl = ogImg.length > 0 ? ogImg.attr('content') : (img.length > 0 ? img.attr('src') : '');
         return {
             cover: coverUrl,
+            image: img.length > 0 ? Epub.getAbsoluteUrl(img.attr('src'), this.#currentUrl, this.#originUrl) : '',
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
             title: this.stripHtml(content.title),
@@ -200,7 +208,6 @@ class Epub {
     }
 
     getContentOpf() {
-        const ext = this.extractExt(this.#coverImage).replace('jpg', 'jpeg');
         return '<?xml version="1.0" encoding="UTF-8"?>\n' +
             '<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="book-id" version="3.0">\n' +
             '<metadata>\n' +
@@ -226,7 +233,7 @@ class Epub {
             '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n' +
             '   ' + this.#imageItems.join('\n   ') +
             (this.#coverImage ?
-            '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + ext + '" />\n' : '') +
+            '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + this.extractExt(this.#coverImage).replace('jpg', 'jpeg') + '" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx"' + (this.dirRtl ? ' page-progression-direction="rtl"' : '') + '>\n' +
             '   <itemref idref="cover" linear="yes" />\n' +
@@ -345,6 +352,11 @@ class Epub {
             const aspectRatio = 0.75; // 4:3 ratio in portrait mode
             const inputImage = new Image();
             inputImage.crossOrigin = 'anonymous';
+            inputImage.onerror = () => {
+                that.#coverImage = that.#defaultCoverUrl;
+                imageUrl = that.#coverImage;
+                inputImage.src = that.#coverImage;
+            };
             inputImage.onload = () => {
                 // let's store the width and height of our image
                 const inputWidth = inputImage.naturalWidth;

@@ -1,5 +1,6 @@
 let pageUrl = '',
-    pageTitle = '';
+    pageTitle = '',
+    bookCoverUrl = browser.runtime.getURL('assets/cover.jpg');
 
 /**
  * Listening for extension UI events
@@ -90,11 +91,20 @@ browser.tabs
                             $('<img/>').attr('src', response.cover).on('load', () => {
                                 $(this).remove();
                                 $('#bg-image').css('background-image', 'url(' + response.cover + ')');
-                                $('#convert-btn').prop('disabled', false);
+                            }).on('error', () => {
+                                if (response.image.length > 0) {
+                                    $('<img/>').attr('src', response.image).on('load', () => {
+                                        $(this).remove();
+                                        $('#bg-image').css('background-image', 'url(' + response.image + ')');
+                                    })
+                                } else {
+                                    $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+                                }
                             });
                         } else {
-                            $('#convert-btn').prop('disabled', false);
+                            $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
                         }
+                        $('#convert-btn').prop('disabled', false);
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
                     })
                     .catch(error => {

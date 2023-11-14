@@ -23,6 +23,10 @@
     }
   ],
 
+  "web_accessible_resources": [
+    "assets/cover.jpg"
+  ],
+
   "permissions": [
     "activeTab"
   ],

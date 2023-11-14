@@ -1,8 +1,9 @@
 browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
     /** Received the Convert/Download action **/
     if (msg.type === 'convert') {
-        const doc = (new DOMParser()).parseFromString(msg.html, 'text/html');
-        const epub = new Epub(doc, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl);
+        const epub = new Epub(
+            msg.html, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl, browser.runtime.getURL('assets/cover.jpg')
+        );
         epub.process();
 
         return epub.prepareEpubFile((imgUrl, isCover) => {
