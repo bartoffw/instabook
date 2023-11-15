@@ -37,7 +37,7 @@ class Epub {
 
     check() {
         const content = this.#readability.parse();
-        const parsedContent = this.cleanupContent(
+        const parsedContent = Epub.cleanupContent(
             content.content
         );
         const ogImg = $(this.#docClone).find('meta[property="og:image"]:eq(0)');
@@ -60,7 +60,7 @@ class Epub {
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
         this.#bookLanguage = this.#parsedContent.lang;
 
-        this.#parsedContent.content = this.cleanupContent(
+        this.#parsedContent.content = Epub.cleanupContent(
             this.processImages(
                 this.#parsedContent.content
             )
@@ -108,12 +108,14 @@ class Epub {
         // <img> tags
         $content.find('img').each(function (idx, image) {
             const url = decodeURIComponent(image.src.replace('moz-extension:', ''));
-            const ext = that.extractExt(url);
+            const ext = Epub.extractExt(url);
             if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                 that.#imageUrls.push(url);
                 const newName = 'images/img' + (idx + 1) + '.' + ext;
                 that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />');
                 $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
+            } else {
+                $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" />');
             }
         });
         // <svg> tags
@@ -141,9 +143,9 @@ class Epub {
         return $content.html();
     }
 
-    cleanupContent(content) {
+    static cleanupContent(content) {
         const config = {
-            FORBID_TAGS: ['span']
+            FORBID_TAGS: ['span', 'source']
         };
         content = DOMPurify.sanitize(content, config); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
         return new XMLSerializer().serializeToString(
@@ -167,11 +169,11 @@ class Epub {
         const that = this;
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
-            const ext = that.extractExt(imgUrl);
+            const ext = Epub.extractExt(imgUrl);
             zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(Epub.getAbsoluteUrl(imgUrl, that.#currentUrl, that.#originUrl), false), { binary: true });
         }
         if (that.#coverImage) {
-            const ext = that.extractExt(that.#coverImage);
+            const ext = Epub.extractExt(that.#coverImage);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
             zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(that.#coverImage, that.#currentUrl, that.#originUrl), true), { binary: true });
             that.#coverPath = 'images/cover.' + ext;
@@ -233,7 +235,7 @@ class Epub {
             '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n' +
             '   ' + this.#imageItems.join('\n   ') +
             (this.#coverImage ?
-            '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + this.extractExt(this.#coverImage).replace('jpg', 'jpeg') + '" />\n' : '') +
+            '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + Epub.extractExt(this.#coverImage).replace('jpg', 'jpeg') + '" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx"' + (this.dirRtl ? ' page-progression-direction="rtl"' : '') + '>\n' +
             '   <itemref idref="cover" linear="yes" />\n' +
@@ -462,7 +464,7 @@ class Epub {
         return realStartY + textHeight + bgMargin;
     }
 
-    extractExt(fileName) {
+    static extractExt(fileName) {
         let ext = fileName.split('.').pop().toLowerCase();
         if (ext === fileName || ext.length > 4) {
             ext = 'jpg';
