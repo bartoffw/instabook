@@ -104,6 +104,8 @@ class Epub {
             if (firstImage.length > 0) {
                 that.#coverImage = firstImage;
             }
+        } else {
+            that.#coverImage = that.#defaultCoverUrl;
         }
         // <img> tags
         $content.find('img').each(function (idx, image) {
