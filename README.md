@@ -1,11 +1,12 @@
 # Instabook
 
-Create an eBook from any web page instantly and beautifully.
+Create an Ebook from any web page instantly and beautifully.
 
 ## Description
 
-Instabook is a browser extension that allows you to convert any web page into an ebook for free.
-With Instabook, you can save web pages as EPUBs and read them offline on your computer or ebook reader.
+Instabook is a browser extension that makes it easy to convert any web page with content into a stylish, clutter-free, Ebook for free.
+You can save web pages as EPUB files and read them offline on your computer or Ebook reader.
+You also get to preview the cover page of your Ebook before the epub file is generated.
 
 ## Installation
 
@@ -19,17 +20,17 @@ To use Instabook, follow these steps:
 1. Navigate to the web page you want to convert.
 2. Click the Instabook icon in your browser's toolbar.
 3. Click "Download".
-4. Wait for the download process to complete.
+4. Wait for the conversion and download process to complete.
 5. Enjoy!
 
 ## Roadmap
 
 - allow changing ebook title
-- release the extension for other browsers
+- release the extension for other browsers (including mobile)
 - adding multiple language support for the extension
 - adding config page
 - adding and managing chapters in the ebook
-- customizing the title page in the ebook (adding cover image)
+- customizing the title page in the ebook (adding a cover image)
 
 ## Configuration
 

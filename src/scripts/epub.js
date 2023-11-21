@@ -48,8 +48,8 @@ class Epub {
             image: img.length > 0 ? Epub.getAbsoluteUrl(img.attr('src'), this.#currentUrl, this.#originUrl) : '',
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
-            title: this.stripHtml(content.title),
-            author: this.stripHtml(content.byline)
+            title: Epub.stripHtml(content.title),
+            author: Epub.stripHtml(content.byline)
             //images: imgUrls
         };
     }
@@ -71,7 +71,7 @@ class Epub {
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
             '<head>\n' +
             '  <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
-            '  <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
+            '  <title>' + Epub.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
             this.#parsedContent.content + '\n' +
@@ -156,7 +156,7 @@ class Epub {
             .replace('</body></html>', '');
     }
 
-    stripHtml(content) {
+    static stripHtml(content) {
         let div = document.createElement('div');
         div.innerHTML = content;
         return div.textContent || div.innerText || '';
@@ -194,7 +194,7 @@ class Epub {
         }).then((content) => {
             $('#convert-btn').prop('disabled', false);
             $('#convert-spinner').removeClass('visually-hidden');
-            let filename = this.stripHtml(that.#parsedContent.title) + ' (Instabooked).epub';
+            let filename = Epub.stripHtml(that.#parsedContent.title) + ' (Instabooked).epub';
             saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
         }, (error) => {
             $('#convert-btn').prop('disabled', false);
@@ -219,9 +219,9 @@ class Epub {
             (this.#coverImage ?
             '   <meta name="cover" content="cover_img" />\n' : '') +
             '   <dc:type>Web page</dc:type>\n' +
-            '   <dc:title>' + this.stripHtml(this.#parsedContent.title) + '</dc:title>' +
+            '   <dc:title>' + Epub.stripHtml(this.#parsedContent.title) + '</dc:title>' +
             (this.#parsedContent.byline ?
-            '   <dc:creator>' + this.stripHtml(this.#parsedContent.byline) + '</dc:creator>\n' : '') +
+            '   <dc:creator>' + Epub.stripHtml(this.#parsedContent.byline) + '</dc:creator>\n' : '') +
             '   <dc:description>Read time: ' + this.#bookReadTime.minutes + ' minutes</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
             '   <dc:publisher>Instabook (https://instabook.site)</dc:publisher>\n' +
@@ -260,10 +260,10 @@ class Epub {
             '   <meta name="dtb:maxPageNumber" content="0"/>\n' +
             '</head>\n' +
             '<docTitle>\n' +
-            '   <text>' + this.stripHtml(this.#parsedContent.title) + '</text>\n' +
+            '   <text>' + Epub.stripHtml(this.#parsedContent.title) + '</text>\n' +
             '</docTitle>\n' +
             '<docAuthor>\n' +
-            '   <text>' + this.stripHtml(this.#parsedContent.byline) + '</text>\n' +
+            '   <text>' + Epub.stripHtml(this.#parsedContent.byline) + '</text>\n' +
             '</docAuthor>\n' +
             '<navMap>\n' +
             '   <navPoint class="cover" id="navPoint-titlepage" playOrder="1">\n' +
@@ -293,7 +293,7 @@ class Epub {
             '   <nav id="toc" epub:type="toc">\n' +
             '       <h1 class="frontmatter">Table of Contents</h1>\n' +
             '       <ol class="contents">\n' +
-            '           <li><a href="pages/content.xhtml">' + this.stripHtml(this.#parsedContent.title) + '</a></li>\n' +
+            '           <li><a href="pages/content.xhtml">' + Epub.stripHtml(this.#parsedContent.title) + '</a></li>\n' +
             '       </ol>\n' +
             '   </nav>\n' +
             '</body>\n' +
@@ -305,7 +305,7 @@ class Epub {
             '<!DOCTYPE html>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
             '<head>\n' +
-            '   <title>' + this.stripHtml(this.#parsedContent.title) + '</title>\n' +
+            '   <title>' + Epub.stripHtml(this.#parsedContent.title) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
             '<body>\n' +
@@ -354,6 +354,9 @@ class Epub {
         // from: https://pqina.nl/blog/cropping-images-to-an-aspect-ratio-with-javascript/
         return new Promise((resolve) => {
             const aspectRatio = 0.75; // 4:3 ratio in portrait mode
+            const coverHeight = 568;
+            const coverWidth = 426;
+
             const inputImage = new Image();
             inputImage.crossOrigin = 'anonymous';
             inputImage.onerror = () => {
@@ -369,48 +372,48 @@ class Epub {
                 // get the aspect ratio of the input image
                 const inputImageAspectRatio = inputWidth / inputHeight;
 
+                let croppedWidth = inputWidth;
+                let croppedHeight = inputHeight;
                 // if it's bigger than our target aspect ratio
-                let outputWidth = inputWidth;
-                let outputHeight = inputHeight;
                 if (inputImageAspectRatio > aspectRatio) {
-                    outputWidth = inputHeight * aspectRatio;
+                    croppedWidth = inputHeight * aspectRatio;
                 } else if (inputImageAspectRatio < aspectRatio) {
-                    outputHeight = inputWidth / aspectRatio;
+                    croppedHeight = inputWidth / aspectRatio;
                 }
-
-                // calculate the position to draw the image at
-                const outputX = (outputWidth - inputWidth) * 0.5;
-                const outputY = (outputHeight - inputHeight) * 0.5;
+                const inputX = (inputWidth - croppedWidth) * 0.5;
+                const inputY = (inputHeight - croppedHeight) * 0.5;
 
                 // create a canvas that will present the output image
                 const outputImage = document.createElement('canvas');
 
-                // set it to the same size as the image
-                outputImage.width = outputWidth;
-                outputImage.height = outputHeight;
+                // set it to the same size as the cover image
+                outputImage.width = coverWidth;
+                outputImage.height = coverHeight;
 
                 // draw our image at position 0, 0 on the canvas
                 const ctx = outputImage.getContext('2d');
-                ctx.drawImage(inputImage, outputX, outputY);
+                ctx.drawImage(inputImage,
+                    inputX, inputY, croppedWidth, croppedHeight,
+                    0, 0, coverWidth, coverHeight);
 
                 // add text on the image
                 let currentPosY = 0;
                 currentPosY = that.drawTitle(
-                    ctx, that.bookTitle, 20, 'small-caps bold', 30, outputWidth,
-                    outputHeight * 0.05, 'rgba(255, 255, 255, 0.6)'
+                    ctx, that.bookTitle, 20, 'small-caps bold', 30, coverWidth,
+                    coverHeight * 0.05, 'rgba(255, 255, 255, 0.6)'
                 );
                 if (this.#parsedContent.byline) {
                     currentPosY = that.drawTitle(
-                        ctx, this.#parsedContent.byline, 13, 'bold', 23, outputWidth,
+                        ctx, this.#parsedContent.byline, 13, 'bold', 23, coverWidth,
                         currentPosY, 'rgba(255, 255, 255, 0.6)'
                     );
                 }
                 currentPosY = that.drawTitle(
-                    ctx, 'Read time: ' + that.bookReadTime + ' minutes', 12, '', 22, outputWidth,
+                    ctx, 'Read time: ' + that.bookReadTime + ' minutes', 12, '', 22, coverWidth,
                     currentPosY, 'rgba(255, 255, 255, 0.6)'
                 );
                 that.drawTitle(
-                    ctx, 'Downloaded from ' + that.sourceDomain, 12, '', 22, outputWidth,
+                    ctx, 'Downloaded from ' + that.sourceDomain, 12, '', 22, coverWidth,
                     currentPosY, 'rgba(255, 255, 255, 0.6)'
                 );
 
@@ -513,7 +516,7 @@ class Epub {
     }
 
     get bookTitle() {
-        return this.stripHtml(this.#parsedContent.title);
+        return Epub.stripHtml(this.#parsedContent.title);
     }
 
     get bookByline() {
