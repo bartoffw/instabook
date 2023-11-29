@@ -24,21 +24,18 @@ document.addEventListener('click', (event) => {
                         result.then((message) => {
                             btnLoading(false);
                         }, (error) => {
-                            $('#error-content').html(getErrorText()).show();
+                            unexpectedError('Error on background script query: ' + error);
                             btnLoading(false);
-                            console.error('Error on background script query: ' + error)
                         });
                     })
                     .catch(error => {
-                        $('#error-content').html(getErrorText()).show();
+                        unexpectedError('Error on send message: ' + error);
                         btnLoading(false);
-                        console.error('Error on send message: ' + error)
                     });
             })
             .catch(error => {
-                $('#error-content').html(getErrorText()).show();
+                unexpectedError('Error on tab query: ' + error);
                 btnLoading(false);
-                console.error('Error on tab query: ' + error)
             });
     }
     else if (event.target.id === 'reset-btn') {
@@ -47,14 +44,18 @@ document.addEventListener('click', (event) => {
 });
 
 function reportExecuteScriptError(error) {
-    // document.querySelector("#popup-content").classList.add("d-none");
-    // document.querySelector("#error-content").classList.remove("d-none");
     console.error(`Failed to execute the content script: ${error.message}`);
 }
 
 function getErrorText() {
     return 'Could not generate the ebook. ' +
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&title=' + encodeURIComponent('Error on ' + pageUrl) + '">on GitHub using this link</a>.';
+}
+
+function unexpectedError(error) {
+    $('#error-content').html(getErrorText()).show();
+    $('#book-preview, #convert-btn').hide();
+    console.error(error);
 }
 
 function btnLoading(isLoading = true) {
@@ -108,14 +109,12 @@ browser.tabs
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
                     })
                     .catch(error => {
-                        $('#error-content').html(getErrorText()).show();
+                        unexpectedError('Error on send message: ' + error);
                         btnLoading(false);
-                        console.error('Error on send message: ' + error)
                     });
             })
             .catch(error => {
-                $('#error-content').html(getErrorText()).show();
+                unexpectedError('Error on tab query: ' + error);
                 btnLoading(false);
-                console.error('Error on tab query: ' + error)
             });
     }, reportExecuteScriptError);

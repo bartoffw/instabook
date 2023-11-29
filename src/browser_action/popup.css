@@ -1,3 +1,11 @@
+html,
+body {
+    padding: 0;
+    margin: 0;
+    width: 300px;
+    box-sizing: border-box;
+    font-family: sans-serif;
+}
 #popup-content {
     max-width: 300px;
     overflow: hidden;
