@@ -2,7 +2,7 @@ html,
 body {
     padding: 0;
     margin: 0;
-    width: 300px;
+    width: calc(250px + 2rem);
     box-sizing: border-box;
     font-family: sans-serif;
 }

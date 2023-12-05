@@ -1,5 +1,7 @@
 let imageList = {};
 
+console.log('Welcome to Instabook!');
+
 browser.runtime.onMessage.addListener(request => {
     /** get page data needed to generate the epub file **/
     if (request.type === 'get') {
