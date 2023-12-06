@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Instabook",
   "version": "1.0.2",
   "author": "Bartosz Wójcik",
@@ -12,6 +12,8 @@
   },
 
   "background": {
+    "service_worker": "scripts/service_worker.js",
+
     "scripts": [
       "scripts/browser-polyfill.min.js",
       "scripts/jquery.min.js",
@@ -22,8 +24,7 @@
       "scripts/jszip.min.js",
       "scripts/epub.js",
       "scripts/background_script.js"
-    ],
-    "persistent": false
+    ]
   },
 
   "content_scripts": [
@@ -42,16 +43,26 @@
   ],
 
   "web_accessible_resources": [
-    "assets/cover.jpg"
+    {
+      "resources": [
+        "assets/cover.jpg"
+      ],
+      "matches": [
+        "*://*/*"
+      ]
+    }
   ],
 
   "permissions": [
     "activeTab"
   ],
 
-  "browser_action": {
-    "default_icon": "icons/logo-32.png",
+  "action": {
+    "default_icon": {
+      "16": "icons/logo-16.png",
+      "32": "icons/logo-32.png"
+    },
     "default_title": "Instabook It!",
-    "default_popup": "browser_action/popup.html"
+    "default_popup": "action/popup.html"
   }
 }
