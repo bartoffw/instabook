@@ -20,31 +20,32 @@ document.addEventListener('click', (event) => {
                         responseData.type = 'convert';
                         responseData.title = tabs[0].title;
                         responseData.url = tabs[0].url;
+                        console.log(responseData);
                         const result = browser.runtime.sendMessage(responseData);
                         result.then((message) => {
                             btnLoading(false);
-                        }, (error) => {
+                        }/*, (error) => {
                             unexpectedError('Error on background script query: ' + error);
                             btnLoading(false);
-                        });
+                        }*/);
                     })
-                    .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
-                        btnLoading(false);
-                    });
+                    // .catch(error => {
+                    //     unexpectedError('Error on send message: ' + error);
+                    //     btnLoading(false);
+                    // });
             })
-            .catch(error => {
-                unexpectedError('Error on tab query: ' + error);
-                btnLoading(false);
-            });
+            // .catch(error => {
+            //     unexpectedError('Error on tab query: ' + error);
+            //     btnLoading(false);
+            // });
     }
     else if (event.target.id === 'reset-btn') {
-        console.log('Reset!');
+        //console.log('Reset!');
     }
 });
 
 function reportExecuteScriptError(error) {
-    console.error(`Failed to execute the content script: ${error.message}`);
+    //console.error(`Failed to execute the content script: ${error.message}`);
 }
 
 function getErrorText() {
@@ -55,7 +56,7 @@ function getErrorText() {
 function unexpectedError(error) {
     $('#error-content').html(getErrorText()).show();
     $('#book-preview, #convert-btn').hide();
-    console.error(error);
+    //console.error(error);
 }
 
 function btnLoading(isLoading = true) {
@@ -108,13 +109,13 @@ browser.tabs
                         $('#convert-btn').prop('disabled', false);
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
                     })
-                    .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
-                        btnLoading(false);
-                    });
+                    // .catch(error => {
+                    //     unexpectedError('Error on send message: ' + error);
+                    //     btnLoading(false);
+                    // });
             })
-            .catch(error => {
-                unexpectedError('Error on tab query: ' + error);
-                btnLoading(false);
-            });
+            // .catch(error => {
+            //     unexpectedError('Error on tab query: ' + error);
+            //     btnLoading(false);
+            // });
     }, reportExecuteScriptError);

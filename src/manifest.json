@@ -1,5 +1,6 @@
 {
-  "manifest_version": 3,
+  "{{chrome}}.manifest_version": 3,
+  "{{firefox}}.manifest_version": 2,
   "name": "Instabook",
   "version": "1.0.2",
   "author": "Bartosz Wójcik",
@@ -12,10 +13,8 @@
   },
 
   "background": {
-    "service_worker": "scripts/service_worker.js",
-
-    "scripts": [
-      "scripts/browser-polyfill.min.js",
+    "{{chrome}}.service_worker": "scripts/background.js",
+    "{{firefox}}.scripts": [
       "scripts/jquery.min.js",
       "scripts/Readability.js",
       "scripts/jszip-utils.min.js",
@@ -23,7 +22,7 @@
       "scripts/filesaver.min.js",
       "scripts/jszip.min.js",
       "scripts/epub.js",
-      "scripts/background_script.js"
+      "scripts/background.js"
     ]
   },
 
@@ -31,7 +30,6 @@
     {
       "matches": ["*://*/*"],
       "js": [
-        "scripts/browser-polyfill.min.js",
         "scripts/jquery.min.js",
         "scripts/jszip-utils.min.js",
         "scripts/purify.js",
