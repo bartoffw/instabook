@@ -1,12 +1,11 @@
-// importScripts(
-//     "./browser-polyfill.min.js"
-// )
+importScripts(
+    "./browser-polyfill.min.js"
+)
 
 // import * as Module from './browser-polyfill.min.js'
 // import Readability from './Readability.js'
 // import Epub from './epub.js'
 
-import browser from "webextension-polyfill";
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
 
