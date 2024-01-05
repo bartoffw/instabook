@@ -38,6 +38,13 @@ To use Instabook, follow these steps:
 
 There are no configuration options yet, but it's on our roadmap.
 
+## Building the extension
+
+The extension utilizes npm build scripts to use custom build configurations for each supported browser.
+Running `npm run build` builds the extension for all browsers. The result is stored in the `src/dist` folder.
+
+Running `npm run clean` cleans the `dist` folder. The dist folder is also cleaned before every build.
+
 ## Troubleshooting
 
 No issues reported yet. Please submit any problems you find on the [GitHub page](https://github.com/bartoffw/instabook/issues).

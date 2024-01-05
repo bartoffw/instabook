@@ -21,13 +21,7 @@ document.addEventListener('click', (event) => {
                         responseData.title = tabs[0].title;
                         responseData.url = tabs[0].url;
                         console.log(responseData);
-                        const result = browser.runtime.sendMessage(responseData);
-                        result.then((message) => {
-                            btnLoading(false);
-                        }/*, (error) => {
-                            unexpectedError('Error on background script query: ' + error);
-                            btnLoading(false);
-                        }*/);
+                        sendRuntimeMessage(responseData);
                     })
                     // .catch(error => {
                     //     unexpectedError('Error on send message: ' + error);
@@ -43,6 +37,16 @@ document.addEventListener('click', (event) => {
         //console.log('Reset!');
     }
 });
+
+function sendRuntimeMessage(data) {
+    const result = browser.runtime.sendMessage(data);
+    result.then((response) => {
+        btnLoading(false);
+    }/*, (error) => {
+        unexpectedError('Error on background script query: ' + error);
+        btnLoading(false);
+    }*/);
+}
 
 function reportExecuteScriptError(error) {
     //console.error(`Failed to execute the content script: ${error.message}`);

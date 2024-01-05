@@ -1,7 +1,3 @@
-importScripts(
-    "./browser-polyfill.min.js"
-)
-
 // import * as Module from './browser-polyfill.min.js'
 // import Readability from './Readability.js'
 // import Epub from './epub.js'
@@ -9,17 +5,18 @@ importScripts(
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
 
-browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    sendResponse({ msg: 'received in background!' });
     /** Received the Convert/Download action **/
-    if (msg.type === 'convert') {
-        msg.coverUrl = browser.runtime.getURL('assets/cover.jpg');
-        sendMessageToOffscreenDocument('create-epub', msg);
+    if (message.type === 'convert') {
+        message.coverUrl = chrome.runtime.getURL('assets/cover.jpg');
+        sendMessageToOffscreenDocument('create-epub', message);
     }
-    else if (msg.target === 'background' && msg.type === 'epub-prepared') {
+    else if (message.target === 'background' && message.type === 'epub-prepared') {
 
     }
     /** Received the Reset action (not used currently) **/
-    else if (msg.type === 'reset') {
+    else if (message.type === 'reset') {
         console.log('Reset msg');
     }
 });
@@ -27,15 +24,21 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
 async function sendMessageToOffscreenDocument(type, data) {
     // Create an offscreen document if one doesn't exist yet
     if (!(await hasDocument())) {
-        await browser.offscreen.createDocument({
-            url: OFFSCREEN_DOCUMENT_PATH,
-            reasons: [browser.offscreen.Reason.DOM_PARSER],
-            justification: 'Making an offline copy of the document'
-        });
+        try {
+            await chrome.offscreen.createDocument({
+                url: OFFSCREEN_DOCUMENT_PATH,
+                reasons: [chrome.offscreen.Reason.DOM_PARSER],
+                justification: 'Making an offline copy of the document'
+            });
+        } catch (error) {
+            if (!error.message.startsWith('Only a single offscreen')) {
+                throw error;
+            }
+        }
     }
     // Now that we have an offscreen document, we can dispatch the
     // message.
-    browser.runtime.sendMessage({
+    await chrome.runtime.sendMessage({
         type,
         target: 'offscreen',
         data
@@ -46,7 +49,7 @@ async function closeOffscreenDocument() {
     if (!(await hasDocument())) {
         return;
     }
-    await browser.offscreen.closeDocument();
+    await chrome.offscreen.closeDocument();
 }
 
 async function hasDocument() {
@@ -59,7 +62,7 @@ async function hasDocument() {
     // }
     // return false;
 
-    const offscreenUrl = browser.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
+    const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
     const existingContexts = await chrome.runtime.getContexts({
         contextTypes: ['OFFSCREEN_DOCUMENT'],
         documentUrls: [offscreenUrl]
