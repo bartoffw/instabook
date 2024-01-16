@@ -17,6 +17,9 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
                         if (err) {
                             reject(err);
                         } else {
+                            chrome.runtime.sendMessage({
+                                type: 'conversion-finished'
+                            });
                             resolve(data);
                         }
                     });

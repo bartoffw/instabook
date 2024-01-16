@@ -21,14 +21,14 @@
       "scripts/jszip.min.js",
       "scripts/epub.js",
       "scripts/background.js"
-    ]
+    ],
+    "persistent": false
   },
 
   "content_scripts": [
     {
       "matches": ["*://*/*"],
       "js": [
-        "scripts/browser-polyfill.min.js",
         "scripts/jquery.min.js",
         "scripts/jszip-utils.min.js",
         "scripts/purify.js",

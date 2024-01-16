@@ -20,32 +20,37 @@ document.addEventListener('click', (event) => {
                         responseData.type = 'convert';
                         responseData.title = tabs[0].title;
                         responseData.url = tabs[0].url;
-                        console.log(responseData);
                         sendRuntimeMessage(responseData);
                     })
-                    // .catch(error => {
-                    //     unexpectedError('Error on send message: ' + error);
-                    //     btnLoading(false);
-                    // });
+                    .catch(error => {
+                        unexpectedError('Error on send message: ' + error);
+                        btnLoading(false);
+                    });
             })
-            // .catch(error => {
-            //     unexpectedError('Error on tab query: ' + error);
-            //     btnLoading(false);
-            // });
+            .catch(error => {
+                unexpectedError('Error on tab query: ' + error);
+                btnLoading(false);
+            });
     }
     else if (event.target.id === 'reset-btn') {
         //console.log('Reset!');
     }
 });
 
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'conversion-finished') {
+        btnLoading(false);
+    }
+})
+
 function sendRuntimeMessage(data) {
     const result = browser.runtime.sendMessage(data);
     result.then((response) => {
-        btnLoading(false);
-    }/*, (error) => {
+        //btnLoading(false);
+    }, (error) => {
         unexpectedError('Error on background script query: ' + error);
         btnLoading(false);
-    }*/);
+    });
 }
 
 function reportExecuteScriptError(error) {
@@ -113,13 +118,13 @@ browser.tabs
                         $('#convert-btn').prop('disabled', false);
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
                     })
-                    // .catch(error => {
-                    //     unexpectedError('Error on send message: ' + error);
-                    //     btnLoading(false);
-                    // });
+                    .catch(error => {
+                        unexpectedError('Error on send message: ' + error);
+                        btnLoading(false);
+                    });
             })
-            // .catch(error => {
-            //     unexpectedError('Error on tab query: ' + error);
-            //     btnLoading(false);
-            // });
+            .catch(error => {
+                unexpectedError('Error on tab query: ' + error);
+                btnLoading(false);
+            });
     }, reportExecuteScriptError);

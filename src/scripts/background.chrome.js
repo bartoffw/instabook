@@ -6,11 +6,12 @@
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    sendResponse({ msg: 'received in background!' });
     /** Received the Convert/Download action **/
     if (message.type === 'convert') {
         message.coverUrl = chrome.runtime.getURL('assets/cover.jpg');
-        sendMessageToOffscreenDocument('create-epub', message);
+        return sendMessageToOffscreenDocument('create-epub', message).then(response => {
+            sendResponse({ msg: 'received in background!' })
+        });
     }
     else if (message.target === 'background' && message.type === 'epub-prepared') {
 
@@ -38,10 +39,13 @@ async function sendMessageToOffscreenDocument(type, data) {
     }
     // Now that we have an offscreen document, we can dispatch the
     // message.
-    await chrome.runtime.sendMessage({
+    const result = await chrome.runtime.sendMessage({
         type,
         target: 'offscreen',
         data
+    });
+    chrome.runtime.sendMessage({
+        type: 'conversion-finished'
     });
 }
 

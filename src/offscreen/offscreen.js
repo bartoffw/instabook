@@ -1,7 +1,9 @@
 // Registering this listener when the script is first executed ensures that the
 // offscreen document will be able to receive messages when the promise returned
 // by `offscreen.createDocument()` resolves.
-chrome.runtime.onMessage.addListener(handleMessages);
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    handleMessages(message).then(sendResponse({ msg: 'Done!' }));
+});
 
 async function handleMessages(message) {
     // Return early if this message isn't meant for the offscreen document.
@@ -12,8 +14,9 @@ async function handleMessages(message) {
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
         case 'create-epub':
+            console.log('creating epub');
             await handleEpubCreation(message.data);
-            break;
+            return true;
         default:
             console.warn(`Unexpected message type received: '${message.type}'.`);
             return false;
@@ -26,7 +29,7 @@ async function handleEpubCreation(msg) {
     );
     epub.process();
 
-    await epub.prepareEpubFile((imgUrl, isCover) => {
+    return epub.prepareEpubFile((imgUrl, isCover) => {
         return new Promise((resolve, reject) => {
             if (isCover) {
                 epub.prepareCoverImage(imgUrl).then(response => {
