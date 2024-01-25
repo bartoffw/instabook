@@ -5,6 +5,7 @@
   "author": "Bartosz Wójcik",
   "homepage_url": "https://github.com/bartoffw/instabook",
   "description": "Create an eBook from any page instantly and beautifully.",
+  "minimum_chrome_version": "118",
 
   "icons": {
     "48": "icons/logo-48.png",
@@ -14,21 +15,6 @@
   "background": {
     "service_worker": "scripts/background.js"
   },
-
-  "content_scripts": [
-    {
-      "matches": ["*://*/*"],
-      "js": [
-        "scripts/browser-polyfill.min.js",
-        "scripts/jquery.min.js",
-        "scripts/jszip-utils.min.js",
-        "scripts/purify.js",
-        "scripts/Readability.js",
-        "scripts/epub.js",
-        "scripts/content_script.js"
-      ]
-    }
-  ],
 
   "web_accessible_resources": [
     {
@@ -43,7 +29,8 @@
 
   "permissions": [
     "activeTab",
-    "offscreen"
+    "offscreen",
+    "scripting"
   ],
 
   "action": {
@@ -51,7 +38,6 @@
       "16": "icons/logo-16.png",
       "32": "icons/logo-32.png"
     },
-    "default_title": "Instabook It!",
-    "default_popup": "action/popup.html"
+    "default_title": "Instabook It!"
   }
 }

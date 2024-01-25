@@ -13,8 +13,8 @@ document.addEventListener('click', (event) => {
         /** Send the Get message to the content script to get the page content and meta info **/
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
-                browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'get' })
+                browser.runtime
+                    .sendMessage({ type: 'get' })
                     .then(response => {
                         let responseData = response;
                         responseData.type = 'convert';
@@ -22,15 +22,15 @@ document.addEventListener('click', (event) => {
                         responseData.url = tabs[0].url;
                         sendRuntimeMessage(responseData);
                     })
-                    .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
-                        btnLoading(false);
-                    });
+                    // .catch(error => {
+                    //     unexpectedError('Error on send message: ' + error);
+                    //     btnLoading(false);
+                    // });
             })
-            .catch(error => {
-                unexpectedError('Error on tab query: ' + error);
-                btnLoading(false);
-            });
+            // .catch(error => {
+            //     unexpectedError('Error on tab query: ' + error);
+            //     btnLoading(false);
+            // });
     }
     else if (event.target.id === 'reset-btn') {
         //console.log('Reset!');
@@ -47,10 +47,10 @@ function sendRuntimeMessage(data) {
     const result = browser.runtime.sendMessage(data);
     result.then((response) => {
         //btnLoading(false);
-    }, (error) => {
+    }/*, (error) => {
         unexpectedError('Error on background script query: ' + error);
         btnLoading(false);
-    });
+    }*/);
 }
 
 function reportExecuteScriptError(error) {
@@ -88,8 +88,8 @@ browser.tabs
         pageTitle = tabs[0].title;
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
-                browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'preview' })
+                /*browser.runtime
+                    .sendMessage({ type: 'preview', tabId: tabs[0].id, title: pageTitle, url: pageUrl })
                     .then(response => {
                         $("#page-title").html(response.title.length > 0 ? response.title : pageTitle);
                         if (response.author.length > 0) {
@@ -117,14 +117,14 @@ browser.tabs
                         }
                         $('#convert-btn').prop('disabled', false);
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
-                    })
-                    .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
-                        btnLoading(false);
-                    });
+                    })*/
+                    // .catch(error => {
+                    //     unexpectedError('Error on send message: ' + error);
+                    //     btnLoading(false);
+                    // });
             })
-            .catch(error => {
-                unexpectedError('Error on tab query: ' + error);
-                btnLoading(false);
-            });
+            // .catch(error => {
+            //     unexpectedError('Error on tab query: ' + error);
+            //     btnLoading(false);
+            // });
     }, reportExecuteScriptError);

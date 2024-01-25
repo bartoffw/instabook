@@ -3,74 +3,75 @@ let imageList = {};
 console.log('Welcome to Instabook!');
 
 browser.runtime.onMessage.addListener(request => {
-    /** get page data needed to generate the epub file **/
-    if (request.type === 'get') {
-        // TODO:
-        //  - get meta - og:title, og:description
-        //  - content validation before downloading:
-        //    - check if all images can be loaded
-        //    - check the text length
+    switch (request.type) {
+        case 'preview':
+            console.log('received preview in content-script');
+            /** get the ebook cover preview in the popup **/
+            const epub = new Epub(
+                document.documentElement.outerHTML, getCurrentUrl(), {}, {}, getCurrentUrl(), getOriginUrl()
+            );
+            const parsedInfo = epub.check();
+            return Promise.resolve(parsedInfo);
+            /*images: parsedInfo.images.map((url) => {
+                return getAbsoluteUrl(url);
+            })*/
 
-        $('img').each(function() {
-            // remove lazy loading for images
-            if (this.hasAttribute('data-src') && !this.hasAttribute('src')) {
-                $(this).attr('src', $(this).attr('data-src'));
-                $(this).removeAttr('data-src');
-            }
-            if (this.hasAttribute('loading')) {
-                $(this).removeAttr('loading');
-            }
-        });
+        case 'get':
+            /** get page data needed to generate the epub file **/
+            // TODO:
+            //  - get meta - og:title, og:description
+            //  - content validation before downloading:
+            //    - check if all images can be loaded
+            //    - check the text length
 
-        return Promise.resolve(getPageData());
-    }
-    /** UNUSED: get specific image **/
-    else if (request.type === 'img') {
-        return new Promise((resolve, reject) => {
-            //console.log(getAbsoluteUrl(request.url));
-            // JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
-            //     console.log(err, data);
-            //     if (err) {
-            //         reject(err);
-            //     } else {
-            //         resolve(data);
-            //         /*if (data.length > 0) {
-            //             resolve(data);
-            //         } else {
-            //             setTimeout(() => {
-            //                 JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
-            //                     err ? reject(err) : resolve(data);
-            //                 });
-            //             }, 200);
-            //         }*/
-            //         /*if (request.url in imageList) {
-            //             const imageUrl = getImageViaCanvas(imageList[request.url]);
-            //             if (imageUrl.trim().length > 0) {
-            //                 fetch(imageUrl).then(res => resolve(res.blob()));
-            //             } else {
-            //                 resolve('');
-            //             }
-            //         }*/
-            //     }
-            // });
-            $.get(Epub.getAbsoluteUrl(request.url, getCurrentUrl(), getOriginUrl()), function(content) {
-                //console.log(content);
-                resolve(content);
-            });//.fail((error) => {
-            //    reject(error);
-            //});
-        });
-    }
-    /** get the ebook cover preview in the popup **/
-    else if (request.type === 'preview') {
-        const epub = new Epub(
-            document.documentElement.outerHTML, getCurrentUrl(), {}, {}, getCurrentUrl(), getOriginUrl()
-        );
-        const parsedInfo = epub.check();
-        return Promise.resolve(parsedInfo);
-        /*images: parsedInfo.images.map((url) => {
-            return getAbsoluteUrl(url);
-        })*/
+            $('img').each(function() {
+                // remove lazy loading for images
+                if (this.hasAttribute('data-src') && !this.hasAttribute('src')) {
+                    $(this).attr('src', $(this).attr('data-src'));
+                    $(this).removeAttr('data-src');
+                }
+                if (this.hasAttribute('loading')) {
+                    $(this).removeAttr('loading');
+                }
+            });
+            return Promise.resolve(getPageData());
+
+        case 'img':
+            /** UNUSED: get specific image **/
+            return new Promise((resolve, reject) => {
+                //console.log(getAbsoluteUrl(request.url));
+                // JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
+                //     console.log(err, data);
+                //     if (err) {
+                //         reject(err);
+                //     } else {
+                //         resolve(data);
+                //         /*if (data.length > 0) {
+                //             resolve(data);
+                //         } else {
+                //             setTimeout(() => {
+                //                 JSZipUtils.getBinaryContent(getAbsoluteUrl(request.url), function (err, data) {
+                //                     err ? reject(err) : resolve(data);
+                //                 });
+                //             }, 200);
+                //         }*/
+                //         /*if (request.url in imageList) {
+                //             const imageUrl = getImageViaCanvas(imageList[request.url]);
+                //             if (imageUrl.trim().length > 0) {
+                //                 fetch(imageUrl).then(res => resolve(res.blob()));
+                //             } else {
+                //                 resolve('');
+                //             }
+                //         }*/
+                //     }
+                // });
+                $.get(Epub.getAbsoluteUrl(request.url, getCurrentUrl(), getOriginUrl()), function(content) {
+                    //console.log(content);
+                    resolve(content);
+                });//.fail((error) => {
+                //    reject(error);
+                //});
+            });
     }
 });
 

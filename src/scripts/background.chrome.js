@@ -2,12 +2,55 @@
 // import Readability from './Readability.js'
 // import Epub from './epub.js'
 
+// importScripts(
+//     "browser-polyfill.min.js",
+//     //"jquery.min.js",
+//     "jszip-utils.min.js",
+//     "purify.js",
+//     "Readability.js",
+//     "epub.js"//,
+//     //"content_script.js"
+// );
+
+importScripts("browser-polyfill.min.js");
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
 
+chrome.action.onClicked.addListener((tab) => {
+    if (!tab.url.includes('chrome://')) {
+        chrome.action.setPopup({ popup: 'action/popup.html' });
+        browser.browserAction.openPopup();
+        chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: [
+                "scripts/browser-polyfill.min.js",
+                "scripts/jquery.min.js",
+                "scripts/jszip-utils.min.js",
+                "scripts/purify.js",
+                "scripts/Readability.js",
+                "scripts/epub.js",
+                'scripts/content_script.js'
+            ]
+        });
+    }
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'preview') {
+        // return sendMessageToOffscreenDocument('preview-epub', message).then(response => {
+        //     sendResponse({ msg: 'received in background!' })
+        // });
+        // const epub = new Epub(
+        //     document.documentElement.outerHTML, getCurrentUrl(), {}, {}, getCurrentUrl(), getOriginUrl()
+        // );
+        // const parsedInfo = epub.check();
+        // return Promise.resolve(parsedInfo);
+        /*images: parsedInfo.images.map((url) => {
+            return getAbsoluteUrl(url);
+        })*/
+    }
     /** Received the Convert/Download action **/
-    if (message.type === 'convert') {
+    else if (message.type === 'convert') {
         message.coverUrl = chrome.runtime.getURL('assets/cover.jpg');
         return sendMessageToOffscreenDocument('create-epub', message).then(response => {
             sendResponse({ msg: 'received in background!' })

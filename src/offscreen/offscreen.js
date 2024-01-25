@@ -13,6 +13,10 @@ async function handleMessages(message) {
 
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
+        case 'preview-epub':
+            console.log('previewing epub');
+            await handleEpubPreview(message.data);
+            return true;
         case 'create-epub':
             console.log('creating epub');
             await handleEpubCreation(message.data);
@@ -21,6 +25,16 @@ async function handleMessages(message) {
             console.warn(`Unexpected message type received: '${message.type}'.`);
             return false;
     }
+}
+
+async function handleEpubPreview(msg) {
+    alert(msg.url);
+    alert(msg.title);
+    const epub = new Epub(
+        document.documentElement.outerHTML, msg.url, {}, {}, msg.url, getOriginUrl()
+    );
+    const parsedInfo = epub.check();
+    return Promise.resolve(parsedInfo);
 }
 
 async function handleEpubCreation(msg) {
