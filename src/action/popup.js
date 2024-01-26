@@ -35,6 +35,20 @@ document.addEventListener('click', (event) => {
     else if (event.target.id === 'reset-btn') {
         //console.log('Reset!');
     }
+    else if (event.target.id === 'page-title') {
+        $('#edit-title').val($('#page-title').text());
+        $('#edit-title').css('height', ($('#page-title').height() + 25) + 'px');
+        $('#page-title').hide();
+        $('#edit-title').css('display', 'block').focus();
+    }
+});
+
+document.addEventListener('keypress', (event) => {
+    if (event.target.id === 'edit-title' && event.key === 'Enter') {
+        $('#page-title').text($('#edit-title').val());
+        $('#page-title').show();
+        $('#edit-title').hide();
+    }
 });
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

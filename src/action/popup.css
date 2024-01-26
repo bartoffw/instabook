@@ -46,7 +46,6 @@ h1, h2, h3 {
     background-color: rgba(255, 255, 255, 0.7);
 }
 h1 {
-    margin-top: 0.5em;
     padding: 0.5em;
     font-size: 1em;
     font-weight: bold;
@@ -64,4 +63,38 @@ h2, h3 {
 }
 #author-field {
     font-weight: bold;
+}
+#page-title {
+    cursor: pointer;
+}
+#edit-title-btn {
+    visibility: hidden;
+    width: 100%;
+    text-align: center;
+    margin: 0.2em 0;
+    font-size: 0.8em;
+}
+#page-title:hover {
+    color: #55658e;
+}
+#edit-title {
+    display: none;
+    border: 0 none;
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.7);
+    width: 100%;
+    margin: 0;
+    padding: 0.6em;
+    resize: none;
+    line-height: 1.2em;
+    font-size: 1em;
+    font-weight: bold;
+    font-variant: small-caps;
+}
+#edit-title:focus {
+    outline: 0;
+    box-shadow: none;
+}
+#book-preview:hover #edit-title-btn {
+    visibility: visible;
 }
