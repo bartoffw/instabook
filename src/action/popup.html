@@ -15,7 +15,10 @@
         <div id="book-preview">
             <div id="bg-image"></div>
             <div id="text-section">
-                <label for="edit-title" id="edit-title-btn">&#9998;</label>
+                <div id="edit-buttons">
+                    <label for="edit-title" id="edit-title-btn" class="edit-btn" title="Change the title">&#9998;</label>
+                    <label id="revert-title-btn" class="edit-btn" title="Revert to original title">&#8630;</label>
+                </div>
                 <h1 id="page-title"></h1>
                 <textarea id="edit-title"></textarea>
                 <h3 id="author"><span id="author-field"></span></h3>
@@ -37,13 +40,14 @@
     <div class="card-footer">
         <div class="d-grid text-center" id="extension-version">
             <a href="https://instabook.site/">
-                <small>Instabook v1.0.2</small>
+                <small>Instabook v1.1.0</small>
             </a>
         </div>
     </div>
 </div>
 <script src="../scripts/browser-polyfill.min.js"></script>
 <script src="../scripts/jquery.min.js"></script>
+<script src="../scripts/storage.js"></script>
 <script src="./popup.js"></script>
 </body>
 </html>

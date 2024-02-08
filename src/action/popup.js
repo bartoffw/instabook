@@ -1,6 +1,7 @@
 let pageUrl = '',
     pageTitle = '',
-    bookCoverUrl = browser.runtime.getURL('assets/cover.jpg');
+    bookCoverUrl = browser.runtime.getURL('assets/cover.jpg'),
+    titleKey = 'customTitle';
 
 /**
  * Listening for extension UI events
@@ -18,8 +19,9 @@ document.addEventListener('click', (event) => {
                     .then(response => {
                         let responseData = response;
                         responseData.type = 'convert';
-                        responseData.title = tabs[0].title;
-                        responseData.url = tabs[0].url;
+                        responseData.title = pageTitle;
+                        responseData.displayTitle = $('#page-title').text();
+                        responseData.url = pageUrl;
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
@@ -41,15 +43,47 @@ document.addEventListener('click', (event) => {
         $('#page-title').hide();
         $('#edit-title').css('display', 'block').focus();
     }
+    else if (event.target.id === 'revert-title-btn') {
+        Storage.deleteValue(pageUrl, titleKey);
+        displayTitle(pageTitle, false);
+    }
+
+    if (event.target.id !== 'page-title' && event.target.id !== 'edit-title' && $('#edit-title').is(':visible')) {
+        if ($('#edit-title').val() !== pageTitle) {
+            saveEditedTitle($('#edit-title').val());
+        } else {
+            displayTitle(pageTitle, false);
+        }
+    }
 });
 
 document.addEventListener('keypress', (event) => {
     if (event.target.id === 'edit-title' && event.key === 'Enter') {
-        $('#page-title').text($('#edit-title').val());
-        $('#page-title').show();
-        $('#edit-title').hide();
+        if ($('#edit-title').val() !== pageTitle) {
+            saveEditedTitle($('#edit-title').val());
+        } else {
+            displayTitle(pageTitle, false);
+        }
     }
 });
+
+function displayTitle(title, isCustom) {
+    $('#page-title').text(title);
+    $('#page-title').show();
+    $('#edit-title').hide();
+    if (isCustom) {
+        $('#edit-title-btn').hide();
+        $('#revert-title-btn').show();
+    } else {
+        $('#edit-title-btn').show();
+        $('#revert-title-btn').hide();
+    }
+}
+
+function saveEditedTitle(customTitle) {
+    displayTitle(customTitle, true);
+    Storage.storeValue(pageUrl, titleKey, customTitle);
+}
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'conversion-finished') {
@@ -68,7 +102,7 @@ function sendRuntimeMessage(data) {
 }
 
 function reportExecuteScriptError(error) {
-    //console.error(`Failed to execute the content script: ${error.message}`);
+    console.error(`Failed to execute the content script: ${error.message}`);
 }
 
 function getErrorText() {
@@ -79,7 +113,7 @@ function getErrorText() {
 function unexpectedError(error) {
     $('#error-content').html(getErrorText()).show();
     $('#book-preview, #convert-btn').hide();
-    //console.error(error);
+    console.error(error);
 }
 
 function btnLoading(isLoading = true) {
@@ -92,20 +126,27 @@ function btnLoading(isLoading = true) {
     }
 }
 
+function sanitizeUrl(url) {
+    if (url.indexOf('?') > 0) {
+        url = window.location.href.split('?')[0];
+    }
+    url = url.substring(0, url.lastIndexOf('/') + 1);
+    return url;
+}
+
 /**
  * Getting the cover image and read time from the content script
  */
 browser.tabs
     .query({ currentWindow: true, active: true })
     .then((tabs) => {
-        pageUrl = tabs[0].url;
+        pageUrl = sanitizeUrl(tabs[0].url);
         pageTitle = tabs[0].title;
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'preview' })
                     .then(response => {
-                        $("#page-title").html(response.title.length > 0 ? response.title : pageTitle);
                         if (response.author.length > 0) {
                             $('#author-field').html(response.author).show();
                         } else {
@@ -131,6 +172,11 @@ browser.tabs
                         }
                         $('#convert-btn').prop('disabled', false);
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
+
+                        // get custom title if exists
+                        Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
+                            displayTitle(customTitle ? customTitle : pageTitle, customTitle);
+                        });
                     })
                     .catch(error => {
                         unexpectedError('Error on send message: ' + error);

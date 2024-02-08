@@ -13,15 +13,18 @@ class Epub {
     #currentUrl;
     #originUrl;
     #defaultCoverUrl;
+    #documentTitle;
+    #displayTitle;
 
     #bookId;
     #bookLanguage = 'en';
     #bookReadTime;
 
     #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
+    #titleKey = 'customTitle';
 
     constructor(docHTML, sourceUrl = '', iframes = {}, images = {}, currentUrl = '', originUrl = '',
-                defaultCoverUrl = '', threshold = 500) {
+                defaultCoverUrl = '', docTitle = '', displayTitle = '', threshold = 500) {
         this.#iframes = iframes;
         this.#images = images;
         this.#sourceUrl = sourceUrl;
@@ -29,6 +32,8 @@ class Epub {
         this.#originUrl = originUrl;
         this.#htmlContent = docHTML;
         this.#defaultCoverUrl = defaultCoverUrl;
+        this.#documentTitle = docTitle;
+        this.#displayTitle = displayTitle;
 
         const doc = (new DOMParser()).parseFromString(docHTML, 'text/html');
         this.#docClone = this.processIframes(doc); //.cloneNode(true);
@@ -48,13 +53,12 @@ class Epub {
             image: img.length > 0 ? Epub.getAbsoluteUrl(img.attr('src'), this.#currentUrl, this.#originUrl) : '',
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
-            title: Epub.stripHtml(content.title),
             author: Epub.stripHtml(content.byline)
             //images: imgUrls
         };
     }
 
-    process() {
+    async process() {
         this.#bookId = 'instabook-' + Epub.generateUuidv4();
         this.#parsedContent = this.#readability.parse();
         this.#bookReadTime = this.estimateReadingTime(this.#parsedContent.textContent);
@@ -71,7 +75,7 @@ class Epub {
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
             '<head>\n' +
             '  <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
-            '  <title>' + Epub.stripHtml(this.#parsedContent.title) + '</title>\n' +
+            '  <title>' + Epub.stripHtml(this.#documentTitle) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
             this.#parsedContent.content + '\n' +
@@ -194,7 +198,7 @@ class Epub {
         }).then((content) => {
             $('#convert-btn').prop('disabled', false);
             $('#convert-spinner').removeClass('visually-hidden');
-            let filename = Epub.stripHtml(that.#parsedContent.title) + ' (Instabooked).epub';
+            let filename = Epub.stripHtml(that.bookTitle) + ' (Instabooked).epub';
             saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
         }, (error) => {
             $('#convert-btn').prop('disabled', false);
@@ -219,7 +223,7 @@ class Epub {
             (this.#coverImage ?
             '   <meta name="cover" content="cover_img" />\n' : '') +
             '   <dc:type>Web page</dc:type>\n' +
-            '   <dc:title>' + Epub.stripHtml(this.#parsedContent.title) + '</dc:title>' +
+            '   <dc:title>' + Epub.stripHtml(this.#documentTitle) + '</dc:title>' +
             (this.#parsedContent.byline ?
             '   <dc:creator>' + Epub.stripHtml(this.#parsedContent.byline) + '</dc:creator>\n' : '') +
             '   <dc:description>Read time: ' + this.#bookReadTime.minutes + ' minutes</dc:description>\n' +
@@ -260,7 +264,7 @@ class Epub {
             '   <meta name="dtb:maxPageNumber" content="0"/>\n' +
             '</head>\n' +
             '<docTitle>\n' +
-            '   <text>' + Epub.stripHtml(this.#parsedContent.title) + '</text>\n' +
+            '   <text>' + Epub.stripHtml(this.#documentTitle) + '</text>\n' +
             '</docTitle>\n' +
             '<docAuthor>\n' +
             '   <text>' + Epub.stripHtml(this.#parsedContent.byline) + '</text>\n' +
@@ -293,7 +297,7 @@ class Epub {
             '   <nav id="toc" epub:type="toc">\n' +
             '       <h1 class="frontmatter">Table of Contents</h1>\n' +
             '       <ol class="contents">\n' +
-            '           <li><a href="pages/content.xhtml">' + Epub.stripHtml(this.#parsedContent.title) + '</a></li>\n' +
+            '           <li><a href="pages/content.xhtml">' + Epub.stripHtml(this.#documentTitle) + '</a></li>\n' +
             '       </ol>\n' +
             '   </nav>\n' +
             '</body>\n' +
@@ -305,7 +309,7 @@ class Epub {
             '<!DOCTYPE html>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.#bookLanguage + '" lang="' + this.#bookLanguage + '" >\n' +
             '<head>\n' +
-            '   <title>' + Epub.stripHtml(this.#parsedContent.title) + '</title>\n' +
+            '   <title>' + Epub.stripHtml(this.#documentTitle) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
             '<body>\n' +
@@ -516,7 +520,7 @@ class Epub {
     }
 
     get bookTitle() {
-        return Epub.stripHtml(this.#parsedContent.title);
+        return Epub.stripHtml(this.#displayTitle);
     }
 
     get bookByline() {

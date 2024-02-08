@@ -64,15 +64,18 @@ h2, h3 {
 #author-field {
     font-weight: bold;
 }
-#page-title {
+#page-title, #revert-title-btn {
     cursor: pointer;
 }
-#edit-title-btn {
-    visibility: hidden;
-    width: 100%;
+#edit-buttons {
     text-align: center;
+    visibility: hidden;
     margin: 0.2em 0;
+}
+.edit-btn {
+    padding: 0 0.3em;
     font-size: 0.8em;
+    background-color: rgba(255, 255, 255, 0.5);
 }
 #page-title:hover {
     color: #55658e;
@@ -95,6 +98,6 @@ h2, h3 {
     outline: 0;
     box-shadow: none;
 }
-#book-preview:hover #edit-title-btn {
+#book-preview:hover #edit-buttons {
     visibility: visible;
 }

@@ -14,7 +14,7 @@ async function handleMessages(message) {
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
         case 'create-epub':
-            console.log('creating epub');
+            //console.log('creating epub');
             await handleEpubCreation(message.data);
             return true;
         default:
@@ -25,40 +25,40 @@ async function handleMessages(message) {
 
 async function handleEpubCreation(msg) {
     const epub = new Epub(
-        msg.html, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl, msg.coverUrl
+        msg.html, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl, msg.coverUrl, msg.title, msg.displayTitle
     );
-    epub.process();
-
-    return epub.prepareEpubFile((imgUrl, isCover) => {
-        return new Promise((resolve, reject) => {
-            if (isCover) {
-                epub.prepareCoverImage(imgUrl).then(response => {
-                    resolve(response);
-                });
-            } else {
-                JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(data);
-                    }
-                });
-            }
-            /*browser.tabs.query({currentWindow: true, active: true})
-                .then((tabs) => {
-                    browser.tabs
-                        .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
-                        .then(response => {
-                            resolve(response);
-                        })
-                        .catch(error => {
-                            reject(error);
-                            console.error('Error on send message: ' + error)
-                        });
-                })
-                .catch(error => {
-                    console.error('Error on tab query: ' + error)
-                });*/
-        })
+    epub.process().then(() => {
+        return epub.prepareEpubFile((imgUrl, isCover) => {
+            return new Promise((resolve, reject) => {
+                if (isCover) {
+                    epub.prepareCoverImage(imgUrl).then(response => {
+                        resolve(response);
+                    });
+                } else {
+                    JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(data);
+                        }
+                    });
+                }
+                /*browser.tabs.query({currentWindow: true, active: true})
+                    .then((tabs) => {
+                        browser.tabs
+                            .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
+                            .then(response => {
+                                resolve(response);
+                            })
+                            .catch(error => {
+                                reject(error);
+                                console.error('Error on send message: ' + error)
+                            });
+                    })
+                    .catch(error => {
+                        console.error('Error on tab query: ' + error)
+                    });*/
+            })
+        });
     });
 }

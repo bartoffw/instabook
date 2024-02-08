@@ -28,7 +28,7 @@ async function sendMessageToOffscreenDocument(type, data) {
         try {
             await chrome.offscreen.createDocument({
                 url: OFFSCREEN_DOCUMENT_PATH,
-                reasons: [chrome.offscreen.Reason.DOM_PARSER],
+                reasons: [ chrome.offscreen.Reason.DOM_PARSER ],
                 justification: 'Making an offline copy of the document'
             });
         } catch (error) {
@@ -72,37 +72,4 @@ async function hasDocument() {
         documentUrls: [offscreenUrl]
     });
     return existingContexts.length > 0;
-}
-
-
-
-// TODO: https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.offscreen-dom
-// and: https://developer.chrome.com/docs/extensions/reference/api/offscreen?hl=pl
-
-let creating; // A global promise to avoid concurrency issues
-async function setupOffscreenDocument(path) {
-    // Check all windows controlled by the service worker to see if one
-    // of them is the offscreen document with the given path
-    const offscreenUrl = chrome.runtime.getURL(path);
-    const existingContexts = await chrome.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT'],
-        documentUrls: [offscreenUrl]
-    });
-
-    if (existingContexts.length > 0) {
-        return;
-    }
-
-    // create offscreen document
-    if (creating) {
-        await creating;
-    } else {
-        creating = chrome.offscreen.createDocument({
-            url: path,
-            reasons: ['DOM_PARSER'],
-            justification: 'making an offline copy of the document',
-        });
-        await creating;
-        creating = null;
-    }
 }
