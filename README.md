@@ -2,7 +2,7 @@
 
 Create an eBook from any web page instantly and beautifully.
 
-![Instabook conversion](/screenshots/screenshot.png)
+![Instabook conversion](/screenshots/extension-large-horizontal.png)
 
 ## Description
 
@@ -25,10 +25,16 @@ To use Instabook, follow these steps:
 4. Wait for the conversion and download process to complete.
 5. Enjoy!
 
+The extension is available for most of the modern browsers:
+
+* [Firefox](https://addons.mozilla.org/pl/firefox/addon/instabook/)
+* [Chrome, Brave, Vivaldi](https://chromewebstore.google.com/detail/instabook/flabhaeaccijjbjmnchngohnpjiphkhl)
+* [Edge](https://microsoftedge.microsoft.com/addons/detail/instabook/dkdkmfokibfehifljhmoedmjbiahibkg)
+* Opera - waiting
+
 ## Roadmap
 
-- allow changing ebook title
-- release the extension for other browsers (including mobile)
+- release the extension for mobile (Firefox)
 - adding multiple language support for the extension
 - adding config page
 - adding and managing chapters in the ebook
@@ -36,7 +42,7 @@ To use Instabook, follow these steps:
 
 ## Configuration
 
-There are no configuration options yet, but it's on our roadmap.
+There are no configuration options yet, but it's on my roadmap.
 
 ## Building the extension
 

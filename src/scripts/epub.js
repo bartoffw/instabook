@@ -485,8 +485,8 @@ class Epub {
         if (!urlStr || urlStr.length === 0) {
             return '';
         }
-        if (urlStr.indexOf('moz-extension://') === 0) {
-            urlStr = urlStr.substring(urlStr.indexOf('/', 16) + 1);
+        if (urlStr.indexOf('moz-extension:') === 0) {
+            urlStr = urlStr.replace('moz-extension:', 'https:');
         }
         return urlStr;
     }
@@ -496,7 +496,7 @@ class Epub {
             return '';
         }
         try {
-            urlStr = Epub.decodeHtmlEntity(urlStr);
+            urlStr = Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr));
             currentUrl = Epub.removeEndingSlash(currentUrl);
             originUrl = Epub.removeEndingSlash(originUrl);
             let absoluteUrl = urlStr;
@@ -560,7 +560,7 @@ class Epub {
     }
 
     static get proxyUrl() {
-        return 'https://mri9ed2to8.execute-api.us-east-1.amazonaws.com/dev/cors-proxy?url=';
+        return 'https://images.instabook.site/cors-proxy.php?url=';
     }
 
     static removeEndingSlash(inputStr) {
