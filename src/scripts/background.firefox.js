@@ -13,16 +13,22 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
                             resolve(response);
                         });
                     } else {
-                        JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                            if (err) {
-                                reject(err);
-                            } else {
-                                chrome.runtime.sendMessage({
-                                    type: 'conversion-finished'
-                                });
-                                resolve(data);
-                            }
-                        });
+                        if (imgUrl.startsWith('data:image')) {
+                            //console.log('data string found!!!');
+                            //console.log(urlStr);
+                            resolve(atob(imgUrl.split(';base64,')[1]));
+                        } else {
+                            JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                                if (err) {
+                                    reject(err);
+                                } else {
+                                    chrome.runtime.sendMessage({
+                                        type: 'conversion-finished'
+                                    });
+                                    resolve(data);
+                                }
+                            });
+                        }
                     }
                     /*browser.tabs.query({currentWindow: true, active: true})
                         .then((tabs) => {

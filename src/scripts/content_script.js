@@ -53,7 +53,7 @@ browser.runtime.onMessage.addListener(request => {
             //         }*/
             //     }
             // });
-            $.get(Epub.getAbsoluteUrl(request.url, getCurrentUrl(), getOriginUrl()), function(content) {
+            $.get(Epub.getAbsoluteUrl(request.url, getCurrentUrl()), function(content) {
                 //console.log(content);
                 resolve(content);
             });//.fail((error) => {
@@ -80,7 +80,8 @@ browser.runtime.onMessage.addListener(request => {
  */
 function getPageData() {
     const imgElements = document.getElementsByTagName('img'),
-        iframeElements = document.getElementsByTagName('iframe');
+        iframeElements = document.getElementsByTagName('iframe'),
+        currentUrl = getCurrentUrl();
     let images = {}, iframes = {},
         img = null, iframe = null,
         url = null;
@@ -92,7 +93,7 @@ function getPageData() {
 
     for (let i = 0; i < imgElements.length; i++) {
         img = imgElements[i];
-        url = $(img).attr('src');
+        url = new URL($(img).attr('src'), currentUrl).href;
         if (!(url in images)) {
             images[url] = true; ///*await*/ getImageViaCanvas(img);
             imageList[url] = img;
@@ -101,7 +102,7 @@ function getPageData() {
 
     for (let i = 0; i < iframeElements.length; i++) {
         iframe = iframeElements[i];
-        url = Epub.cleanupUrl($(iframe).attr('src'));
+        url = new URL(Epub.cleanupUrl($(iframe).attr('src')), currentUrl).href;
         if (!(url in iframes)) {
             iframes[url] = getIframeContent(iframe);
         }
@@ -111,7 +112,7 @@ function getPageData() {
         html: document.documentElement.outerHTML,
         iframes: iframes,
         images: images,
-        currentUrl: getCurrentUrl(),
+        currentUrl: currentUrl,
         originUrl: getOriginUrl()
     }
 }

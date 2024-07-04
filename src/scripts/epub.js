@@ -16,6 +16,18 @@ class Epub {
     #documentTitle;
     #displayTitle;
 
+    static mimeTypes = {
+        'png': 'png',
+        'jpeg': 'jpg',
+        'tiff': 'tif',
+        'vnd.wap.wbmp': 'wbmp',
+        'x-icon': 'ico',
+        'x-jng': 'jng',
+        'x-ms-bmp': 'bmp',
+        'svg+xml': 'svg',
+        'webp': 'webp'
+    };
+
     #bookId;
     #bookLanguage = 'en';
     #bookReadTime;
@@ -50,7 +62,7 @@ class Epub {
         const coverUrl = ogImg.length > 0 ? ogImg.attr('content') : (img.length > 0 ? img.attr('src') : '');
         return {
             cover: coverUrl,
-            image: img.length > 0 ? Epub.getAbsoluteUrl(img.attr('src'), this.#currentUrl, this.#originUrl) : '',
+            image: img.length > 0 ? Epub.getAbsoluteUrl(img.attr('src'), this.#currentUrl) : '',
             content: parsedContent,
             readTime: this.estimateReadingTime(content.textContent),
             author: Epub.stripHtml(content.byline)
@@ -111,17 +123,54 @@ class Epub {
         } else {
             that.#coverImage = that.#defaultCoverUrl;
         }
-        // <img> tags
-        $content.find('img').each(function (idx, image) {
-            const url = decodeURIComponent(image.src.replace('moz-extension:', ''));
+        // <picture> tags
+        $content.find('picture').each(function (idx, picture) {
+            const picImage = $(picture).find('img');
+            const url = decodeURIComponent(
+                !!picture.find ?
+                    picture.find('source').first().attr('srcset').split(',')[0] :
+                    picImage.attr('src')
+            );
             const ext = Epub.extractExt(url);
             if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                 that.#imageUrls.push(url);
                 const newName = 'images/img' + (idx + 1) + '.' + ext;
                 that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />');
-                $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
+                $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" />');
             } else {
-                $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" />');
+                $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" />');
+            }
+        });
+        // <img> tags
+        $content.find('img').each(function (idx, image) {
+            if ($(image).parent().is('picture')) {
+                const picture = $(image).parent();
+                const picImage = $(picture).find('img');
+                const url = decodeURIComponent(
+                    !!picture.find ?
+                        picture.find('source').first().attr('srcset').split(',')[0] :
+                        picImage.attr('src')
+                );
+                const ext = Epub.extractExt(url);
+                if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
+                    that.#imageUrls.push(url);
+                    const newName = 'images/img' + (idx + 1) + '.' + ext;
+                    that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />');
+                    $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" />');
+                } else {
+                    $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" />');
+                }
+            } else {
+                const url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), that.#currentUrl, false);
+                const ext = Epub.extractExt(url);
+                if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
+                    that.#imageUrls.push(url);
+                    const newName = 'images/img' + (idx + 1) + '.' + ext;
+                    that.#imageItems.push('<item id="img' + (idx + 1) + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />');
+                    $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
+                } else {
+                    $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" />');
+                }
             }
         });
         // <svg> tags
@@ -151,7 +200,7 @@ class Epub {
 
     static cleanupContent(content) {
         const config = {
-            FORBID_TAGS: ['span', 'source']
+            FORBID_TAGS: ['span','source']
         };
         content = DOMPurify.sanitize(content, config); //, {PARSER_MEDIA_TYPE: 'application/xhtml+xml'});
         return new XMLSerializer().serializeToString(
@@ -176,12 +225,12 @@ class Epub {
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = Epub.extractExt(imgUrl);
-            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(Epub.getAbsoluteUrl(imgUrl, that.#currentUrl, that.#originUrl), false), { binary: true });
+            zip.file('OEBPS/images/img' + (idx + 1) + '.' + ext, imageContentPromise(Epub.getAbsoluteUrl(imgUrl, that.#currentUrl), false), { binary: true });
         }
         if (that.#coverImage) {
             const ext = Epub.extractExt(that.#coverImage);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(that.#coverImage, that.#currentUrl, that.#originUrl), true), { binary: true });
+            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(that.#coverImage, that.#currentUrl), true), { binary: true });
             that.#coverPath = 'images/cover.' + ext;
         }
         zip.file('OEBPS/content.opf', this.getContentOpf());
@@ -474,9 +523,17 @@ class Epub {
     }
 
     static extractExt(fileName) {
-        let ext = fileName.split('.').pop().toLowerCase();
-        if (ext === fileName || ext.length > 4) {
-            ext = 'jpg';
+        let ext = 'jpg';
+        if (fileName.startsWith('data:image')) {
+            const type = fileName.substring(11, fileName.indexOf(';'));
+            if (type.length > 0 && type in Epub.mimeTypes) {
+                ext = Epub.mimeTypes[type];
+            }
+        } else {
+            let ext = fileName.split('.').pop().toLowerCase();
+            if (ext === fileName || ext.length > 4) {
+                ext = 'jpg';
+            }
         }
         return ext;
     }
@@ -485,31 +542,22 @@ class Epub {
         if (!urlStr || urlStr.length === 0) {
             return '';
         }
-        if (urlStr.indexOf('moz-extension:') === 0) {
-            urlStr = urlStr.replace('moz-extension:', 'https:');
+        if (urlStr.startsWith('moz-extension:') || urlStr.startsWith('chrome-extension:')) {
+            urlStr = urlStr.substring(urlStr.split('/', 3).join('/').length);
         }
         return urlStr;
     }
 
-    static getAbsoluteUrl(urlStr, currentUrl, originUrl, addProxy = true) {
+    static getAbsoluteUrl(urlStr, currentUrl, addProxy = true) {
         if (!urlStr || urlStr.length === 0) {
             return '';
         }
+        if (urlStr.startsWith('data:image')) {
+            return urlStr;
+        }
         try {
             urlStr = Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr));
-            currentUrl = Epub.removeEndingSlash(currentUrl);
-            originUrl = Epub.removeEndingSlash(originUrl);
-            let absoluteUrl = urlStr;
-
-            if (urlStr.indexOf('//') === 0) {
-                absoluteUrl = window.location.protocol + urlStr;
-            } else if (urlStr.indexOf('/') === 0) {
-                absoluteUrl = originUrl + urlStr;
-            } else if (urlStr.indexOf('#') === 0) {
-                absoluteUrl = currentUrl + urlStr;
-            } else if (urlStr.indexOf('http') !== 0) {
-                absoluteUrl = currentUrl + '/' + urlStr;
-            }
+            let absoluteUrl = new URL(urlStr, currentUrl).href;
             return addProxy ?
                 Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
                 absoluteUrl;
