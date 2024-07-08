@@ -32,7 +32,7 @@ class Epub {
     #bookLanguage = 'en';
     #bookReadTime;
 
-    #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif'];
+    #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'wbmp', 'jng', 'svg'];
     #titleKey = 'customTitle';
 
     constructor(docHTML, sourceUrl = '', iframes = {}, images = {}, currentUrl = '', originUrl = '',
