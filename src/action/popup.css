@@ -21,6 +21,22 @@ body {
 #extension-version a {
     font-size: 0.8em;
 }
+#chapter-group:hover button {
+    border: 1px solid black;
+}
+.offcanvas {
+    font-size: 90%;
+}
+.offcanvas-body .list-group-item {
+    padding-left: 0;
+    padding-right: 0;
+}
+.offcanvas-body .list-group-item .btn-close {
+    display: none;
+}
+.offcanvas-body .list-group-item:hover .btn-close {
+    display: block;
+}
 #book-preview {
     width: 250px;
     height: 333px;

@@ -29,6 +29,16 @@
         <div class="alert alert-danger" id="error-content">
             <p>There was an error.</p>
         </div>
+        <div class="btn-group btn-group-sm dropend w-100 mb-1" id="chapter-group">
+            <button type="button" class="btn btn-default">
+                Add as a chapter
+<!--                <span class="badge text-bg-success">3</span>-->
+            </button>
+            <button type="button" class="btn btn-default dropdown-toggle" id="add-chapter" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                <span class="visually-hidden">View Chapters</span>
+                <span class="badge text-bg-success">3</span>
+            </button>
+        </div>
         <div class="d-grid" id="button-content">
             <!-- <button class="btn btn-default pull-left action-btn" id="reset-btn">Reset</button> -->
             <button class="btn btn-primary action-btn" id="convert-btn" disabled>
@@ -36,17 +46,39 @@
                 <span id="convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
             </button>
         </div>
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+            <div class="offcanvas-header">
+                <h6 class="offcanvas-title fw-bold" id="offcanvasRightLabel">Chapters</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        An item
+                        <button type="button" class="btn-close btn-sm text-danger" aria-label="Close"></button>
+                    </li>
+                    <li class="list-group-item">A second item</li>
+                    <li class="list-group-item">A third item</li>
+                    <li class="list-group-item">A fourth item</li>
+                    <li class="list-group-item">And a fifth one</li>
+                </ul>
+                <div class="text-center mt-1">
+                    <a href="#" class="btn btn-sm btn-danger">Delete All</a>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="card-footer">
         <div class="d-grid text-center" id="extension-version">
             <a href="https://instabook.site/">
-                <small>Instabook v1.1.2</small>
+                <small>Instabook v1.2.0</small>
             </a>
         </div>
     </div>
 </div>
 <script src="../scripts/browser-polyfill.min.js"></script>
 <script src="../scripts/jquery.min.js"></script>
+<script src="../scripts/bootstrap.bundle.min.js"></script>
 <script src="../scripts/storage.js"></script>
 <script src="./popup.js"></script>
 </body>
