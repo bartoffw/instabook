@@ -22,20 +22,45 @@ body {
     font-size: 0.8em;
 }
 #chapter-group:hover button {
-    border: 1px solid black;
+    border: 1px solid #aaa;
+}
+#chapter-group button:hover {
+    border: 1px solid #333;
+}
+#chapter-group #add-chapter {
+    flex: 0 1 auto;
+}
+#chapter-group #chapter-count {
+    display: none;
 }
 .offcanvas {
-    font-size: 90%;
+    font-size: 0.9em;
 }
-.offcanvas-body .list-group-item {
+.offcanvas-body {
+    padding-top: 0;
+}
+.offcanvas-body #chapters-list .chapter-item {
     padding-left: 0;
     padding-right: 0;
 }
-.offcanvas-body .list-group-item .btn-close {
+.offcanvas-body #chapters-list .chapter-item .delete-chapter {
     display: none;
+    font-size: 1.5em;
+    padding: 0;
+    line-height: 0.9em;
 }
-.offcanvas-body .list-group-item:hover .btn-close {
+.offcanvas-body #chapters-list .chapter-item:hover .delete-chapter {
     display: block;
+}
+.offcanvas-body #chapters-list .edit-chapter {
+    text-decoration: none;
+    color: var(--bs-list-group-color);
+}
+.offcanvas-body #chapters-list .chapter-item .edit-chapter:hover {
+    text-decoration: underline;
+}
+.offcanvas-body #chapters-list .chapter-template {
+    display: none;
 }
 #book-preview {
     width: 250px;

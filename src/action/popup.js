@@ -1,7 +1,10 @@
 let pageUrl = '',
     pageTitle = '',
     bookCoverUrl = browser.runtime.getURL('assets/cover.jpg'),
-    titleKey = 'customTitle';
+    currentChapters = null;
+
+const titleKey = 'customTitle',
+    chaptersKey = 'instabookChapters';
 
 /**
  * Listening for extension UI events
@@ -34,8 +37,30 @@ document.addEventListener('click', (event) => {
                 btnLoading(false);
             });
     }
-    else if (event.target.id === 'reset-btn') {
-        //console.log('Reset!');
+    else if (event.target.id === 'chapter-btn') {
+        $('#error-content').hide();
+
+        /** Send the Get message to the content script to get the page content and meta info **/
+        browser.tabs.query({currentWindow: true, active: true})
+            .then((tabs) => {
+                browser.tabs
+                    .sendMessage(tabs[0].id, { type: 'get' })
+                    .then(response => {
+                        addChapter(response);
+                        // responseData.type = 'convert';
+                        // responseData.title = pageTitle;
+                        // responseData.displayTitle = $('#page-title').text();
+                        // responseData.url = pageUrl;
+                    })
+                    .catch(error => {
+                        unexpectedError('Error on send message: ' + error);
+                        btnLoading(false);
+                    });
+            })
+            .catch(error => {
+                unexpectedError('Error on tab query: ' + error);
+                btnLoading(false);
+            });
     }
     else if (event.target.id === 'page-title') {
         $('#edit-title').val($('#page-title').text());
@@ -46,6 +71,9 @@ document.addEventListener('click', (event) => {
     else if (event.target.id === 'revert-title-btn') {
         Storage.deleteValue(pageUrl, titleKey);
         displayTitle(pageTitle, false);
+    }
+    else if (event.target.id === 'clear-chapters') {
+        clearChapters();
     }
 
     if (event.target.id !== 'page-title' && event.target.id !== 'edit-title' && $('#edit-title').is(':visible')) {
@@ -83,6 +111,44 @@ function displayTitle(title, isCustom) {
 function saveEditedTitle(customTitle) {
     displayTitle(customTitle, true);
     Storage.storeValue(pageUrl, titleKey, customTitle);
+}
+
+function addChapter(chapterData) {
+    if (currentChapters === null) {
+        Storage.getStoredGlobalValue(chaptersKey).then((storedChapters) => {
+            if (!storedChapters) {
+                storedChapters = [];
+            }
+            currentChapters = storedChapters;
+            currentChapters.push(chapterData);
+            refreshChaptersUI();
+        });
+    } else {
+        currentChapters.push(chapterData);
+        refreshChaptersUI();
+    }
+}
+
+function clearChapters() {
+    currentChapters = [];
+    Storage.deleteGlobalValue(chaptersKey);
+    refreshChaptersUI();
+}
+
+function refreshChaptersUI() {
+    if (currentChapters === null || currentChapters.length === 0) {
+        $('#no-chapters').show();
+        $('#chapters-list').find('li:not(.chapter-template)').remove();
+        $('#chapters-list').hide();
+        $('#delete-button').hide();
+        $('#chapter-count').text('').hide();
+    } else {
+        $('#no-chapters').hide();
+        $('#chapters-list').show();
+        $('#delete-button').show();
+        $('#chapter-count').text(currentChapters.length).show();
+
+    }
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -188,3 +254,5 @@ browser.tabs
                 btnLoading(false);
             });
     }, reportExecuteScriptError);
+
+refreshChaptersUI();
