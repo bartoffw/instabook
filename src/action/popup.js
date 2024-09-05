@@ -46,11 +46,11 @@ document.addEventListener('click', (event) => {
                 browser.tabs
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
-                        addChapter(response);
-                        // responseData.type = 'convert';
-                        // responseData.title = pageTitle;
-                        // responseData.displayTitle = $('#page-title').text();
-                        // responseData.url = pageUrl;
+                        let responseData = response;
+                        responseData.title = pageTitle;
+                        responseData.displayTitle = $('#page-title').text();
+                        responseData.url = pageUrl;
+                        addChapter(responseData);
                     })
                     .catch(error => {
                         unexpectedError('Error on send message: ' + error);
@@ -114,19 +114,9 @@ function saveEditedTitle(customTitle) {
 }
 
 function addChapter(chapterData) {
-    if (currentChapters === null) {
-        Storage.getStoredGlobalValue(chaptersKey).then((storedChapters) => {
-            if (!storedChapters) {
-                storedChapters = [];
-            }
-            currentChapters = storedChapters;
-            currentChapters.push(chapterData);
-            refreshChaptersUI();
-        });
-    } else {
-        currentChapters.push(chapterData);
-        refreshChaptersUI();
-    }
+    currentChapters.push(chapterData);
+    Storage.storeGlobalValue(chaptersKey, currentChapters);
+    refreshChaptersUI();
 }
 
 function clearChapters() {
@@ -135,19 +125,33 @@ function clearChapters() {
     refreshChaptersUI();
 }
 
+function loadChapters() {
+    Storage.getStoredGlobalValue(chaptersKey, []).then((storedChapters) => {
+        currentChapters = storedChapters;
+        refreshChaptersUI();
+    });
+}
+
 function refreshChaptersUI() {
+    $('#chapters-list').find('li:not(.chapter-template)').remove();
     if (currentChapters === null || currentChapters.length === 0) {
         $('#no-chapters').show();
-        $('#chapters-list').find('li:not(.chapter-template)').remove();
         $('#chapters-list').hide();
         $('#delete-button').hide();
         $('#chapter-count').text('').hide();
+        $('#chapter-count-title').text('0');
     } else {
         $('#no-chapters').hide();
         $('#chapters-list').show();
         $('#delete-button').show();
         $('#chapter-count').text(currentChapters.length).show();
-
+        $('#chapter-count-title').text(currentChapters.length);
+        for (const chapter of currentChapters) {
+            let $chapterElement = $('#chapters-list .chapter-template').clone();
+            $chapterElement.removeClass('chapter-template');
+            $chapterElement.find('.chapter-name').html(chapter.displayTitle);
+            $('#chapters-list').append($chapterElement);
+        }
     }
 }
 
@@ -255,4 +259,4 @@ browser.tabs
             });
     }, reportExecuteScriptError);
 
-refreshChaptersUI();
+loadChapters();

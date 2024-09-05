@@ -1,13 +1,14 @@
 class Storage {
     static storeGlobalValue(key, value) {
         let content = {};
-        content[key] = value;
+        content[key] = JSON.stringify(value);
         browser.storage.local.set(content);
     }
 
-    static async getStoredGlobalValue(key) {
-        const result = await browser.storage.local.get([ key ]);
-        return result[Object.keys(result)[0]];
+    static async getStoredGlobalValue(key, defaultValue = null) {
+        const result = await browser.storage.local.get(key);
+        return Object.keys(result).length > 0 ?
+            JSON.parse(result[Object.keys(result)[0]]) : defaultValue;
     }
 
     static deleteGlobalValue(key) {
