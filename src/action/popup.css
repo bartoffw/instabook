@@ -10,27 +10,33 @@ body {
     max-width: 300px;
     overflow: hidden;
 }
-#error-content {
+#error-content,
+#chapters-error-content {
     display: none;
     font-size: 0.9em;
     padding: 0.5em;
 }
-#error-content p {
+#error-content p,
+#chapters-error-content p {
     margin-bottom: 0;
 }
 #extension-version a {
     font-size: 0.8em;
 }
-#chapter-group:hover button {
+#chapter-group:hover button,
+#chapters-chapter-group:hover button {
     border: 1px solid #aaa;
 }
-#chapter-group button:hover {
+#chapter-group button:hover,
+#chapters-chapter-group button:hover {
     border: 1px solid #333;
 }
-#chapter-group #add-chapter {
+#chapter-group #add-chapter,
+#chapters-chapter-group #chapters-add-chapter {
     flex: 0 1 auto;
 }
-#chapter-group #chapter-count {
+#chapters-card-body {
+    background: #ffeed6;
     display: none;
 }
 .offcanvas {
@@ -44,13 +50,13 @@ body {
     padding-right: 0;
 }
 .offcanvas-body #chapters-list .chapter-item .delete-chapter {
-    display: none;
+    visibility: hidden;
     font-size: 1.5em;
     padding: 0;
     line-height: 0.8em;
 }
 .offcanvas-body #chapters-list .chapter-item:hover .delete-chapter {
-    display: block;
+    visibility: visible;
 }
 .offcanvas-body #chapters-list .edit-chapter {
     text-decoration: none;
@@ -62,20 +68,23 @@ body {
 .offcanvas-body #chapters-list .chapter-template {
     display: none !important;
 }
-#book-preview {
+#book-preview,
+#chapters-book-preview {
     width: 250px;
     height: 333px;
     position: relative;
     margin-bottom: 0.5em;
 }
-#bg-image, #text-section {
+#bg-image, #text-section,
+#chapters-bg-image, #chapters-text-section {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
 }
-#bg-image {
+#bg-image,
+#chapters-bg-image {
     background-position: bottom;
     background-repeat: no-repeat;
     background-size: cover;
@@ -102,13 +111,23 @@ h2, h3 {
     font-size: 0.8em;
     font-weight: normal;
 }
-#author-field {
+.mode-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    text-transform: uppercase;
+    font-size: .7em;
+}
+#author-field,
+#chapters-author-field {
     font-weight: bold;
 }
-#page-title, #revert-title-btn {
+#page-title, #revert-title-btn,
+#chapters-page-title, #chapters-revert-title-btn {
     cursor: pointer;
 }
-#edit-buttons {
+#edit-buttons,
+#chapters-edit-buttons {
     text-align: center;
     visibility: hidden;
     margin: 0.2em 0;
@@ -118,10 +137,12 @@ h2, h3 {
     font-size: 0.8em;
     background-color: rgba(255, 255, 255, 0.5);
 }
-#page-title:hover {
+#page-title:hover,
+#chapters-page-title:hover {
     color: #55658e;
 }
-#edit-title {
+#edit-title,
+#chapters-edit-title {
     display: none;
     border: 0 none;
     text-align: center;
@@ -135,10 +156,12 @@ h2, h3 {
     font-weight: bold;
     font-variant: small-caps;
 }
-#edit-title:focus {
+#edit-title:focus,
+#chapters-edit-title:focus {
     outline: 0;
     box-shadow: none;
 }
-#book-preview:hover #edit-buttons {
+#book-preview:hover #edit-buttons,
+#chapters-book-preview:hover #chapters-edit-buttons {
     visibility: visible;
 }

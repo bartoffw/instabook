@@ -11,7 +11,7 @@
     <!--<div class="card-header" id="">
         Instabook It
     </div>-->
-    <div class="card-body">
+    <div class="card-body" id="standard-card-body">
         <div id="book-preview">
             <div id="bg-image"></div>
             <div id="text-section">
@@ -33,15 +33,46 @@
             <button type="button" class="btn btn-default" id="chapter-btn">
                 Add as a chapter
             </button>
-            <button type="button" class="btn btn-default dropdown-toggle" id="add-chapter" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
-                <span class="visually-hidden">View Chapters</span>
-                <span class="badge text-bg-light" id="chapter-count">3</span>
-            </button>
         </div>
         <div class="d-grid" id="button-content">
             <button class="btn btn-primary action-btn" id="convert-btn" disabled>
                 Download
                 <span id="convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div class="mode-badge badge bg-dark bg-opacity-25">Article Mode</div>
+    </div>
+    <div class="card-body" id="chapters-card-body">
+        <div id="chapters-book-preview">
+            <div id="chapters-bg-image"></div>
+            <div id="chapters-text-section">
+                <div id="chapters-edit-buttons">
+                    <label for="edit-title" id="chapters-edit-title-btn" class="edit-btn" title="Change the title">&#9998;</label>
+                    <label id="chapters-revert-title-btn" class="edit-btn" title="Revert to original title">&#8630;</label>
+                </div>
+                <h1 id="chapters-page-title"></h1>
+                <textarea id="chapters-edit-title"></textarea>
+                <h3 id="chapters-author"><span id="chapters-author-field"></span></h3>
+                <h3 id="chapters-read-time">Read time: <span id="chapters-time-field"></span></h3>
+                <h3>Downloaded from <span id="chapters-url-field"></span></h3>
+            </div>
+        </div>
+        <div class="alert alert-danger" id="chapters-error-content">
+            <p>There was an error.</p>
+        </div>
+        <div class="btn-group btn-group-sm dropend w-100 mb-2" id="chapters-chapter-group">
+            <button type="button" class="btn btn-default" id="chapters-chapter-btn">
+                Add as a chapter
+            </button>
+            <button type="button" class="btn btn-default dropdown-toggle" id="chapters-add-chapter" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                <span class="visually-hidden">View Chapters</span>
+                <span class="badge text-bg-light" id="chapter-count">3</span>
+            </button>
+        </div>
+        <div class="d-grid" id="chapters-button-content">
+            <button class="btn btn-primary action-btn" id="chapters-convert-btn" disabled>
+                Download
+                <span id="chapters-convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
             </button>
         </div>
         <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
@@ -64,6 +95,7 @@
                 </div>
             </div>
         </div>
+        <div class="mode-badge badge bg-dark bg-opacity-25">Book Mode</div>
     </div>
     <div class="card-footer">
         <div class="d-grid text-center" id="extension-version">

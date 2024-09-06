@@ -1,7 +1,8 @@
 let pageUrl = '',
     pageTitle = '',
     bookCoverUrl = browser.runtime.getURL('assets/cover.jpg'),
-    currentChapters = null;
+    currentChapters = null,
+    isChapterMode = false;
 
 const titleKey = 'customTitle',
     chaptersKey = 'instabookChapters';
@@ -99,12 +100,21 @@ function displayTitle(title, isCustom) {
     $('#page-title').text(title);
     $('#page-title').show();
     $('#edit-title').hide();
+
+    $('#chapters-page-title').text(title);
+    $('#chapters-page-title').show();
+    $('#chapters-edit-title').hide();
+
     if (isCustom) {
         $('#edit-title-btn').hide();
         $('#revert-title-btn').show();
+        $('#chapters-edit-title-btn').hide();
+        $('#chapters-revert-title-btn').show();
     } else {
         $('#edit-title-btn').show();
         $('#revert-title-btn').hide();
+        $('#chapters-edit-title-btn').hide();
+        $('#chapters-revert-title-btn').show();
     }
 }
 
@@ -114,9 +124,21 @@ function saveEditedTitle(customTitle) {
 }
 
 function addChapter(chapterData) {
-    currentChapters.push(chapterData);
-    Storage.storeGlobalValue(chaptersKey, currentChapters);
-    refreshChaptersUI();
+    let alreadyExists = false;
+    for (const chapter of currentChapters) {
+        if (chapter.url === chapterData.url) {
+            alreadyExists = true;
+        }
+    }
+    const errorElement = currentChapters.length > 0 ? '#chapters-error-content' : '#error-content';
+    if (alreadyExists) {
+        $(errorElement).html('This article is already added').show();
+    } else {
+        $(errorElement).html('').hide();
+        currentChapters.push(chapterData);
+        Storage.storeGlobalValue(chaptersKey, currentChapters);
+        refreshChaptersUI();
+    }
 }
 
 function clearChapters() {
@@ -128,6 +150,7 @@ function clearChapters() {
 function loadChapters() {
     Storage.getStoredGlobalValue(chaptersKey, []).then((storedChapters) => {
         currentChapters = storedChapters;
+        isChapterMode = currentChapters.length > 0;
         refreshChaptersUI();
     });
 }
@@ -138,14 +161,19 @@ function refreshChaptersUI() {
         $('#no-chapters').show();
         $('#chapters-list').hide();
         $('#delete-button').hide();
-        $('#chapter-count').text('').hide();
+        $('#chapter-count').text('');
         $('#chapter-count-title').text('0');
+        $('#standard-card-body').show();
+        $('#chapters-card-body').hide();
+        $('.offcanvas .offcanvas-header .btn-close').trigger('click');
     } else {
         $('#no-chapters').hide();
         $('#chapters-list').show();
         $('#delete-button').show();
         $('#chapter-count').text(currentChapters.length).show();
         $('#chapter-count-title').text(currentChapters.length);
+        $('#standard-card-body').hide();
+        $('#chapters-card-body').show();
         for (const chapter of currentChapters) {
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
@@ -219,29 +247,40 @@ browser.tabs
                     .then(response => {
                         if (response.author.length > 0) {
                             $('#author-field').html(response.author).show();
+                            $('#chapters-author-field').html(response.author).show();
                         } else {
                             $('#author-field').hide();
+                            $('#chapters-author-field').hide();
                         }
                         $('#time-field').html(response.readTime.minutes + ' minutes');
+                        $('#chapters-time-field').html(response.readTime.minutes + ' minutes');
+                        // TODO: carousel for the book mode
                         if (response.cover.length > 0) {
                             $('<img/>').attr('src', response.cover).on('load', () => {
                                 $(this).remove();
                                 $('#bg-image').css('background-image', 'url(' + response.cover + ')');
+                                $('#chapters-bg-image').css('background-image', 'url(' + response.cover + ')');
                             }).on('error', () => {
                                 if (response.image.length > 0) {
                                     $('<img/>').attr('src', response.image).on('load', () => {
                                         $(this).remove();
                                         $('#bg-image').css('background-image', 'url(' + response.image + ')');
+                                        $('#chapters-bg-image').css('background-image', 'url(' + response.image + ')');
                                     })
                                 } else {
                                     $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+                                    $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
                                 }
                             });
                         } else {
                             $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+                            $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
                         }
                         $('#convert-btn').prop('disabled', false);
+                        $('#chapters-convert-btn').prop('disabled', false);
+
                         $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
+                        $('#chapters-url-field').html((new URL(pageUrl)).hostname);
 
                         // get custom title if exists
                         Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
