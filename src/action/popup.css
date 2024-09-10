@@ -31,15 +31,15 @@ body {
 #chapters-chapter-group button:hover {
     border: 1px solid #333;
 }
-#chapter-group #add-chapter,
-#chapters-chapter-group #chapters-add-chapter {
+#chapter-group #add-chapter {
     flex: 0 1 auto;
 }
 #chapters-card-body {
     background: #ffeed6;
     display: none;
 }
-.offcanvas {
+.offcanvas #chapters-controls,
+.offcanvas #no-chapters {
     font-size: 0.8em;
 }
 .offcanvas-body {

@@ -1,11 +1,14 @@
 let pageUrl = '',
     pageTitle = '',
     bookCoverUrl = browser.runtime.getURL('assets/cover.jpg'),
+    currentPageData = null,
     currentChapters = null,
+    currentCover = null,
     isChapterMode = false;
 
 const titleKey = 'customTitle',
-    chaptersKey = 'instabookChapters';
+    chaptersKey = 'instabookChapters',
+    coverKey = 'instabookCover';
 
 /**
  * Listening for extension UI events
@@ -29,7 +32,7 @@ document.addEventListener('click', (event) => {
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
+                        unexpectedError('Error on send get message: ' + error);
                         btnLoading(false);
                     });
             })
@@ -51,10 +54,14 @@ document.addEventListener('click', (event) => {
                         responseData.title = pageTitle;
                         responseData.displayTitle = $('#page-title').text();
                         responseData.url = pageUrl;
+
+                        if (currentPageData !== null && currentPageData['md5'] === MD5(pageUrl)) {
+                            responseData = Object.assign(responseData, currentPageData);
+                        }
                         addChapter(responseData);
                     })
                     .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
+                        unexpectedError('Error on adding chapter: ' + error);
                         btnLoading(false);
                     });
             })
@@ -124,57 +131,74 @@ function saveEditedTitle(customTitle) {
 }
 
 function addChapter(chapterData) {
-    let alreadyExists = false;
-    for (const chapter of currentChapters) {
-        if (chapter.url === chapterData.url) {
-            alreadyExists = true;
-        }
-    }
-    const errorElement = currentChapters.length > 0 ? '#chapters-error-content' : '#error-content';
-    if (alreadyExists) {
-        $(errorElement).html('This article is already added').show();
+    const urlMd5 = MD5(chapterData.url);
+    if (urlMd5 in currentChapters) {
+        $('#error-content').html('This article is already added').slideDown();
     } else {
-        $(errorElement).html('').hide();
-        currentChapters.push(chapterData);
+        $('#error-content').html('').hide();
+
+        if (currentCover['author'] === 'Unknown' && chapterData.author.length > 0) {
+            currentCover['author'] = chapterData.author;
+        }
+        currentCover['readTime'] += chapterData.readTime.minutes;
+        let images = currentCover['coverImages'].slice();
+        images.unshift(chapterData.cover);
+        currentCover['coverImages'] = images;
+        Storage.storeGlobalValue(coverKey, currentCover);
+
+        currentChapters[urlMd5] = chapterData;
         Storage.storeGlobalValue(chaptersKey, currentChapters);
-        refreshChaptersUI();
+        refreshUI();
     }
 }
 
 function clearChapters() {
-    currentChapters = [];
+    currentChapters = {};
     Storage.deleteGlobalValue(chaptersKey);
-    refreshChaptersUI();
+    refreshUI();
 }
 
 function loadChapters() {
-    Storage.getStoredGlobalValue(chaptersKey, []).then((storedChapters) => {
+    Storage.getStoredGlobalValue(chaptersKey, {}).then((storedChapters) => {
         currentChapters = storedChapters;
-        isChapterMode = currentChapters.length > 0;
-        refreshChaptersUI();
+        isChapterMode = Object.keys(currentChapters).length > 0;
+        const defaultCover = {
+            author: 'Unknown',
+            readTime: 0,
+            coverImages: [
+                bookCoverUrl
+            ],
+            selectedCover: 0
+        };
+        Storage.getStoredGlobalValue(coverKey, defaultCover).then((storedCover) => {
+            currentCover = storedCover;
+            refreshUI();
+        });
     });
 }
 
-function refreshChaptersUI() {
+function refreshUI() {
+    getCurrentPageData();
+
     $('#chapters-list').find('li:not(.chapter-template)').remove();
-    if (currentChapters === null || currentChapters.length === 0) {
+    if (currentChapters === null || Object.keys(currentChapters).length === 0) {
         $('#no-chapters').show();
-        $('#chapters-list').hide();
-        $('#delete-button').hide();
+        $('#chapters-book-preview').hide();
+        $('#chapters-controls').hide();
         $('#chapter-count').text('');
         $('#chapter-count-title').text('0');
-        $('#standard-card-body').show();
-        $('#chapters-card-body').hide();
+        $('#chapter-count-download').text('0');
         $('.offcanvas .offcanvas-header .btn-close').trigger('click');
     } else {
+        const chaptersKeys = Object.keys(currentChapters);
         $('#no-chapters').hide();
-        $('#chapters-list').show();
-        $('#delete-button').show();
-        $('#chapter-count').text(currentChapters.length).show();
-        $('#chapter-count-title').text(currentChapters.length);
-        $('#standard-card-body').hide();
-        $('#chapters-card-body').show();
-        for (const chapter of currentChapters) {
+        $('#chapters-book-preview').show();
+        $('#chapters-controls').show();
+        $('#chapter-count').text(chaptersKeys.length);
+        $('#chapter-count-title').text(chaptersKeys.length);
+        $('#chapter-count-download').text(chaptersKeys.length);
+        for (const chapterKey of chaptersKeys) {
+            const chapter = currentChapters[chapterKey];
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
             $chapterElement.find('.chapter-name').html(chapter.displayTitle);
@@ -210,7 +234,7 @@ function getErrorText() {
 
 function unexpectedError(error) {
     $('#error-content').html(getErrorText()).show();
-    $('#book-preview, #convert-btn').hide();
+    $('#book-preview, #convert-btn, #chapter-group').hide();
     console.error(error);
 }
 
@@ -232,70 +256,96 @@ function sanitizeUrl(url) {
     return url;
 }
 
+function addPhotoPreview(photoUrl) {
+    // TODO: carousel for the book mode
+    if (photoUrl.length > 0) {
+        $('<img/>').attr('src', photoUrl).on('load', () => {
+            $(this).remove();
+            $('#bg-image').css('background-image', 'url(' + photoUrl + ')');
+            $('#chapters-bg-image').css('background-image', 'url(' + photoUrl + ')');
+        }).on('error', () => {
+            if (response.image.length > 0) {
+                $('<img/>').attr('src', response.image).on('load', () => {
+                    $(this).remove();
+                    $('#bg-image').css('background-image', 'url(' + response.image + ')');
+                    $('#chapters-bg-image').css('background-image', 'url(' + response.image + ')');
+                })
+            } else {
+                $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+                $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+            }
+        });
+    } else {
+        $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+        $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+    }
+}
+
+function setAdditionalData(responseData, url) {
+    const urlMd5 = MD5(url);
+    let pageData = currentPageData === null || currentPageData['md5'] !== urlMd5 ? {} : currentPageData;
+
+    pageData['url'] = url;
+    pageData['md5'] = urlMd5;
+    pageData['author'] = responseData.author.length > 0 ? responseData.author : '';
+    pageData['readTime'] = responseData.readTime.minutes;
+    pageData['coverImage'] = responseData.cover;
+
+    currentPageData = pageData;
+
+    // currentChapters[urlMd5] = chapterData;
+    // Storage.storeGlobalValue(chaptersKey, currentChapters);
+}
+
 /**
  * Getting the cover image and read time from the content script
  */
-browser.tabs
-    .query({ currentWindow: true, active: true })
-    .then((tabs) => {
-        pageUrl = sanitizeUrl(tabs[0].url);
-        pageTitle = tabs[0].title;
-        browser.tabs.query({currentWindow: true, active: true})
-            .then((tabs) => {
-                browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'preview' })
-                    .then(response => {
-                        if (response.author.length > 0) {
-                            $('#author-field').html(response.author).show();
-                            $('#chapters-author-field').html(response.author).show();
-                        } else {
-                            $('#author-field').hide();
-                            $('#chapters-author-field').hide();
-                        }
-                        $('#time-field').html(response.readTime.minutes + ' minutes');
-                        $('#chapters-time-field').html(response.readTime.minutes + ' minutes');
-                        // TODO: carousel for the book mode
-                        if (response.cover.length > 0) {
-                            $('<img/>').attr('src', response.cover).on('load', () => {
-                                $(this).remove();
-                                $('#bg-image').css('background-image', 'url(' + response.cover + ')');
-                                $('#chapters-bg-image').css('background-image', 'url(' + response.cover + ')');
-                            }).on('error', () => {
-                                if (response.image.length > 0) {
-                                    $('<img/>').attr('src', response.image).on('load', () => {
-                                        $(this).remove();
-                                        $('#bg-image').css('background-image', 'url(' + response.image + ')');
-                                        $('#chapters-bg-image').css('background-image', 'url(' + response.image + ')');
-                                    })
-                                } else {
-                                    $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-                                    $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-                                }
+function getCurrentPageData() {
+    browser.tabs
+        .query({currentWindow: true, active: true})
+        .then((tabs) => {
+            pageUrl = sanitizeUrl(tabs[0].url);
+            pageTitle = tabs[0].title;
+            browser.tabs.query({currentWindow: true, active: true})
+                .then((tabs) => {
+                    browser.tabs
+                        .sendMessage(tabs[0].id, {type: 'preview'})
+                        .then(response => {
+                            setAdditionalData(response, pageUrl);
+
+                            if (response.author.length > 0) {
+                                $('#author-field').html(response.author).show();
+                                $('#chapters-author-field').html(response.author).show();
+                            } else {
+                                $('#author-field').hide();
+                                $('#chapters-author-field').hide();
+                            }
+                            $('#time-field').html(response.readTime.minutes + ' minutes');
+                            $('#chapters-time-field').html(response.readTime.minutes + ' minutes');
+
+                            addPhotoPreview(response.cover);
+
+                            $('#convert-btn').prop('disabled', false);
+                            $('#chapters-convert-btn').prop('disabled', false);
+
+                            $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
+                            $('#chapters-url-field').html((new URL(pageUrl)).hostname);
+
+                            // get custom title if exists
+                            Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
+                                displayTitle(customTitle ? customTitle : pageTitle, customTitle);
                             });
-                        } else {
-                            $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-                            $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-                        }
-                        $('#convert-btn').prop('disabled', false);
-                        $('#chapters-convert-btn').prop('disabled', false);
-
-                        $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
-                        $('#chapters-url-field').html((new URL(pageUrl)).hostname);
-
-                        // get custom title if exists
-                        Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
-                            displayTitle(customTitle ? customTitle : pageTitle, customTitle);
+                        })
+                        .catch(error => {
+                            unexpectedError('Error on send preview message: ' + error);
+                            btnLoading(false);
                         });
-                    })
-                    .catch(error => {
-                        unexpectedError('Error on send message: ' + error);
-                        btnLoading(false);
-                    });
-            })
-            .catch(error => {
-                unexpectedError('Error on tab query: ' + error);
-                btnLoading(false);
-            });
-    }, reportExecuteScriptError);
+                })
+                .catch(error => {
+                    unexpectedError('Error on tab query: ' + error);
+                    btnLoading(false);
+                });
+        }, reportExecuteScriptError);
+}
 
 loadChapters();
