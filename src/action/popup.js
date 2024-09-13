@@ -4,7 +4,8 @@ let pageUrl = '',
     currentPageData = null,
     currentChapters = null,
     currentCover = null,
-    isChapterMode = false;
+    isChapterMode = false,
+    coverCarousel = null;
 
 const titleKey = 'customTitle',
     chaptersKey = 'instabookChapters',
@@ -137,18 +138,17 @@ function addChapter(chapterData) {
     } else {
         $('#error-content').html('').hide();
 
-        if (currentCover['author'] === 'Unknown' && chapterData.author.length > 0) {
-            currentCover['author'] = chapterData.author;
+        if (currentCover.author === 'Unknown' && chapterData.author.length > 0) {
+            currentCover.author = chapterData.author;
         }
-        currentCover['readTime'] += chapterData.readTime.minutes;
-        let images = currentCover['coverImages'].slice();
-        images.unshift(chapterData.cover);
-        currentCover['coverImages'] = images;
+        currentCover.readTime += chapterData.readTime.minutes;
+        currentCover.coverImages.push(chapterData.coverImage);
         Storage.storeGlobalValue(coverKey, currentCover);
 
         currentChapters[urlMd5] = chapterData;
         Storage.storeGlobalValue(chaptersKey, currentChapters);
         refreshUI();
+        refreshCoverCarousel();
     }
 }
 
@@ -173,6 +173,7 @@ function loadChapters() {
         Storage.getStoredGlobalValue(coverKey, defaultCover).then((storedCover) => {
             currentCover = storedCover;
             refreshUI();
+            refreshCoverCarousel();
         });
     });
 }
@@ -256,40 +257,78 @@ function sanitizeUrl(url) {
     return url;
 }
 
+function refreshCoverCarousel() {
+    $('#cover-carousel .indicator-button').not(':first').remove();
+    $('#cover-carousel .carousel-item').not(':first').remove();
+    if (currentCover !== null) {
+        currentCover.coverImages.forEach((coverImage, i) => {
+            let $indicatorElement, $imageElement;
+            if (i > 0) {
+                $indicatorElement = $('#cover-carousel .indicator-button').clone();
+                $imageElement = $('#cover-carousel .carousel-item').clone();
+                $('#cover-carousel .carousel-indicators').append($indicatorElement);
+                $('#cover-carousel .carousel-inner').append($imageElement);
+            } else {
+                $indicatorElement = $('#cover-carousel .indicator-button').first();
+                $imageElement = $('#cover-carousel .carousel-item').first();
+            }
+            $indicatorElement.attr('data-bs-slide-to', i);
+            $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
+            $imageElement.find('.cover-image').css('background-image', 'url(' + coverImage + ')');
+            // if (i !== currentCover.selectedCover) {
+            //     $indicatorElement.removeClass('active');
+            //     $indicatorElement.removeAttr('aria-current');
+            //     $imageElement.removeClass('active');
+            // }
+
+        });
+        if (coverCarousel === null) {
+            coverCarousel = new bootstrap.Carousel(document.querySelector('#cover-carousel'));
+            coverCarousel.to(currentCover.selectedCover);
+            document.getElementById('cover-carousel').addEventListener('slide.bs.carousel', function (event) {
+                if (event.to !== null) {
+                    currentCover.selectedCover = event.to;
+                    Storage.storeGlobalValue(coverKey, currentCover);
+                }
+            });
+        }
+    }
+}
+
 function addPhotoPreview(photoUrl) {
     // TODO: carousel for the book mode
     if (photoUrl.length > 0) {
         $('<img/>').attr('src', photoUrl).on('load', () => {
             $(this).remove();
             $('#bg-image').css('background-image', 'url(' + photoUrl + ')');
-            $('#chapters-bg-image').css('background-image', 'url(' + photoUrl + ')');
+            //$('#chapters-bg-image').css('background-image', 'url(' + photoUrl + ')');
         }).on('error', () => {
             if (response.image.length > 0) {
                 $('<img/>').attr('src', response.image).on('load', () => {
                     $(this).remove();
                     $('#bg-image').css('background-image', 'url(' + response.image + ')');
-                    $('#chapters-bg-image').css('background-image', 'url(' + response.image + ')');
+                    //$('#chapters-bg-image').css('background-image', 'url(' + response.image + ')');
                 })
             } else {
                 $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-                $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+                //$('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
             }
         });
     } else {
         $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-        $('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+        //$('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
     }
 }
 
 function setAdditionalData(responseData, url) {
     const urlMd5 = MD5(url);
-    let pageData = currentPageData === null || currentPageData['md5'] !== urlMd5 ? {} : currentPageData;
+    let pageData = currentPageData === null || currentPageData.md5 !== urlMd5 ? {} : currentPageData;
 
-    pageData['url'] = url;
-    pageData['md5'] = urlMd5;
-    pageData['author'] = responseData.author.length > 0 ? responseData.author : '';
-    pageData['readTime'] = responseData.readTime.minutes;
-    pageData['coverImage'] = responseData.cover;
+    pageData.url = url;
+    pageData.md5 = urlMd5;
+    pageData.author = responseData.author.length > 0 ? responseData.author : '';
+    pageData.readTime = responseData.readTime.minutes;
+    pageData.coverImage = responseData.cover;
 
     currentPageData = pageData;
 

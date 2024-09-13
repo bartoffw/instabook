@@ -51,7 +51,24 @@
             </div>
             <div class="offcanvas-body">
                 <div id="chapters-book-preview">
-                    <div id="chapters-bg-image"></div>
+                    <div id="cover-carousel" class="carousel slide">
+                        <div class="carousel-indicators">
+                            <button type="button" data-bs-target="#cover-carousel" data-bs-slide-to="0" class="indicator-button active" aria-current="true" aria-label="Slide 1"></button>
+                        </div>
+                        <div class="carousel-inner">
+                            <div class="carousel-item active">
+                                <div class="cover-image d-block"></div>
+                            </div>
+                        </div>
+                        <button class="carousel-control carousel-control-prev" type="button" data-bs-target="#cover-carousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                        </button>
+                        <button class="carousel-control carousel-control-next" type="button" data-bs-target="#cover-carousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                        </button>
+                    </div>
                     <div id="chapters-text-section">
                         <div id="chapters-edit-buttons">
                             <label for="edit-title" id="chapters-edit-title-btn" class="edit-btn" title="Change the title">&#9998;</label>
@@ -71,6 +88,7 @@
                             <span id="chapters-convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
                         </button>
                     </div>
+                    <hr/>
                     <ul class="list-group list-group-flush" id="chapters-list">
                         <li class="list-group-item d-flex justify-content-between align-items-center chapter-item chapter-template">
                             <a href="#" class="edit-chapter chapter-name">An item</a>
