@@ -266,6 +266,9 @@ function refreshCoverCarousel() {
             if (i > 0) {
                 $indicatorElement = $('#cover-carousel .indicator-button').clone();
                 $imageElement = $('#cover-carousel .carousel-item').clone();
+                $indicatorElement.removeClass('active');
+                $indicatorElement.removeAttr('aria-current');
+                $imageElement.removeClass('active');
                 $('#cover-carousel .carousel-indicators').append($indicatorElement);
                 $('#cover-carousel .carousel-inner').append($imageElement);
             } else {
@@ -275,12 +278,6 @@ function refreshCoverCarousel() {
             $indicatorElement.attr('data-bs-slide-to', i);
             $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
             $imageElement.find('.cover-image').css('background-image', 'url(' + coverImage + ')');
-            // if (i !== currentCover.selectedCover) {
-            //     $indicatorElement.removeClass('active');
-            //     $indicatorElement.removeAttr('aria-current');
-            //     $imageElement.removeClass('active');
-            // }
-
         });
         if (coverCarousel === null) {
             coverCarousel = new bootstrap.Carousel(document.querySelector('#cover-carousel'));
@@ -301,22 +298,18 @@ function addPhotoPreview(photoUrl) {
         $('<img/>').attr('src', photoUrl).on('load', () => {
             $(this).remove();
             $('#bg-image').css('background-image', 'url(' + photoUrl + ')');
-            //$('#chapters-bg-image').css('background-image', 'url(' + photoUrl + ')');
         }).on('error', () => {
             if (response.image.length > 0) {
                 $('<img/>').attr('src', response.image).on('load', () => {
                     $(this).remove();
                     $('#bg-image').css('background-image', 'url(' + response.image + ')');
-                    //$('#chapters-bg-image').css('background-image', 'url(' + response.image + ')');
                 })
             } else {
                 $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-                //$('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
             }
         });
     } else {
         $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
-        //$('#chapters-bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
     }
 }
 
