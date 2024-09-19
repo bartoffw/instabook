@@ -9,7 +9,18 @@ let pageUrl = '',
 
 const titleKey = 'customTitle',
     chaptersKey = 'instabookChapters',
-    coverKey = 'instabookCover';
+    coverKey = 'instabookCover',
+    defaultCoverData = {
+        title: '',
+        customTitle: null,
+        authors: [],
+        sourceUrls: [],
+        readTime: 0,
+        coverImages: [
+            bookCoverUrl
+        ],
+        selectedCover: 0
+    };
 
 /**
  * Listening for extension UI events
@@ -81,6 +92,17 @@ document.addEventListener('click', (event) => {
         Storage.deleteValue(pageUrl, titleKey);
         displayTitle(pageTitle, false);
     }
+    else if (event.target.id === 'chapters-page-title') {
+        $('#chapters-edit-title').val($('#chapters-page-title').text());
+        $('#chapters-edit-title').css('height', ($('#chapters-page-title').height() + 25) + 'px');
+        $('#chapters-page-title').hide();
+        $('#chapters-edit-title').css('display', 'block').focus();
+    }
+    else if (event.target.id === 'chapters-revert-title-btn') {
+        currentCover.customTitle = null;
+        Storage.storeGlobalValue(coverKey, currentCover);
+        displayChaptersTitle(currentCover.title, false);
+    }
     else if (event.target.id === 'clear-chapters') {
         clearChapters();
     }
@@ -90,6 +112,12 @@ document.addEventListener('click', (event) => {
             saveEditedTitle($('#edit-title').val());
         } else {
             displayTitle(pageTitle, false);
+        }
+    } else if (event.target.id !== 'chapters-page-title' && event.target.id !== 'chapters-edit-title' && $('#chapters-edit-title').is(':visible')) {
+        if ($('#chapters-edit-title').val() !== currentCover.title) {
+            saveEditedChaptersTitle($('#chapters-edit-title').val());
+        } else {
+            displayChaptersTitle(currentCover.title, false);
         }
     }
 });
@@ -101,6 +129,12 @@ document.addEventListener('keypress', (event) => {
         } else {
             displayTitle(pageTitle, false);
         }
+    } else if (event.target.id === 'chapters-edit-title' && event.key === 'Enter') {
+        if ($('#chapters-edit-title').val() !== currentCover.title) {
+            saveEditedChaptersTitle($('#chapters-edit-title').val());
+        } else {
+            displayChaptersTitle(currentCover.title, false);
+        }
     }
 });
 
@@ -108,19 +142,23 @@ function displayTitle(title, isCustom) {
     $('#page-title').text(title);
     $('#page-title').show();
     $('#edit-title').hide();
-
-    $('#chapters-page-title').text(title);
-    $('#chapters-page-title').show();
-    $('#chapters-edit-title').hide();
-
     if (isCustom) {
         $('#edit-title-btn').hide();
         $('#revert-title-btn').show();
-        $('#chapters-edit-title-btn').hide();
-        $('#chapters-revert-title-btn').show();
     } else {
         $('#edit-title-btn').show();
         $('#revert-title-btn').hide();
+    }
+}
+
+function displayChaptersTitle(title, isCustom) {
+    $('#chapters-page-title').text(title);
+    $('#chapters-page-title').show();
+    $('#chapters-edit-title').hide();
+    if (isCustom) {
+        $('#chapters-edit-title-btn').hide();
+        $('#chapters-revert-title-btn').show();
+    } else {
         $('#chapters-edit-title-btn').hide();
         $('#chapters-revert-title-btn').show();
     }
@@ -131,6 +169,12 @@ function saveEditedTitle(customTitle) {
     Storage.storeValue(pageUrl, titleKey, customTitle);
 }
 
+function saveEditedChaptersTitle(customTitle) {
+    currentCover.customTitle = customTitle;
+    displayChaptersTitle(customTitle, true);
+    Storage.storeGlobalValue(coverKey, currentCover);
+}
+
 function addChapter(chapterData) {
     const urlMd5 = MD5(chapterData.url);
     if (urlMd5 in currentChapters) {
@@ -138,10 +182,15 @@ function addChapter(chapterData) {
     } else {
         $('#error-content').html('').hide();
 
-        if (currentCover.author === 'Unknown' && chapterData.author.length > 0) {
-            currentCover.author = chapterData.author;
+        currentCover.title = chapterData.title;
+        if (chapterData.author.length > 0 && (currentCover.authors === [] || !currentCover.authors.includes(chapterData.author))) {
+            currentCover.authors.push(chapterData.author);
         }
-        currentCover.readTime += chapterData.readTime.minutes;
+        const urlDomain = (new URL(chapterData.url)).hostname;
+        if (!currentCover.sourceUrls.includes(urlDomain)) {
+            currentCover.sourceUrls.push(urlDomain);
+        }
+        currentCover.readTime += chapterData.readTime;
         currentCover.coverImages.push(chapterData.coverImage);
         Storage.storeGlobalValue(coverKey, currentCover);
 
@@ -154,7 +203,9 @@ function addChapter(chapterData) {
 
 function clearChapters() {
     currentChapters = {};
+    currentCover = defaultCoverData;
     Storage.deleteGlobalValue(chaptersKey);
+    Storage.deleteGlobalValue(coverKey);
     refreshUI();
 }
 
@@ -162,15 +213,7 @@ function loadChapters() {
     Storage.getStoredGlobalValue(chaptersKey, {}).then((storedChapters) => {
         currentChapters = storedChapters;
         isChapterMode = Object.keys(currentChapters).length > 0;
-        const defaultCover = {
-            author: 'Unknown',
-            readTime: 0,
-            coverImages: [
-                bookCoverUrl
-            ],
-            selectedCover: 0
-        };
-        Storage.getStoredGlobalValue(coverKey, defaultCover).then((storedCover) => {
+        Storage.getStoredGlobalValue(coverKey, defaultCoverData).then((storedCover) => {
             currentCover = storedCover;
             refreshUI();
             refreshCoverCarousel();
@@ -189,15 +232,32 @@ function refreshUI() {
         $('#chapter-count').text('');
         $('#chapter-count-title').text('0');
         $('#chapter-count-download').text('0');
+        $('#chapter-word').text('Chapters');
         $('.offcanvas .offcanvas-header .btn-close').trigger('click');
     } else {
         const chaptersKeys = Object.keys(currentChapters);
+        $('#chapters-page-title').text(
+            currentCover.customTitle !== null && currentCover.customTitle !== '' ?
+                currentCover.customTitle : currentCover.title
+        );
         $('#no-chapters').hide();
         $('#chapters-book-preview').show();
         $('#chapters-controls').show();
         $('#chapter-count').text(chaptersKeys.length);
         $('#chapter-count-title').text(chaptersKeys.length);
         $('#chapter-count-download').text(chaptersKeys.length);
+        $('#chapter-word').text(chaptersKeys.length > 1 ? 'Chapters' : 'Chapter');
+        $('#chapters-time-field').html(formatTime(currentCover.readTime) + ' minutes');
+        if (currentCover.sourceUrls.length > 0) {
+            $('#chapters-url-field').html(currentCover.sourceUrls.join(', ')).show();
+        } else {
+            $('#chapters-url-field').html('').hide();
+        }
+        if (currentCover.authors.length > 0) {
+            $('#chapters-author-field').html(currentCover.authors.join(', ')).show();
+        } else {
+            $('#chapters-author-field').html('').hide();
+        }
         for (const chapterKey of chaptersKeys) {
             const chapter = currentChapters[chapterKey];
             let $chapterElement = $('#chapters-list .chapter-template').clone();
@@ -257,23 +317,27 @@ function sanitizeUrl(url) {
     return url;
 }
 
+function formatTime(timeInMinutes) {
+    const hours = Math.floor(timeInMinutes / 60);
+    timeInMinutes -= hours * 60;
+    return (hours > 0 ? hours + ' hours ' : '') + timeInMinutes;
+}
+
 function refreshCoverCarousel() {
-    $('#cover-carousel .indicator-button').not(':first').remove();
-    $('#cover-carousel .carousel-item').not(':first').remove();
+    $('#cover-carousel .indicator-button').slice(1).remove();
+    $('#cover-carousel .carousel-item').slice(1).remove();
     if (currentCover !== null) {
         currentCover.coverImages.forEach((coverImage, i) => {
-            let $indicatorElement, $imageElement;
+            let $indicatorElement = $('#cover-carousel .indicator-button').first(),
+                $imageElement = $('#cover-carousel .carousel-item').first();
             if (i > 0) {
-                $indicatorElement = $('#cover-carousel .indicator-button').clone();
-                $imageElement = $('#cover-carousel .carousel-item').clone();
+                $indicatorElement = $indicatorElement.clone();
+                $imageElement = $imageElement.clone();
                 $indicatorElement.removeClass('active');
                 $indicatorElement.removeAttr('aria-current');
                 $imageElement.removeClass('active');
                 $('#cover-carousel .carousel-indicators').append($indicatorElement);
                 $('#cover-carousel .carousel-inner').append($imageElement);
-            } else {
-                $indicatorElement = $('#cover-carousel .indicator-button').first();
-                $imageElement = $('#cover-carousel .carousel-item').first();
             }
             $indicatorElement.attr('data-bs-slide-to', i);
             $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
@@ -347,13 +411,10 @@ function getCurrentPageData() {
 
                             if (response.author.length > 0) {
                                 $('#author-field').html(response.author).show();
-                                $('#chapters-author-field').html(response.author).show();
                             } else {
                                 $('#author-field').hide();
-                                $('#chapters-author-field').hide();
                             }
-                            $('#time-field').html(response.readTime.minutes + ' minutes');
-                            $('#chapters-time-field').html(response.readTime.minutes + ' minutes');
+                            $('#time-field').html(formatTime(response.readTime.minutes) + ' minutes');
 
                             addPhotoPreview(response.cover);
 
@@ -361,7 +422,6 @@ function getCurrentPageData() {
                             $('#chapters-convert-btn').prop('disabled', false);
 
                             $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
-                            $('#chapters-url-field').html((new URL(pageUrl)).hostname);
 
                             // get custom title if exists
                             Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
