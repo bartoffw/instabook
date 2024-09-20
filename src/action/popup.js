@@ -106,6 +106,18 @@ document.addEventListener('click', (event) => {
     else if (event.target.id === 'clear-chapters') {
         clearChapters();
     }
+    else if ($(event.target).hasClass('delete-chapter')) {
+        deleteChapter($(event.target).data('chapter-id'));
+    }
+    else if ($(event.target).hasClass('chapter-name')) {
+        const $name = $(event.target),
+            $parent = $name.parent('.chapter-item'),
+            $nameEdit = $parent.find('.chapters-edit-chapter-name');
+        $nameEdit.val($name.text());
+        $nameEdit.css('height', ($name.height() + 10) + 'px');
+        $name.hide();
+        $nameEdit.css('display', 'block').focus();
+    }
 
     if (event.target.id !== 'page-title' && event.target.id !== 'edit-title' && $('#edit-title').is(':visible')) {
         if ($('#edit-title').val() !== pageTitle) {
@@ -159,8 +171,8 @@ function displayChaptersTitle(title, isCustom) {
         $('#chapters-edit-title-btn').hide();
         $('#chapters-revert-title-btn').show();
     } else {
-        $('#chapters-edit-title-btn').hide();
-        $('#chapters-revert-title-btn').show();
+        $('#chapters-edit-title-btn').show();
+        $('#chapters-revert-title-btn').hide();
     }
 }
 
@@ -207,6 +219,29 @@ function clearChapters() {
     Storage.deleteGlobalValue(chaptersKey);
     Storage.deleteGlobalValue(coverKey);
     refreshUI();
+    refreshCoverCarousel();
+}
+
+function deleteChapter(chapterId) {
+    console.log('delete chapter: ' + chapterId);
+    if (chapterId in currentChapters) {
+        const imageIdx = currentCover.coverImages.indexOf(currentChapters[chapterId].coverImage);
+        if (imageIdx >= 0) {
+            console.log('cover: ' + currentCover.selectedCover + ', idx: ' + imageIdx);
+            if (currentCover.selectedCover === imageIdx) {
+                currentCover.selectedCover = 0;
+            } else if (currentCover.selectedCover > imageIdx) {
+                currentCover.selectedCover -= 1;
+            }
+            currentCover.coverImages.splice(imageIdx, 1);
+            console.log('cover after: ' + currentCover.selectedCover);
+        }
+        delete currentChapters[chapterId];
+        Storage.storeGlobalValue(chaptersKey, currentChapters);
+        Storage.storeGlobalValue(coverKey, currentCover);
+        refreshUI();
+        refreshCoverCarousel();
+    }
 }
 
 function loadChapters() {
@@ -236,10 +271,6 @@ function refreshUI() {
         $('.offcanvas .offcanvas-header .btn-close').trigger('click');
     } else {
         const chaptersKeys = Object.keys(currentChapters);
-        $('#chapters-page-title').text(
-            currentCover.customTitle !== null && currentCover.customTitle !== '' ?
-                currentCover.customTitle : currentCover.title
-        );
         $('#no-chapters').hide();
         $('#chapters-book-preview').show();
         $('#chapters-controls').show();
@@ -247,6 +278,10 @@ function refreshUI() {
         $('#chapter-count-title').text(chaptersKeys.length);
         $('#chapter-count-download').text(chaptersKeys.length);
         $('#chapter-word').text(chaptersKeys.length > 1 ? 'Chapters' : 'Chapter');
+        displayChaptersTitle(
+            currentCover.customTitle !== null && currentCover.customTitle !== '' ?
+                currentCover.customTitle : currentCover.title
+        );
         $('#chapters-time-field').html(formatTime(currentCover.readTime) + ' minutes');
         if (currentCover.sourceUrls.length > 0) {
             $('#chapters-url-field').html(currentCover.sourceUrls.join(', ')).show();
@@ -263,6 +298,7 @@ function refreshUI() {
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
             $chapterElement.find('.chapter-name').html(chapter.displayTitle);
+            $chapterElement.find('.delete-chapter').data('chapter-id', chapterKey);
             $('#chapters-list').append($chapterElement);
         }
     }
@@ -324,6 +360,10 @@ function formatTime(timeInMinutes) {
 }
 
 function refreshCoverCarousel() {
+    // if (coverCarousel !== null) {
+    //     coverCarousel.dispose();
+    //     coverCarousel = null;
+    // }
     $('#cover-carousel .indicator-button').slice(1).remove();
     $('#cover-carousel .carousel-item').slice(1).remove();
     if (currentCover !== null) {
@@ -345,7 +385,6 @@ function refreshCoverCarousel() {
         });
         if (coverCarousel === null) {
             coverCarousel = new bootstrap.Carousel(document.querySelector('#cover-carousel'));
-            coverCarousel.to(currentCover.selectedCover);
             document.getElementById('cover-carousel').addEventListener('slide.bs.carousel', function (event) {
                 if (event.to !== null) {
                     currentCover.selectedCover = event.to;
@@ -353,6 +392,7 @@ function refreshCoverCarousel() {
                 }
             });
         }
+        coverCarousel.to(currentCover.selectedCover);
     }
 }
 

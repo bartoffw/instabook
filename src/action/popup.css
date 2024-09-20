@@ -180,11 +180,31 @@ h2, h3 {
     font-variant: small-caps;
 }
 #edit-title:focus,
-#chapters-edit-title:focus {
+#chapters-edit-title:focus,
+.chapters-edit-chapter-name:focus {
     outline: 0;
     box-shadow: none;
 }
 #book-preview:hover #edit-buttons,
 #chapters-book-preview:hover #chapters-edit-buttons {
     visibility: visible;
+}
+.chapter-name, .delete-chapter {
+    cursor: pointer;
+}
+.chapter-name:hover {
+    text-decoration: underline;
+}
+.delete-chapter:hover {
+    color: darkred;
+}
+.chapters-edit-chapter-name {
+    display: none;
+    border: 0 none;
+    width: 90%;
+    margin: 0;
+    padding: 0.1em;
+    resize: none;
+    line-height: 1.3em;
+    font-size: 1em;
 }
