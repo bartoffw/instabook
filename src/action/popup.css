@@ -179,6 +179,9 @@ h2, h3 {
     font-weight: bold;
     font-variant: small-caps;
 }
+#chapters-edit-title {
+    z-index: 99999;
+}
 #edit-title:focus,
 #chapters-edit-title:focus,
 .chapters-edit-chapter-name:focus {
@@ -188,6 +191,11 @@ h2, h3 {
 #book-preview:hover #edit-buttons,
 #chapters-book-preview:hover #chapters-edit-buttons {
     visibility: visible;
+}
+.chapter-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .chapter-name, .delete-chapter {
     cursor: pointer;
@@ -207,4 +215,29 @@ h2, h3 {
     resize: none;
     line-height: 1.3em;
     font-size: 1em;
+}
+span.grippy {
+    content: '....';
+    width: 10px;
+    height: 20px;
+    display: inline-block;
+    visibility: hidden;
+    overflow: hidden;
+    line-height: 5px;
+    padding: 3px 4px;
+    cursor: move;
+    vertical-align: middle;
+    margin-top: -.7em;
+    margin-right: .7em;
+    font-size: 12px;
+    font-family: sans-serif;
+    letter-spacing: 2px;
+    color: #cccccc;
+    text-shadow: 1px 0 1px black;
+}
+span.grippy::after {
+    content: '.. .. .. ..';
+}
+.list-group-item:hover span.grippy {
+    visibility: visible;
 }

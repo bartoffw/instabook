@@ -107,18 +107,19 @@ document.addEventListener('click', (event) => {
         clearChapters();
     }
     else if ($(event.target).hasClass('delete-chapter')) {
-        deleteChapter($(event.target).data('chapter-id'));
+        deleteChapter($(event.target).parents('.chapter-item').data('chapter-id'));
     }
     else if ($(event.target).hasClass('chapter-name')) {
         const $name = $(event.target),
             $parent = $name.parent('.chapter-item'),
             $nameEdit = $parent.find('.chapters-edit-chapter-name');
         $nameEdit.val($name.text());
-        $nameEdit.css('height', ($name.height() + 10) + 'px');
+        $nameEdit.css('height', ($name.height() * 2) + 'px');
         $name.hide();
         $nameEdit.css('display', 'block').focus();
     }
 
+    // clicking outside of the edited title makes it auto-save
     if (event.target.id !== 'page-title' && event.target.id !== 'edit-title' && $('#edit-title').is(':visible')) {
         if ($('#edit-title').val() !== pageTitle) {
             saveEditedTitle($('#edit-title').val());
@@ -130,6 +131,16 @@ document.addEventListener('click', (event) => {
             saveEditedChaptersTitle($('#chapters-edit-title').val());
         } else {
             displayChaptersTitle(currentCover.title, false);
+        }
+    } else if (!$(event.target).hasClass('chapter-name') && !$(event.target).hasClass('chapters-edit-chapter-name') && $('.chapters-edit-chapter-name').is(':visible')) {
+        const $edit = $('.chapters-edit-chapter-name:visible'),
+            chapterId = $edit.parents('.chapter-item').data('chapter-id');
+        if (chapterId in currentChapters) {
+            if ($edit.val() !== currentChapters[chapterId].title) {
+
+            } else {
+
+            }
         }
     }
 });
@@ -252,6 +263,12 @@ function loadChapters() {
             currentCover = storedCover;
             refreshUI();
             refreshCoverCarousel();
+            $('#chapters-list').sortable({
+                placeholderClass: 'chapter-template',
+                handle: 'span.grippy'
+            }).bind('sortupdate', (e, ui) => {
+                console.log(ui.item);
+            });
         });
     });
 }
@@ -297,8 +314,8 @@ function refreshUI() {
             const chapter = currentChapters[chapterKey];
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
+            $chapterElement.data('chapter-id', chapterKey);
             $chapterElement.find('.chapter-name').html(chapter.displayTitle);
-            $chapterElement.find('.delete-chapter').data('chapter-id', chapterKey);
             $('#chapters-list').append($chapterElement);
         }
     }
