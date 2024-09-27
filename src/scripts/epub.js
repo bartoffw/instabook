@@ -15,6 +15,8 @@ class Epub {
     #defaultCoverUrl;
     #documentTitle;
     #displayTitle;
+    #hasChapters = false;
+    #chapters = {};
 
     static mimeTypes = {
         'png': 'png',
@@ -222,6 +224,7 @@ class Epub {
         zip.file('META-INF/container.xml', this.getContainerXml());
 
         const that = this;
+        // handle images
         for (let idx = 0; idx < this.imageUrls.length; idx++) {
             const imgUrl = this.imageUrls[idx];
             const ext = Epub.extractExt(imgUrl);
@@ -233,13 +236,25 @@ class Epub {
             zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(that.#coverImage, that.#currentUrl), true), { binary: true });
             that.#coverPath = 'images/cover.' + ext;
         }
+        // generate META files
         zip.file('OEBPS/content.opf', this.getContentOpf());
         zip.file('OEBPS/toc.ncx', this.getTocNcx());
-        zip.file('OEBPS/toc.xhtml', this.getTocXhtml());
 
+        // generate content files
         zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
         zip.file('OEBPS/pages/cover.xhtml', this.getCover());
-        zip.file('OEBPS/pages/content.xhtml', this.bookContent);
+        zip.file('OEBPS/toc.xhtml', this.getTocXhtml());
+        if (this.#hasChapters) {
+            const chaptersKeys = Object.keys(this.#chapters);
+            let index = 1;
+            for (const chapterKey of chaptersKeys) {
+                const chapter = this.#chapters[chapterKey];
+                zip.file('OEBPS/pages/chapter' + index + '.xhtml', ''); // TODO
+                index++;
+            }
+        } else {
+            zip.file('OEBPS/pages/content.xhtml', this.bookContent);
+        }
 
         await zip.generateAsync({
             type: 'blob',
@@ -265,6 +280,23 @@ class Epub {
     }
 
     getContentOpf() {
+        let items = '', spine = '', guide = '';
+        if (this.#hasChapters) {
+            spine = '   <itemref idref="toc" linear="yes" />\n';
+            guide = '   <reference type="text" title="Content" href="pages/chapter1.xhtml"/>\n';
+            const chaptersKeys = Object.keys(this.#chapters);
+            let index = 1;
+            for (const chapterKey of chaptersKeys) {
+                items += '   <item id="chapter' + index + '" href="pages/chapter' + index + '.xhtml" media-type="application/xhtml+xml" />\n';
+                spine += '   <itemref idref="chapter' + index + '" linear="yes" />\n';
+                index++;
+            }
+        } else {
+            items = '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n';
+            spine = '   <itemref idref="content" linear="yes" />\n';
+            guide = '   <reference type="text" title="Content" href="pages/content.xhtml"/>\n';
+        }
+
         return '<?xml version="1.0" encoding="UTF-8"?>\n' +
             '<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="book-id" version="3.0">\n' +
             '<metadata>\n' +
@@ -287,23 +319,55 @@ class Epub {
             '   <item id="styles" href="styles/ebook.css" media-type="text/css" />\n' +
             '   <item id="cover" href="pages/cover.xhtml" media-type="application/xhtml+xml" />\n' +
             '   <item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav" />\n' +
-            '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n' +
+            items +
             '   ' + this.#imageItems.join('\n   ') +
             (this.#coverImage ?
             '   <item id="cover_img" href="' + this.#coverPath + '" media-type="image/' + Epub.extractExt(this.#coverImage).replace('jpg', 'jpeg') + '" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx"' + (this.dirRtl ? ' page-progression-direction="rtl"' : '') + '>\n' +
             '   <itemref idref="cover" linear="yes" />\n' +
-            '   <itemref idref="content" linear="yes" />\n' +
+            spine +
             '</spine>\n' +
             '<guide>\n' +
             '   <reference type="cover" title="Cover" href="pages/cover.xhtml"/>\n' +
-            '   <reference type="text" title="Content" href="pages/content.xhtml"/>\n' +
+            guide +
             '</guide>\n' +
             '</package>';
     }
 
     getTocNcx() {
+        let chapters = '';
+        if (this.#hasChapters) {
+            chapters +=
+                '   <navPoint class="text" id="navPoint-1" playOrder="2">\n' +
+                '       <navLabel>\n' +
+                '           <text>Table of Contents</text>\n' +
+                '       </navLabel>\n' +
+                '       <content src="toc.xhtml"></content>\n' +
+                '   </navPoint>\n';
+            const chaptersKeys = Object.keys(this.#chapters);
+            let index = 1;
+            for (const chapterKey of chaptersKeys) {
+                const chapter = this.#chapters[chapterKey];
+                chapters +=
+                    '   <navPoint class="text" id="navPoint-' + (index + 1) + '" playOrder="' + (index + 2) + '">\n' +
+                    '       <navLabel>\n' +
+                    '           <text>' + chapter.title + '</text>\n' +
+                    '       </navLabel>\n' +
+                    '       <content src="pages/chapter' + index + '.xhtml"></content>\n' +
+                    '   </navPoint>\n';
+                index++;
+            }
+        } else {
+            chapters =
+                '   <navPoint class="text" id="navPoint-1" playOrder="2">\n' +
+                '       <navLabel>\n' +
+                '           <text>Content</text>\n' +
+                '       </navLabel>\n' +
+                '       <content src="pages/content.xhtml"></content>\n' +
+                '   </navPoint>\n';
+        }
+
         return '<?xml version="1.0" encoding="UTF-8" ?>\n' +
             '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="' + this.#bookLanguage + '">\n' +
             '<head>\n' +
@@ -325,17 +389,33 @@ class Epub {
             '       </navLabel>\n' +
             '       <content src="pages/cover.xhtml"></content>\n' +
             '   </navPoint>\n' +
-            '   <navPoint class="text" id="navPoint-1" playOrder="2">\n' +
-            '       <navLabel>\n' +
-            '           <text>Content</text>\n' +
-            '       </navLabel>\n' +
-            '       <content src="pages/content.xhtml"></content>\n' +
-            '   </navPoint>\n' +
+            chapters +
             '</navMap>\n' +
             '</ncx>';
     }
 
     getTocXhtml() {
+        let chapters = [];
+        if (this.#hasChapters) {
+            chapters.push(
+                '           <li><a href="pages/cover.xhtml">Cover Page</a></li>\n' +
+                '           <li><a href="toc.xhtml">Table of Contents</a></li>\n'
+            );
+            const chaptersKeys = Object.keys(this.#chapters);
+            let index = 1;
+            for (const chapterKey of chaptersKeys) {
+                const chapter = this.#chapters[chapterKey];
+                chapters.push(
+                    '           <li><a href="pages/chapter' + index + '.xhtml">' + chapter.title + '</a></li>\n'
+                );
+                index++;
+            }
+        } else {
+            chapters.push(
+                '           <li><a href="pages/cover.xhtml">Cover Page</a></li>\n' +
+                '           <li><a href="pages/content.xhtml">' + Epub.stripHtml(this.#documentTitle) + '</a></li>\n'
+            );
+        }
         return '<?xml version="1.0" encoding="utf-8"?>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n' +
             '<head>\n' +
@@ -345,9 +425,9 @@ class Epub {
             '<body>\n' +
             '   <nav id="toc" epub:type="toc">\n' +
             '       <h1 class="frontmatter">Table of Contents</h1>\n' +
-            '       <ol class="contents">\n' +
-            '           <li><a href="pages/content.xhtml">' + Epub.stripHtml(this.#documentTitle) + '</a></li>\n' +
-            '       </ol>\n' +
+            '       <ol class="toc-contents">\n' +
+            chapters.join('') +
+            '       </ol>' +
             '   </nav>\n' +
             '</body>\n' +
             '</html>';

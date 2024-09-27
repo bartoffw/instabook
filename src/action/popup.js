@@ -82,6 +82,16 @@ document.addEventListener('click', (event) => {
                 btnLoading(false);
             });
     }
+    else if (event.target.id === 'chapters-convert-btn') {
+        $('#error-content').hide();
+        btnLoading();
+
+        sendRuntimeMessage({
+            type: 'convert-chapters',
+            cover: currentCover,
+            chapters: currentChapters
+        });
+    }
     else if (event.target.id === 'page-title') {
         $('#edit-title').val($('#page-title').text());
         $('#edit-title').css('height', ($('#page-title').height() + 25) + 'px');
@@ -114,7 +124,7 @@ document.addEventListener('click', (event) => {
             $parent = $name.parent('.chapter-item'),
             $nameEdit = $parent.find('.chapters-edit-chapter-name');
         $nameEdit.val($name.text());
-        $nameEdit.css('height', ($name.height() * 2) + 'px');
+        //$nameEdit.css('height', $name.height() + 'px');
         $name.hide();
         $nameEdit.css('display', 'block').focus();
     }
@@ -137,26 +147,38 @@ document.addEventListener('click', (event) => {
             chapterId = $edit.parents('.chapter-item').data('chapter-id');
         if (chapterId in currentChapters) {
             if ($edit.val() !== currentChapters[chapterId].title) {
-
+                saveEditedChapterTitle($edit.val(), chapterId);
             } else {
-
+                displayChapterTitle(currentChapters[chapterId].title, chapterId);
             }
         }
     }
 });
 
 document.addEventListener('keypress', (event) => {
-    if (event.target.id === 'edit-title' && event.key === 'Enter') {
-        if ($('#edit-title').val() !== pageTitle) {
-            saveEditedTitle($('#edit-title').val());
-        } else {
-            displayTitle(pageTitle, false);
-        }
-    } else if (event.target.id === 'chapters-edit-title' && event.key === 'Enter') {
-        if ($('#chapters-edit-title').val() !== currentCover.title) {
-            saveEditedChaptersTitle($('#chapters-edit-title').val());
-        } else {
-            displayChaptersTitle(currentCover.title, false);
+    if (event.key === 'Enter') {
+        if (event.target.id === 'edit-title') {
+            if ($('#edit-title').val() !== pageTitle) {
+                saveEditedTitle($('#edit-title').val());
+            } else {
+                displayTitle(pageTitle, false);
+            }
+        } else if (event.target.id === 'chapters-edit-title') {
+            if ($('#chapters-edit-title').val() !== currentCover.title) {
+                saveEditedChaptersTitle($('#chapters-edit-title').val());
+            } else {
+                displayChaptersTitle(currentCover.title, false);
+            }
+        } else if ($(event.target).hasClass('chapters-edit-chapter-name')) {
+            const $edit = $('.chapters-edit-chapter-name:visible'),
+                chapterId = $edit.parents('.chapter-item').data('chapter-id');
+            if (chapterId in currentChapters) {
+                if ($edit.val() !== currentChapters[chapterId].title) {
+                    saveEditedChapterTitle($edit.val(), chapterId);
+                } else {
+                    displayChapterTitle(currentChapters[chapterId].title, chapterId);
+                }
+            }
         }
     }
 });
@@ -187,6 +209,16 @@ function displayChaptersTitle(title, isCustom) {
     }
 }
 
+function displayChapterTitle(title, chapterId) {
+    //const $chapterItem = $(`.chapter-item[data-chapter-id='${chapterId}']`),
+    //    $chapterName = $chapterItem.find('.chapter-name');
+    const $edit = $('.chapters-edit-chapter-name:visible'),
+        $chapterName = $edit.parents('.chapter-item').find('.chapter-name');
+    $chapterName.text(title);
+    $chapterName.show();
+    $edit.hide();
+}
+
 function saveEditedTitle(customTitle) {
     displayTitle(customTitle, true);
     Storage.storeValue(pageUrl, titleKey, customTitle);
@@ -194,8 +226,14 @@ function saveEditedTitle(customTitle) {
 
 function saveEditedChaptersTitle(customTitle) {
     currentCover.customTitle = customTitle;
-    displayChaptersTitle(customTitle, true);
     Storage.storeGlobalValue(coverKey, currentCover);
+    displayChaptersTitle(customTitle, true);
+}
+
+function saveEditedChapterTitle(customTitle, chapterId) {
+    currentChapters[chapterId].title = customTitle;
+    Storage.storeGlobalValue(chaptersKey, currentChapters);
+    displayChapterTitle(customTitle, chapterId);
 }
 
 function addChapter(chapterData) {
@@ -264,10 +302,9 @@ function loadChapters() {
             refreshUI();
             refreshCoverCarousel();
             $('#chapters-list').sortable({
-                placeholderClass: 'chapter-template',
                 handle: 'span.grippy'
             }).bind('sortupdate', (e, ui) => {
-                console.log(ui.item);
+                console.log(e, ui.item);
             });
         });
     });
@@ -315,7 +352,7 @@ function refreshUI() {
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
             $chapterElement.data('chapter-id', chapterKey);
-            $chapterElement.find('.chapter-name').html(chapter.displayTitle);
+            $chapterElement.find('.chapter-name').html(chapter.title);
             $('#chapters-list').append($chapterElement);
         }
     }
