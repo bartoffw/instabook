@@ -24,9 +24,17 @@ async function handleMessages(message) {
 }
 
 async function handleEpubCreation(msg) {
-    const epub = new Epub(
-        msg.html, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl, msg.coverUrl, msg.title, msg.displayTitle
-    );
+    const epub = new Epub({
+        docHTML: msg.html,
+        sourceUrl: msg.url,
+        iframes: msg.iframes,
+        images: msg.images,
+        currentUrl: msg.currentUrl,
+        originUrl: msg.originUrl,
+        defaultCoverUrl: msg.coverUrl,
+        docTitle: msg.title,
+        displayTitle: msg.displayTitle
+    });
     epub.process().then(() => {
         return epub.prepareEpubFile((imgUrl, isCover) => {
             return new Promise((resolve, reject) => {

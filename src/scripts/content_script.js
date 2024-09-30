@@ -63,9 +63,12 @@ browser.runtime.onMessage.addListener(request => {
     }
     /** get the ebook cover preview in the popup **/
     else if (request.type === 'preview') {
-        const epub = new Epub(
-            document.documentElement.outerHTML, getCurrentUrl(), {}, {}, getCurrentUrl(), getOriginUrl()
-        );
+        const epub = new Epub({
+            docHTML: document.documentElement.outerHTML,
+            sourceUrl: getCurrentUrl(),
+            currentUrl: getCurrentUrl(),
+            originUrl: getOriginUrl()
+        });
         const parsedInfo = epub.check();
         return Promise.resolve(parsedInfo);
         /*images: parsedInfo.images.map((url) => {

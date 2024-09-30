@@ -37,21 +37,30 @@ class Epub {
     #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'wbmp', 'jng', 'svg'];
     #titleKey = 'customTitle';
 
-    constructor(docHTML, sourceUrl = '', iframes = {}, images = {}, currentUrl = '', originUrl = '',
-                defaultCoverUrl = '', docTitle = '', displayTitle = '', threshold = 500) {
-        this.#iframes = iframes;
-        this.#images = images;
-        this.#sourceUrl = sourceUrl;
-        this.#currentUrl = currentUrl;
-        this.#originUrl = originUrl;
-        this.#htmlContent = docHTML;
-        this.#defaultCoverUrl = defaultCoverUrl;
-        this.#documentTitle = docTitle;
-        this.#displayTitle = displayTitle;
+    constructor(options) {
+        const optionsKeys = Object.keys(options);
+        if (optionsKeys.includes('docHTML')) {
+            this.#htmlContent = optionsKeys.docHTML;
+            this.#iframes = optionsKeys.includes('iframes') ? optionsKeys.iframes : {};
+            this.#images = optionsKeys.includes('images') ? optionsKeys.images : {};
+            this.#sourceUrl = optionsKeys.includes('sourceUrl') ? optionsKeys.sourceUrl : '';
+            this.#currentUrl = optionsKeys.includes('currentUrl') ? optionsKeys.currentUrl : '';
+            this.#originUrl = optionsKeys.includes('currentUrl') ? optionsKeys.originUrl : '';
+            this.#defaultCoverUrl = optionsKeys.includes('defaultCoverUrl') ? optionsKeys.defaultCoverUrl : '';
+            this.#documentTitle = optionsKeys.includes('docTitle') ? optionsKeys.docTitle : '';
+            this.#displayTitle = optionsKeys.includes('docTitle') ? optionsKeys.displayTitle : '';
 
-        const doc = (new DOMParser()).parseFromString(docHTML, 'text/html');
-        this.#docClone = this.processIframes(doc); //.cloneNode(true);
-        this.#readability = new Readability(this.#docClone, { charThreshold: threshold });
+            this.#docClone = this.processIframes(
+                (new DOMParser()).parseFromString(optionsKeys.docHTML, 'text/html')
+            ); //.cloneNode(true);
+            this.#readability = new Readability(this.#docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500) });
+        } else if (optionsKeys.includes('chapters')) {
+            const chaptersKeys = Object.keys(options.chapters);
+            for (const chapterKey of chaptersKeys) {
+                const chapter = options.chapters[chapterKey];
+                // TODO
+            }
+        }
     }
 
     check() {

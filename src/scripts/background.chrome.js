@@ -13,6 +13,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ msg: 'received in background!' })
         });
     }
+    else if (message.type === 'convert-chapters') {
+
+    }
     else if (message.target === 'background' && message.type === 'epub-prepared') {
 
     }

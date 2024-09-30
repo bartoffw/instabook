@@ -1,52 +1,28 @@
 browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
     /** Received the Convert/Download action **/
     if (msg.type === 'convert') {
-        const epub = new Epub(
-            msg.html, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl, browser.runtime.getURL('assets/cover.jpg'),
-            msg.title, msg.displayTitle
-        );
+        const epub = new Epub({
+            docHTML: msg.html,
+            sourceUrl: msg.url,
+            iframes: msg.iframes,
+            images: msg.images,
+            currentUrl: msg.currentUrl,
+            originUrl: msg.originUrl,
+            defaultCoverUrl: browser.runtime.getURL('assets/cover.jpg'),
+            docTitle: msg.title,
+            displayTitle: msg.displayTitle
+        });
         epub.process().then(() => {
-            return epub.prepareEpubFile((imgUrl, isCover) => {
-                return new Promise((resolve, reject) => {
-                    if (isCover) {
-                        epub.prepareCoverImage(imgUrl).then(response => {
-                            resolve(response);
-                        });
-                    } else {
-                        if (imgUrl.startsWith('data:image')) {
-                            //console.log('data string found!!!');
-                            //console.log(urlStr);
-                            resolve(atob(imgUrl.split(';base64,')[1]));
-                        } else {
-                            JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                                if (err) {
-                                    reject(err);
-                                } else {
-                                    chrome.runtime.sendMessage({
-                                        type: 'conversion-finished'
-                                    });
-                                    resolve(data);
-                                }
-                            });
-                        }
-                    }
-                    /*browser.tabs.query({currentWindow: true, active: true})
-                        .then((tabs) => {
-                            browser.tabs
-                                .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
-                                .then(response => {
-                                    resolve(response);
-                                })
-                                .catch(error => {
-                                    reject(error);
-                                    console.error('Error on send message: ' + error)
-                                });
-                        })
-                        .catch(error => {
-                            console.error('Error on tab query: ' + error)
-                        });*/
-                })
-            });
+            return prepareEpubFile(epub, 'conversion-finished');
+        });
+    }
+    else if (msg.type === 'convert-chapters') {
+        const epub = new Epub({
+            cover: msg.cover,
+            chapters: msg.chapters
+        });
+        epub.process().then(() => {
+            return prepareEpubFile(epub, 'chapters-conversion-finished');
         });
     }
     /** Received the Reset action (not used currently) **/
@@ -54,3 +30,47 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
         console.log('Reset msg');
     }
 });
+
+function prepareEpubFile(epub, message) {
+    return epub.prepareEpubFile((imgUrl, isCover) => {
+        return new Promise((resolve, reject) => {
+            if (isCover) {
+                epub.prepareCoverImage(imgUrl).then(response => {
+                    resolve(response);
+                });
+            } else {
+                if (imgUrl.startsWith('data:image')) {
+                    //console.log('data string found!!!');
+                    //console.log(urlStr);
+                    resolve(atob(imgUrl.split(';base64,')[1]));
+                } else {
+                    JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            chrome.runtime.sendMessage({
+                                type: message
+                            });
+                            resolve(data);
+                        }
+                    });
+                }
+            }
+            /*browser.tabs.query({currentWindow: true, active: true})
+                .then((tabs) => {
+                    browser.tabs
+                        .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
+                        .then(response => {
+                            resolve(response);
+                        })
+                        .catch(error => {
+                            reject(error);
+                            console.error('Error on send message: ' + error)
+                        });
+                })
+                .catch(error => {
+                    console.error('Error on tab query: ' + error)
+                });*/
+        })
+    });
+}
