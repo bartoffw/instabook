@@ -32,8 +32,7 @@ async function handleEpubCreation(msg) {
         currentUrl: msg.currentUrl,
         originUrl: msg.originUrl,
         defaultCoverUrl: msg.coverUrl,
-        docTitle: msg.title,
-        displayTitle: msg.displayTitle
+        docTitle: msg.title
     });
     epub.process().then(() => {
         return epub.prepareEpubFile((imgUrl, isCover) => {

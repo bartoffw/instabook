@@ -241,3 +241,14 @@ span.grippy::after {
 .list-group-item:hover span.grippy {
     visibility: visible;
 }
+.chapters-divider {
+    width: 100%;
+    text-align: center;
+    border-bottom: 1px solid #999;
+    line-height: 0.1em;
+    margin: 10px 0 20px;
+}
+.chapters-divider span {
+    background: #fff;
+    padding: 0 10px;
+}

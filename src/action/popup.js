@@ -38,9 +38,11 @@ document.addEventListener('click', (event) => {
                     .then(response => {
                         let responseData = response;
                         responseData.type = 'convert';
-                        responseData.title = pageTitle;
-                        responseData.displayTitle = $('#page-title').text();
+                        responseData.title = $('#page-title').text();
                         responseData.url = pageUrl;
+                        if (currentPageData !== null && currentPageData['md5'] === MD5(pageUrl)) {
+                            responseData = Object.assign(responseData, currentPageData);
+                        }
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
@@ -63,10 +65,8 @@ document.addEventListener('click', (event) => {
                     .sendMessage(tabs[0].id, { type: 'get' })
                     .then(response => {
                         let responseData = response;
-                        responseData.title = pageTitle;
-                        responseData.displayTitle = $('#page-title').text();
+                        responseData.title = $('#page-title').text();
                         responseData.url = pageUrl;
-
                         if (currentPageData !== null && currentPageData['md5'] === MD5(pageUrl)) {
                             responseData = Object.assign(responseData, currentPageData);
                         }
@@ -336,7 +336,7 @@ function refreshUI() {
             currentCover.customTitle !== null && currentCover.customTitle !== '' ?
                 currentCover.customTitle : currentCover.title
         );
-        $('#chapters-time-field').html(formatTime(currentCover.readTime) + ' minutes');
+        $('#chapters-time-field').html(Epub.formatTime(currentCover.readTime) + ' minutes');
         if (currentCover.sourceUrls.length > 0) {
             $('#chapters-url-field').html(currentCover.sourceUrls.join(', ')).show();
         } else {
@@ -405,12 +405,6 @@ function sanitizeUrl(url) {
     }
     url = url.substring(0, url.lastIndexOf('/') + 1);
     return url;
-}
-
-function formatTime(timeInMinutes) {
-    const hours = Math.floor(timeInMinutes / 60);
-    timeInMinutes -= hours * 60;
-    return (hours > 0 ? hours + ' hours ' : '') + timeInMinutes;
 }
 
 function refreshCoverCarousel() {
@@ -508,7 +502,7 @@ function getCurrentPageData() {
                             } else {
                                 $('#author-field').hide();
                             }
-                            $('#time-field').html(formatTime(response.readTime.minutes) + ' minutes');
+                            $('#time-field').html(Epub.formatTime(response.readTime.minutes) + ' minutes');
 
                             addPhotoPreview(response.cover);
 

@@ -10,7 +10,11 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             originUrl: msg.originUrl,
             defaultCoverUrl: browser.runtime.getURL('assets/cover.jpg'),
             docTitle: msg.title,
-            displayTitle: msg.displayTitle
+            url: msg.url,
+            md5: msg.md5,
+            author: msg.author,
+            readTime: msg.readTime,
+            coverImage: msg.coverImage
         });
         epub.process().then(() => {
             return prepareEpubFile(epub, 'conversion-finished');
