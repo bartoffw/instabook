@@ -7,7 +7,6 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             iframes: msg.iframes,
             images: msg.images,
             currentUrl: msg.currentUrl,
-            originUrl: msg.originUrl,
             defaultCoverUrl: browser.runtime.getURL('assets/cover.jpg'),
             docTitle: msg.title,
             url: msg.url,

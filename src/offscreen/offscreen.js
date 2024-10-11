@@ -30,7 +30,6 @@ async function handleEpubCreation(msg) {
         iframes: msg.iframes,
         images: msg.images,
         currentUrl: msg.currentUrl,
-        originUrl: msg.originUrl,
         defaultCoverUrl: msg.coverUrl,
         docTitle: msg.title
     });

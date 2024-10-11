@@ -19,7 +19,9 @@ const titleKey = 'customTitle',
         coverImages: [
             bookCoverUrl
         ],
-        selectedCover: 0
+        selectedCover: 0,
+        coverImage: '',
+        coverPath: ''
     };
 
 /**
@@ -469,6 +471,8 @@ function setAdditionalData(responseData, url) {
     const urlMd5 = MD5(url);
     let pageData = currentPageData === null || currentPageData.md5 !== urlMd5 ? {} : currentPageData;
 
+    pageData.imageUrls = {};
+    pageData.imageItems = [];
     pageData.url = url;
     pageData.md5 = urlMd5;
     pageData.author = responseData.author.length > 0 ? responseData.author : '';
