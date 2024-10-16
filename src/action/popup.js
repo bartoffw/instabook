@@ -485,6 +485,14 @@ function setAdditionalData(responseData, url) {
     // Storage.storeGlobalValue(chaptersKey, currentChapters);
 }
 
+function formatTime(timeInMinutes, asObject = false) {
+    const hours = Math.floor(timeInMinutes / 60);
+    timeInMinutes -= hours * 60;
+    return asObject ?
+        { hours: hours, minutes: timeInMinutes, seconds: 0 } :
+        (hours > 0 ? hours + ' hours ' : '') + timeInMinutes;
+}
+
 /**
  * Getting the cover image and read time from the content script
  */
@@ -506,7 +514,7 @@ function getCurrentPageData() {
                             } else {
                                 $('#author-field').hide();
                             }
-                            $('#time-field').html(Epub.formatTime(response.readTime.minutes) + ' minutes');
+                            $('#time-field').html(formatTime(response.readTime.minutes) + ' minutes');
 
                             addPhotoPreview(response.cover);
 
