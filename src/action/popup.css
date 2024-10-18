@@ -247,6 +247,7 @@ span.grippy::after {
     border-bottom: 1px solid #999;
     line-height: 0.1em;
     margin: 10px 0 20px;
+    font-size: 0.9em;
 }
 .chapters-divider span {
     background: #fff;

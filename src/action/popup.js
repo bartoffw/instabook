@@ -41,6 +41,7 @@ document.addEventListener('click', (event) => {
                         let responseData = response;
                         responseData.type = 'convert';
                         responseData.title = $('#page-title').text();
+                        responseData.customTitle = $('#edit-title').val() !== $('#page-title').text() ? $('#edit-title').val() : '';
                         responseData.url = pageUrl;
                         if (currentPageData !== null && currentPageData['md5'] === MD5(pageUrl)) {
                             responseData = Object.assign(responseData, currentPageData);
@@ -76,18 +77,15 @@ document.addEventListener('click', (event) => {
                     })
                     .catch(error => {
                         unexpectedError('Error on adding chapter: ' + error);
-                        btnLoading(false);
                     });
             })
             .catch(error => {
                 unexpectedError('Error on tab query: ' + error);
-                btnLoading(false);
             });
     }
     else if (event.target.id === 'chapters-convert-btn') {
         $('#error-content').hide();
-        btnLoading();
-
+        chaptersBtnLoading();
         sendRuntimeMessage({
             type: 'convert-chapters',
             cover: currentCover,
@@ -338,7 +336,7 @@ function refreshUI() {
             currentCover.customTitle !== null && currentCover.customTitle !== '' ?
                 currentCover.customTitle : currentCover.title
         );
-        $('#chapters-time-field').html(Epub.formatTime(currentCover.readTime) + ' minutes');
+        $('#chapters-time-field').html(formatTime(currentCover.readTime) + ' minutes');
         if (currentCover.sourceUrls.length > 0) {
             $('#chapters-url-field').html(currentCover.sourceUrls.join(', ')).show();
         } else {
@@ -363,6 +361,8 @@ function refreshUI() {
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'conversion-finished') {
         btnLoading(false);
+    } else if (message.type === 'chapters-conversion-finished') {
+        chaptersBtnLoading(false);
     }
 })
 
@@ -373,6 +373,7 @@ function sendRuntimeMessage(data) {
     }, (error) => {
         unexpectedError('Error on background script query: ' + error);
         btnLoading(false);
+        chaptersBtnLoading(false);
     });
 }
 
@@ -398,6 +399,16 @@ function btnLoading(isLoading = true) {
     } else {
         $('#convert-spinner').addClass('visually-hidden');
         $('#convert-btn').prop('disabled', false);
+    }
+}
+
+function chaptersBtnLoading(isLoading = true) {
+    if (isLoading) {
+        $('#chapters-convert-spinner').removeClass('visually-hidden');
+        $('#chapters-convert-btn').prop('disabled', true);
+    } else {
+        $('#chapters-convert-spinner').addClass('visually-hidden');
+        $('#chapters-convert-btn').prop('disabled', false);
     }
 }
 
@@ -531,11 +542,13 @@ function getCurrentPageData() {
                         .catch(error => {
                             unexpectedError('Error on send preview message: ' + error);
                             btnLoading(false);
+                            chaptersBtnLoading(false);
                         });
                 })
                 .catch(error => {
                     unexpectedError('Error on tab query: ' + error);
                     btnLoading(false);
+                    chaptersBtnLoading(false);
                 });
         }, reportExecuteScriptError);
 }

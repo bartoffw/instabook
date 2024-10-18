@@ -45,7 +45,7 @@ class Epub {
             };
             this.#singleCover = {
                 title: this.#singleChapter.title,
-                customTitle: '',
+                customTitle: optionsKeys.includes('customTitle') ? options.customTitle : '',
                 authors: [
                     this.#singleChapter.author
                 ],
@@ -117,7 +117,7 @@ class Epub {
         };
     }
 
-    prepareContent(parsedContent, chapter) {
+    prepareContent(parsedContent, chapter, addTitle = false) {
         parsedContent.content = Epub.cleanupContent(
             this.processImages(parsedContent.content, chapter.images, chapter.currentUrl, chapter.md5)
         );
@@ -129,6 +129,7 @@ class Epub {
             '  <title>' + Epub.stripHtml(chapter.title) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
+            (addTitle ? '  <h2 class="chapter-title">' + Epub.stripHtml(chapter.title) + '</h2>\n' : '') +
             parsedContent.content + '\n' +
             '</body>\n' +
             '</html>';
@@ -154,7 +155,7 @@ class Epub {
             const chaptersKeys = Object.keys(this.#chapters);
             for (const chapterKey of chaptersKeys) {
                 const chapter = this.#chapters[chapterKey];
-                this.#chapters[chapterKey].parsedContent = this.prepareContent(chapter.parsedContent, chapter);
+                this.#chapters[chapterKey].parsedContent = this.prepareContent(chapter.parsedContent, chapter, true);
             }
         } else {
             this.#bookLanguage = this.#singleChapter.parsedContent.lang;
@@ -502,9 +503,10 @@ class Epub {
                 '           <li><a href="toc.xhtml">Table of Contents</a></li>\n'
             );
             let index = 1;
-            for (const chapter of this.#chapters) {
+            const chaptersKeys = Object.keys(this.#chapters);
+            for (const chapterKey of chaptersKeys) {
                 chapters.push(
-                    '           <li><a href="pages/chapter' + index + '.xhtml">' + Epub.stripHtml(chapter.title) + '</a></li>\n'
+                    '           <li><a href="pages/chapter' + index + '.xhtml">' + Epub.stripHtml(this.#chapters[chapterKey].title) + '</a></li>\n'
                 );
                 index++;
             }
@@ -535,7 +537,6 @@ class Epub {
     }
 
     getCover() {
-        console.log(this.coverPath, this.coverImage);
         return '<?xml version="1.0" encoding="UTF-8" ?>\n' +
             '<!DOCTYPE html>\n' +
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.bookLanguage + '" lang="' + this.bookLanguage + '" >\n' +
@@ -758,8 +759,9 @@ class Epub {
 
     get firstChapter() {
         if (this.#hasChapters) {
-            for (const chapter of this.#chapters) {
-                return chapter;
+            const chaptersKeys = Object.keys(this.#chapters);
+            for (const chapterKey of chaptersKeys) {
+                return this.#chapters[chapterKey];
             }
         } else {
             return this.#singleChapter;
@@ -767,7 +769,8 @@ class Epub {
     }
 
     get bookTitle() {
-        return Epub.stripHtml(this.#hasChapters ? this.#cover.title : this.#singleCover.title);
+        const cover = this.#hasChapters ? this.#cover : this.#singleCover;
+        return Epub.stripHtml(cover.customTitle.length > 0 ? cover.customTitle : cover.title);
     }
 
     get bookLanguage() {
@@ -793,7 +796,9 @@ class Epub {
         const urls = this.#hasChapters ? this.#cover.sourceUrls : this.#singleCover.sourceUrls;
         let domains = [];
         for (const sourceUrl of urls) {
-            domains.push((new URL(sourceUrl)).hostname);
+            domains.push((new URL(
+                (sourceUrl.indexOf('https://') < 0 ? 'https://' : '') + sourceUrl)
+            ).hostname);
         }
         return domains.join(', ');
     }
