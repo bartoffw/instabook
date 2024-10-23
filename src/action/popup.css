@@ -38,6 +38,9 @@ body {
     background: #ffeed6;
     display: none;
 }
+.offcanvas-header .offcanvas-title {
+    font-size: 0.9em;
+}
 .offcanvas #chapters-controls,
 .offcanvas #no-chapters {
     font-size: 0.8em;
@@ -48,15 +51,17 @@ body {
 .offcanvas-body #chapters-list .chapter-item {
     padding-left: 0;
     padding-right: 0;
+    margin-left: -10px;
+    margin-right: -5px;
 }
 .offcanvas-body #chapters-list .chapter-item .delete-chapter {
-    visibility: hidden;
+    display: none;
     font-size: 1.5em;
     padding: 0;
     line-height: 0.8em;
 }
 .offcanvas-body #chapters-list .chapter-item:hover .delete-chapter {
-    visibility: visible;
+    display: block;
 }
 .offcanvas-body #chapters-list .edit-chapter {
     text-decoration: none;
@@ -241,13 +246,17 @@ span.grippy::after {
 .list-group-item:hover span.grippy {
     visibility: visible;
 }
+#chapters-button-content {
+    margin-bottom: 1.3em;
+}
 .chapters-divider {
     width: 100%;
     text-align: center;
     border-bottom: 1px solid #999;
     line-height: 0.1em;
-    margin: 10px 0 20px;
-    font-size: 0.9em;
+    font-size: 1em;
+    font-weight: bold;
+    font-variant: small-caps;
 }
 .chapters-divider span {
     background: #fff;

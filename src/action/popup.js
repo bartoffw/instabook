@@ -1,6 +1,7 @@
 let pageUrl = '',
     pageTitle = '',
     bookCoverUrl = browser.runtime.getURL('assets/cover.jpg'),
+    bookDividerUrl = browser.runtime.getURL('assets/divider.png'),
     currentPageData = null,
     currentChapters = null,
     currentCover = null,
@@ -489,6 +490,7 @@ function setAdditionalData(responseData, url) {
     pageData.author = responseData.author.length > 0 ? responseData.author : '';
     pageData.readTime = responseData.readTime.minutes;
     pageData.coverImage = responseData.cover;
+    pageData.dividerUrl = bookDividerUrl;
 
     currentPageData = pageData;
 

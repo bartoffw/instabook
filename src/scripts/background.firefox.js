@@ -13,7 +13,8 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             md5: msg.md5,
             author: msg.author,
             readTime: msg.readTime,
-            coverImage: msg.coverImage
+            coverImage: msg.coverImage,
+            dividerUrl: msg.dividerUrl
         });
         epub.process().then(() => {
             return prepareEpubFile(epub, 'conversion-finished');
@@ -22,7 +23,8 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
     else if (msg.type === 'convert-chapters') {
         const epub = new Epub({
             cover: msg.cover,
-            chapters: msg.chapters
+            chapters: msg.chapters,
+            dividerUrl: msg.dividerUrl
         });
         epub.process().then(() => {
             return prepareEpubFile(epub, 'chapters-conversion-finished');
