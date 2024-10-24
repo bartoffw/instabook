@@ -45,8 +45,6 @@ function prepareEpubFile(epub, message) {
                 });
             } else {
                 if (imgUrl.startsWith('data:image')) {
-                    //console.log('data string found!!!');
-                    //console.log(urlStr);
                     resolve(atob(imgUrl.split(';base64,')[1]));
                 } else {
                     JSZipUtils.getBinaryContent(imgUrl, function (err, data) {

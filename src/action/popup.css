@@ -247,14 +247,14 @@ span.grippy::after {
     visibility: visible;
 }
 #chapters-button-content {
-    margin-bottom: 1.3em;
+    margin-bottom: 1.5em;
 }
 .chapters-divider {
     width: 100%;
     text-align: center;
     border-bottom: 1px solid #999;
     line-height: 0.1em;
-    font-size: 1em;
+    font-size: 1.1em;
     font-weight: bold;
     font-variant: small-caps;
 }

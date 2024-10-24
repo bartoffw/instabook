@@ -90,7 +90,8 @@ document.addEventListener('click', (event) => {
         sendRuntimeMessage({
             type: 'convert-chapters',
             cover: currentCover,
-            chapters: currentChapters
+            chapters: currentChapters,
+            dividerUrl: bookDividerUrl
         });
     }
     else if (event.target.id === 'page-title') {

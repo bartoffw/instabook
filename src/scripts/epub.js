@@ -4,7 +4,7 @@ class Epub {
     #cover = null;
     #singleChapter = {};
     #singleCover = {};
-    #dividerUrl = null;
+    #dividerUrl = '';
 
     static mimeTypes = {
         'png': 'png',
@@ -67,7 +67,7 @@ class Epub {
                 this.#singleCover.coverImages.push(options.coverImage);
                 this.#singleCover.selectedCover = 1;
             }
-            this.#dividerUrl = options.dividerUrl;
+            this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
 
             if (this.#singleCover.coverImages.length > 0) {
                 this.#singleCover.coverImage = this.#singleCover.selectedCover in this.#singleCover.coverImages ?
@@ -86,7 +86,7 @@ class Epub {
             this.#hasChapters = true;
             this.#chapters = options.chapters;
             this.#cover = options.cover;
-            this.#dividerUrl = options.dividerUrl;
+            this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
 
             if (this.#cover.coverImages.length > 0) {
                 this.#cover.coverImage = this.#cover.selectedCover in this.#cover.coverImages ?
@@ -180,7 +180,7 @@ class Epub {
         if (this.coverImage) {
             const ext = Epub.extractExt(this.coverImage);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl), false), { binary: true });
+            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl), true), { binary: true });
             if (this.#hasChapters) {
                 this.#cover.coverPath = 'images/cover.' + ext;
             } else {
@@ -196,7 +196,9 @@ class Epub {
         // generate chapter files
         const chaptersKeys = Object.keys(this.#chapters);
         if (this.#hasChapters) {
-            zip.file('OEBPS/images/divider.png', imageContentPromise(this.#dividerUrl, true), { binary: true });
+            if (this.#dividerUrl.length > 0) {
+                zip.file('OEBPS/images/divider.png', imageContentPromise(this.#dividerUrl, false), {binary: true});
+            }
             let index = 1;
             for (const chapterKey of chaptersKeys) {
                 const chapter = this.#chapters[chapterKey];
@@ -532,7 +534,7 @@ class Epub {
             '<body>\n' +
             '   <nav id="toc" epub:type="toc">\n' +
             '       <h2 class="chapter-title">Table of Contents</h2>\n' +
-            '       <img src="images/divider.png" class="toc-divider" />' +
+            (this.#dividerUrl.length > 0 ? '       <img src="images/divider.png" class="toc-divider" />' : '') +
             '       <ol class="toc-contents">\n' +
             chapters.join('') +
             '       </ol>' +
@@ -564,8 +566,8 @@ class Epub {
             'li { text-align: left } ' +
             'h1 { font-weight: bold; font-size: 1.2em; } ' +
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
-            'h2.chapter-title { font-variant: small-caps; font-size: 1.2em; margin-bottom: 1.5em; text-align: center; } ' +
-            '.toc-divider { max-width: 100%; height: auto; text-align: center; } ' +
+            'h2.chapter-title { font-variant: small-caps; font-size: 1.2em; margin-bottom: 0.5em; text-align: center; } ' +
+            '.toc-divider { width: 100%; max-width: 100%; height: auto; text-align: center; margin: 0 auto; } ' +
             'ol.toc-contents { margin-left: 1em; } ol.toc-contents li { margin-bottom: 0.3em; } ' +
             'p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
             'img { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
