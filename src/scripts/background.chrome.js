@@ -6,15 +6,18 @@
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    message.coverUrl = chrome.runtime.getURL('assets/cover.jpg');
+    message.dividerUrl = chrome.runtime.getURL('assets/divider.png');
     /** Received the Convert/Download action **/
     if (message.type === 'convert') {
-        message.coverUrl = chrome.runtime.getURL('assets/cover.jpg');
         return sendMessageToOffscreenDocument('create-epub', message).then(response => {
             sendResponse({ msg: 'received in background!' })
         });
     }
     else if (message.type === 'convert-chapters') {
-
+        return sendMessageToOffscreenDocument('create-chapters-epub', message).then(response => {
+            sendResponse({ msg: 'received in background!' })
+        });
     }
     else if (message.target === 'background' && message.type === 'epub-prepared') {
 

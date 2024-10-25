@@ -48,17 +48,32 @@ body {
 .offcanvas-body {
     padding-top: 0;
 }
+.offcanvas-body #chapters-list {
+    counter-reset: line-number;
+}
 .offcanvas-body #chapters-list .chapter-item {
     padding-left: 0;
     padding-right: 0;
     margin-left: -10px;
     margin-right: -5px;
+    height: 2.5em;
+    position: relative;
+    counter-increment: line-number;
+}
+.offcanvas-body #chapters-list .chapter-item:before {
+    content: counter(line-number)". ";
+    color: #999;
+    position: absolute;
+    left: 3px;
 }
 .offcanvas-body #chapters-list .chapter-item .delete-chapter {
     display: none;
     font-size: 1.5em;
     padding: 0;
-    line-height: 0.8em;
+    line-height: 2em;
+}
+.offcanvas-body #chapters-list .chapter-item:hover:before {
+    display: none;
 }
 .offcanvas-body #chapters-list .chapter-item:hover .delete-chapter {
     display: block;
@@ -212,14 +227,16 @@ h2, h3 {
     color: darkred;
 }
 .chapters-edit-chapter-name {
+    position: absolute;
     display: none;
     border: 0 none;
-    width: 90%;
-    margin: 0;
     padding: 0.1em;
     resize: none;
     line-height: 1.3em;
     font-size: 1em;
+    left: 17px;
+    right: 17px;
+    top: 6px;
 }
 span.grippy {
     content: '....';

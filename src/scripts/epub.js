@@ -50,15 +50,16 @@ class Epub {
                 authors: [
                     this.#singleChapter.author
                 ],
-                sourceUrls: [
-                    optionsKeys.includes('sourceUrl') ? options.sourceUrl : ''
-                ],
+                sourceUrls: [],
                 readTime: 0, // TODO
                 coverImages: [],
                 selectedCover: null,
                 coverImage: '',
                 coverPath: ''
             };
+            if (optionsKeys.includes('sourceUrl')) {
+                this.#singleCover.sourceUrls.push(options.sourceUrl);
+            }
             if (optionsKeys.includes('defaultCoverUrl')) {
                 this.#singleCover.coverImages.push(options.defaultCoverUrl);
                 this.#singleCover.selectedCover = 0;
@@ -911,6 +912,6 @@ class Epub {
         timeInMinutes -= hours * 60;
         return asObject ?
             { hours: hours, minutes: timeInMinutes, seconds: 0 } :
-            (hours > 0 ? hours + ' hours ' : '') + timeInMinutes;
+            (hours > 0 ? hours + (hours === 1 ? ' hour ' : ' hours ') : '') + timeInMinutes;
     }
 }

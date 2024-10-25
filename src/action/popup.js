@@ -122,6 +122,10 @@ document.addEventListener('click', (event) => {
         deleteChapter($(event.target).parents('.chapter-item').data('chapter-id'));
     }
     else if ($(event.target).hasClass('chapter-name')) {
+        // close previous edit field if any
+        if ($('.chapters-edit-chapter-name:visible').length > 0) {
+            saveCurrentlyEditedTitle();
+        }
         const $name = $(event.target),
             $parent = $name.parent('.chapter-item'),
             $nameEdit = $parent.find('.chapters-edit-chapter-name');
@@ -129,6 +133,7 @@ document.addEventListener('click', (event) => {
         //$nameEdit.css('height', $name.height() + 'px');
         $name.hide();
         $nameEdit.css('display', 'block').focus();
+        $nameEdit[0].setSelectionRange(0, 0);
     }
 
     // clicking outside of the edited title makes it auto-save
@@ -145,15 +150,7 @@ document.addEventListener('click', (event) => {
             displayChaptersTitle(currentCover.title, false);
         }
     } else if (!$(event.target).hasClass('chapter-name') && !$(event.target).hasClass('chapters-edit-chapter-name') && $('.chapters-edit-chapter-name').is(':visible')) {
-        const $edit = $('.chapters-edit-chapter-name:visible'),
-            chapterId = $edit.parents('.chapter-item').data('chapter-id');
-        if (chapterId in currentChapters) {
-            if ($edit.val() !== currentChapters[chapterId].title) {
-                saveEditedChapterTitle($edit.val(), chapterId);
-            } else {
-                displayChapterTitle(currentChapters[chapterId].title, chapterId);
-            }
-        }
+        saveCurrentlyEditedTitle();
     }
 });
 
@@ -184,6 +181,18 @@ document.addEventListener('keypress', (event) => {
         }
     }
 });
+
+function saveCurrentlyEditedTitle() {
+    const $edit = $('.chapters-edit-chapter-name:visible'),
+        chapterId = $edit.parents('.chapter-item').data('chapter-id');
+    if (chapterId in currentChapters) {
+        if ($edit.val() !== currentChapters[chapterId].title) {
+            saveEditedChapterTitle($edit.val(), chapterId);
+        } else {
+            displayChapterTitle(currentChapters[chapterId].title, chapterId);
+        }
+    }
+}
 
 function displayTitle(title, isCustom) {
     $('#page-title').text(title);
@@ -253,6 +262,7 @@ function addChapter(chapterData) {
         if (!currentCover.sourceUrls.includes(urlDomain)) {
             currentCover.sourceUrls.push(urlDomain);
         }
+        // TODO: calculate from scratch
         currentCover.readTime += chapterData.readTime;
         currentCover.coverImages.push(chapterData.coverImage);
         Storage.storeGlobalValue(coverKey, currentCover);
@@ -287,7 +297,18 @@ function deleteChapter(chapterId) {
             currentCover.coverImages.splice(imageIdx, 1);
             console.log('cover after: ' + currentCover.selectedCover);
         }
+        currentCover.readTime -= currentChapters[chapterId].readTime;
         delete currentChapters[chapterId];
+        // reindex source URLs
+        currentCover.sourceUrls = [];
+        const chaptersKeys = Object.keys(currentChapters);
+        for (const chapterKey of chaptersKeys) {
+            const chapter = currentChapters[chapterKey];
+            const urlDomain = (new URL(chapter.url)).hostname;
+            if (!currentCover.sourceUrls.includes(urlDomain)) {
+                currentCover.sourceUrls.push(urlDomain);
+            }
+        }
         Storage.storeGlobalValue(chaptersKey, currentChapters);
         Storage.storeGlobalValue(coverKey, currentCover);
         refreshUI();
@@ -303,11 +324,11 @@ function loadChapters() {
             currentCover = storedCover;
             refreshUI();
             refreshCoverCarousel();
-            $('#chapters-list').sortable({
+            /*$('#chapters-list').sortable({
                 handle: 'span.grippy'
             }).bind('sortupdate', (e, ui) => {
                 console.log(e, ui.item);
-            });
+            });*/
         });
     });
 }
@@ -504,7 +525,7 @@ function formatTime(timeInMinutes, asObject = false) {
     timeInMinutes -= hours * 60;
     return asObject ?
         { hours: hours, minutes: timeInMinutes, seconds: 0 } :
-        (hours > 0 ? hours + ' hours ' : '') + timeInMinutes;
+        (hours > 0 ? hours + (hours === 1 ? ' hour ' : ' hours ') : '') + timeInMinutes;
 }
 
 /**

@@ -14,8 +14,10 @@ async function handleMessages(message) {
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
         case 'create-epub':
-            //console.log('creating epub');
-            await handleEpubCreation(message.data);
+            await handleEpubCreation(message.data, false);
+            return true;
+        case 'create-chapters-epub':
+            await handleEpubCreation(message.data, true);
             return true;
         default:
             console.warn(`Unexpected message type received: '${message.type}'.`);
@@ -23,16 +25,31 @@ async function handleMessages(message) {
     }
 }
 
-async function handleEpubCreation(msg) {
-    const epub = new Epub({
-        docHTML: msg.html,
-        sourceUrl: msg.url,
-        iframes: msg.iframes,
-        images: msg.images,
-        currentUrl: msg.currentUrl,
-        defaultCoverUrl: msg.coverUrl,
-        docTitle: msg.title
-    });
+async function handleEpubCreation(msg, hasChapters) {
+    let epub;
+    if (hasChapters) {
+        epub = new Epub({
+            cover: msg.cover,
+            chapters: msg.chapters,
+            dividerUrl: msg.dividerUrl
+        });
+    } else {
+        epub = new Epub({
+            docHTML: msg.html,
+            sourceUrl: msg.url,
+            iframes: msg.iframes,
+            images: msg.images,
+            currentUrl: msg.currentUrl,
+            defaultCoverUrl: msg.coverUrl,
+            docTitle: msg.title,
+            url: msg.url,
+            md5: msg.md5,
+            author: msg.author,
+            readTime: msg.readTime,
+            coverImage: msg.coverImage,
+            dividerUrl: msg.dividerUrl
+        });
+    }
     epub.process().then(() => {
         return epub.prepareEpubFile((imgUrl, isCover) => {
             return new Promise((resolve, reject) => {
