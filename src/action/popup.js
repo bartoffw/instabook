@@ -6,7 +6,8 @@ let pageUrl = '',
     currentChapters = null,
     currentCover = null,
     isChapterMode = false,
-    coverCarousel = null;
+    coverCarousel = null,
+    carouselElement = {};
 
 const titleKey = 'customTitle',
     chaptersKey = 'instabookChapters',
@@ -262,15 +263,20 @@ function addChapter(chapterData) {
         if (!currentCover.sourceUrls.includes(urlDomain)) {
             currentCover.sourceUrls.push(urlDomain);
         }
-        // TODO: calculate from scratch
-        currentCover.readTime += chapterData.readTime;
+        currentChapters[urlMd5] = chapterData;
+        Storage.storeGlobalValue(chaptersKey, currentChapters);
+
+        currentCover.readTime = 0;
+        const chaptersKeys = Object.keys(currentChapters);
+        for (const chapterKey of chaptersKeys) {
+            currentCover.readTime += currentChapters[chapterKey].readTime;
+        }
         currentCover.coverImages.push(chapterData.coverImage);
         Storage.storeGlobalValue(coverKey, currentCover);
 
-        currentChapters[urlMd5] = chapterData;
-        Storage.storeGlobalValue(chaptersKey, currentChapters);
         refreshUI();
-        refreshCoverCarousel();
+        addCoverCarouselItem(chapterData.coverImage);
+        //refreshCoverCarousel();
     }
 }
 
@@ -296,11 +302,12 @@ function deleteChapter(chapterId) {
             }
             currentCover.coverImages.splice(imageIdx, 1);
             console.log('cover after: ' + currentCover.selectedCover);
+            deleteCoverCarouselItem(imageIdx);
         }
-        currentCover.readTime -= currentChapters[chapterId].readTime;
         delete currentChapters[chapterId];
         // reindex source URLs
         currentCover.sourceUrls = [];
+        currentCover.readTime = 0;
         const chaptersKeys = Object.keys(currentChapters);
         for (const chapterKey of chaptersKeys) {
             const chapter = currentChapters[chapterKey];
@@ -308,11 +315,12 @@ function deleteChapter(chapterId) {
             if (!currentCover.sourceUrls.includes(urlDomain)) {
                 currentCover.sourceUrls.push(urlDomain);
             }
+            currentCover.readTime += chapter.readTime;
         }
         Storage.storeGlobalValue(chaptersKey, currentChapters);
         Storage.storeGlobalValue(coverKey, currentCover);
         refreshUI();
-        refreshCoverCarousel();
+        //refreshCoverCarousel();
     }
 }
 
@@ -480,6 +488,59 @@ function refreshCoverCarousel() {
     }
 }
 
+function addCoverCarouselItem(coverImage) {
+    const $carouselIndicators = $('#cover-carousel .carousel-indicators');
+    let $indicatorElement = $('#cover-carousel .indicator-button').first().clone();
+    let $imageElement = $('#cover-carousel .carousel-item').first().clone();
+    $indicatorElement.removeClass('active');
+    $indicatorElement.removeAttr('aria-current');
+    $imageElement.removeClass('active');
+    $imageElement.find('.cover-image').css('background-image', 'url(' + coverImage + ')');
+
+    $carouselIndicators.append($indicatorElement);
+    $('#cover-carousel .carousel-inner').append($imageElement);
+
+    console.log($carouselIndicators, $('#cover-carousel .carousel-inner'));
+
+    $carouselIndicators.children().each(function (index, item) {
+        $(item).attr('data-bs-slide-to', index);
+        $(item).attr('aria-label', 'Slide ' + (index + 1));
+    });
+}
+
+function deleteCoverCarouselItem(imageIdx) {
+    const imgElement = $('#cover-carousel .carousel-item:eq(' + imageIdx + ')');
+    const imgIndicator = $('#cover-carousel .indicator-button:eq(' + imageIdx + ')');
+    if (imgElement !== null) {
+        carouselElement = {
+            slide: imgElement,
+            indicator: imgIndicator,
+        };
+        if (imgElement.hasClass('active')) {
+            $('#cover-carousel').carousel('prev');
+        } else {
+            doDeleteCarouselItem();
+        }
+    } else {
+        carouselElement = {};
+    }
+}
+
+$('#cover-carousel').on('slid.bs.carousel', function () {
+    if (typeof carouselElement.slide !== 'undefined' && typeof carouselElement.indicator !== 'undefined') {
+        doDeleteCarouselItem();
+    }
+});
+
+function doDeleteCarouselItem() {
+    carouselElement.slide.remove();
+    carouselElement.indicator.remove();
+    $('#cover-carousel .carousel-indicators').children().each(function (index, item) {
+        $(item).attr('data-slide-to', index);
+    });
+    carouselElement = {};
+}
+
 function addPhotoPreview(photoUrl) {
     // TODO: carousel for the book mode
     if (photoUrl.length > 0) {
@@ -510,7 +571,7 @@ function setAdditionalData(responseData, url) {
     pageData.url = url;
     pageData.md5 = urlMd5;
     pageData.author = responseData.author.length > 0 ? responseData.author : '';
-    pageData.readTime = responseData.readTime.minutes;
+    pageData.readTime = responseData.readTime;
     pageData.coverImage = responseData.cover;
     pageData.dividerUrl = bookDividerUrl;
 
@@ -549,7 +610,7 @@ function getCurrentPageData() {
                             } else {
                                 $('#author-field').hide();
                             }
-                            $('#time-field').html(formatTime(response.readTime.minutes) + ' minutes');
+                            $('#time-field').html(formatTime(response.readTime) + ' minutes');
 
                             addPhotoPreview(response.cover);
 

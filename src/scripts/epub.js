@@ -41,7 +41,7 @@ class Epub {
                 title: optionsKeys.includes('docTitle') ? options.docTitle : '',
                 md5: chapterKey,
                 author: optionsKeys.includes('author') ? options.author : '',
-                readTime: optionsKeys.includes('readTime') ? options.readTime : '',
+                readTime: optionsKeys.includes('readTime') ? options.readTime : 0,
                 coverImage: optionsKeys.includes('coverImage') ? options.coverImage : ''
             };
             this.#singleCover = {
@@ -51,7 +51,7 @@ class Epub {
                     this.#singleChapter.author
                 ],
                 sourceUrls: [],
-                readTime: 0, // TODO
+                readTime: this.#singleChapter.readTime,
                 coverImages: [],
                 selectedCover: null,
                 coverImage: '',
@@ -583,9 +583,12 @@ class Epub {
             '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover }';
     }
 
-    estimateReadingTime(plainText, wpm = 200) {
+    estimateReadingTime(plainText, wpm = 200, inMinutes = true) {
         const totalWords = plainText.trim().split(/\s+/).length;
         const totalMinutes = Math.floor(totalWords / wpm);
+        if (inMinutes) {
+            return totalMinutes;
+        }
         const hours = totalMinutes >= 60 ? Math.floor(totalMinutes / 60) : 0;
         return {
             'hours': hours,

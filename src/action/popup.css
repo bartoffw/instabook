@@ -78,6 +78,9 @@ body {
 .offcanvas-body #chapters-list .chapter-item:hover .delete-chapter {
     display: block;
 }
+.offcanvas-body #chapters-list .chapter-item:hover .move-item {
+    visibility: visible;
+}
 .offcanvas-body #chapters-list .edit-chapter {
     text-decoration: none;
     color: var(--bs-list-group-color);
@@ -238,27 +241,33 @@ h2, h3 {
     right: 17px;
     top: 6px;
 }
-span.grippy {
-    content: '....';
-    width: 10px;
+span.move-item {
+    width: 12px;
     height: 20px;
     display: inline-block;
     visibility: hidden;
-    overflow: hidden;
-    line-height: 5px;
+    position: relative;
     padding: 3px 4px;
-    cursor: move;
-    vertical-align: middle;
     margin-top: -.7em;
     margin-right: .7em;
-    font-size: 12px;
-    font-family: sans-serif;
-    letter-spacing: 2px;
-    color: #cccccc;
-    text-shadow: 1px 0 1px black;
 }
-span.grippy::after {
-    content: '.. .. .. ..';
+span.move-item .move-up, span.move-item .move-down {
+    position: absolute;
+    top: 0;
+    left: 1px;
+    width: 10px;
+    height: 10px;
+    cursor: pointer;
+    color: #777;
+}
+span.move-item .move-down {
+    bottom: 0;
+}
+span.move-item .move-up:before {
+    content: '\25B2';
+}
+span.move-item .move-down:before {
+    content: '\25BC';
 }
 .list-group-item:hover span.grippy {
     visibility: visible;
