@@ -136,6 +136,24 @@ document.addEventListener('click', (event) => {
         $nameEdit.css('display', 'block').focus();
         $nameEdit[0].setSelectionRange(0, 0);
     }
+    else if ($(event.target).hasClass('move-up')) {
+        const $item = $(event.target).parents('.chapter-item'),
+            $prev = $item.prev('.chapter-item:not(.chapter-template)');
+        if ($prev.length > 0) {
+            $item.insertBefore($prev);
+            refreshChaptersButtons();
+            reorderChapters();
+        }
+    }
+    else if ($(event.target).hasClass('move-down')) {
+        const $item = $(event.target).parents('.chapter-item'),
+            $next = $item.next('.chapter-item');
+        if ($next.length > 0) {
+            $item.insertAfter($next);
+            refreshChaptersButtons();
+            reorderChapters();
+        }
+    }
 
     // clicking outside of the edited title makes it auto-save
     if (event.target.id !== 'page-title' && event.target.id !== 'edit-title' && $('#edit-title').is(':visible')) {
@@ -290,18 +308,18 @@ function clearChapters() {
 }
 
 function deleteChapter(chapterId) {
-    console.log('delete chapter: ' + chapterId);
+    //console.log('delete chapter: ' + chapterId);
     if (chapterId in currentChapters) {
         const imageIdx = currentCover.coverImages.indexOf(currentChapters[chapterId].coverImage);
         if (imageIdx >= 0) {
-            console.log('cover: ' + currentCover.selectedCover + ', idx: ' + imageIdx);
+            //console.log('cover: ' + currentCover.selectedCover + ', idx: ' + imageIdx);
             if (currentCover.selectedCover === imageIdx) {
                 currentCover.selectedCover = 0;
             } else if (currentCover.selectedCover > imageIdx) {
                 currentCover.selectedCover -= 1;
             }
             currentCover.coverImages.splice(imageIdx, 1);
-            console.log('cover after: ' + currentCover.selectedCover);
+            //console.log('cover after: ' + currentCover.selectedCover);
             deleteCoverCarouselItem(imageIdx);
         }
         delete currentChapters[chapterId];
@@ -322,6 +340,18 @@ function deleteChapter(chapterId) {
         refreshUI();
         //refreshCoverCarousel();
     }
+}
+
+function reorderChapters() {
+    let newChaptersList = {};
+    $('#chapters-list .chapter-item:not(.chapter-template)').each(function () {
+        const chapterId = $(this).data('chapter-id');
+        if (chapterId in currentChapters) {
+            newChaptersList[chapterId] = currentChapters[chapterId];
+        }
+    });
+    currentChapters = newChaptersList;
+    Storage.storeGlobalValue(chaptersKey, currentChapters);
 }
 
 function loadChapters() {
@@ -386,7 +416,14 @@ function refreshUI() {
             $chapterElement.find('.chapter-name').html(chapter.title);
             $('#chapters-list').append($chapterElement);
         }
+        refreshChaptersButtons();
     }
+}
+
+function refreshChaptersButtons() {
+    $('#chapters-list .chapter-item .move-item .move-up, #chapters-list .chapter-item .move-item .move-down').show();
+    $('#chapters-list .chapter-item:not(.chapter-template):first .move-item .move-up').hide();
+    $('#chapters-list .chapter-item:last .move-item .move-down').hide();
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

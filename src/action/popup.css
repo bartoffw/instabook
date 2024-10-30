@@ -242,7 +242,7 @@ h2, h3 {
     top: 6px;
 }
 span.move-item {
-    width: 12px;
+    width: 13px;
     height: 20px;
     display: inline-block;
     visibility: hidden;
@@ -253,12 +253,17 @@ span.move-item {
 }
 span.move-item .move-up, span.move-item .move-down {
     position: absolute;
-    top: 0;
     left: 1px;
     width: 10px;
     height: 10px;
     cursor: pointer;
     color: #777;
+}
+span.move-item .move-up:hover, span.move-item .move-down:hover {
+    color: #333;
+}
+span.move-item .move-up {
+    top: 0;
 }
 span.move-item .move-down {
     bottom: 0;
