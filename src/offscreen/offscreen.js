@@ -26,15 +26,17 @@ async function handleMessages(message) {
 }
 
 async function handleEpubCreation(msg, hasChapters) {
-    let epub;
     if (hasChapters) {
-        epub = new Epub({
+        let epub = new Epub({
             cover: msg.cover,
             chapters: msg.chapters,
             dividerUrl: msg.dividerUrl
         });
+        epub.process().then(() => {
+            return prepareEpubFile(epub, 'conversion-finished');
+        });
     } else {
-        epub = new Epub({
+        let epub = new Epub({
             docHTML: msg.html,
             sourceUrl: msg.url,
             iframes: msg.iframes,
@@ -49,39 +51,31 @@ async function handleEpubCreation(msg, hasChapters) {
             coverImage: msg.coverImage,
             dividerUrl: msg.dividerUrl
         });
-    }
-    epub.process().then(() => {
-        return epub.prepareEpubFile((imgUrl, isCover) => {
-            return new Promise((resolve, reject) => {
-                if (isCover) {
-                    epub.prepareCoverImage(imgUrl).then(response => {
-                        resolve(response);
-                    });
-                } else {
-                    JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            resolve(data);
-                        }
-                    });
-                }
-                /*browser.tabs.query({currentWindow: true, active: true})
-                    .then((tabs) => {
-                        browser.tabs
-                            .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
-                            .then(response => {
-                                resolve(response);
-                            })
-                            .catch(error => {
-                                reject(error);
-                                console.error('Error on send message: ' + error)
-                            });
-                    })
-                    .catch(error => {
-                        console.error('Error on tab query: ' + error)
-                    });*/
-            })
+        epub.process().then(() => {
+            return prepareEpubFile(epub, 'chapters-conversion-finished');
         });
+    }
+}
+
+function prepareEpubFile(epub, message) {
+    return epub.prepareEpubFile((imgUrl, isCover) => {
+        return new Promise((resolve, reject) => {
+            if (isCover) {
+                epub.prepareCoverImage(imgUrl).then(response => {
+                    resolve(response);
+                });
+            } else {
+                JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        chrome.runtime.sendMessage({
+                            type: message
+                        });
+                        resolve(data);
+                    }
+                });
+            }
+        })
     });
 }

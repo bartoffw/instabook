@@ -25,6 +25,12 @@ To use Instabook, follow these steps:
 4. Wait for the conversion and download process to complete.
 5. Enjoy!
 
+### Creating an ebook with chapters
+
+Version *1.2.0* added support for creating ebooks with chapters.
+
+### Availability
+
 The extension is available for most of the modern browsers:
 
 * [Firefox](https://addons.mozilla.org/pl/firefox/addon/instabook/)
@@ -37,7 +43,6 @@ The extension is available for most of the modern browsers:
 - release the extension for mobile (Firefox)
 - adding multiple language support for the extension
 - adding config page
-- adding and managing chapters in the ebook
 - customizing the title page in the ebook (adding a cover image)
 
 ## Configuration

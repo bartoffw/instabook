@@ -397,7 +397,7 @@ function refreshUI() {
             currentCover.customTitle !== null && currentCover.customTitle !== '' ?
                 currentCover.customTitle : currentCover.title
         );
-        $('#chapters-time-field').html(formatTime(currentCover.readTime) + ' minutes');
+        $('#chapters-time-field').html(formatTime(currentCover.readTime));
         if (currentCover.sourceUrls.length > 0) {
             $('#chapters-url-field').html(currentCover.sourceUrls.join(', ')).show();
         } else {
@@ -621,9 +621,15 @@ function setAdditionalData(responseData, url) {
 function formatTime(timeInMinutes, asObject = false) {
     const hours = Math.floor(timeInMinutes / 60);
     timeInMinutes -= hours * 60;
-    return asObject ?
-        { hours: hours, minutes: timeInMinutes, seconds: 0 } :
-        (hours > 0 ? hours + (hours === 1 ? ' hour ' : ' hours ') : '') + timeInMinutes;
+    if (asObject) {
+        return { hours: hours, minutes: timeInMinutes, seconds: 0 };
+    } else {
+        let result = hours > 0 ? hours + (hours === 1 ? ' hour' : ' hours') : '';
+        if (timeInMinutes > 0) {
+            result += (result.length > 0 ? ' ' : '') + timeInMinutes + (timeInMinutes === 1 ? ' minute' : ' minutes');
+        }
+        return result;
+    }
 }
 
 /**
@@ -647,7 +653,7 @@ function getCurrentPageData() {
                             } else {
                                 $('#author-field').hide();
                             }
-                            $('#time-field').html(formatTime(response.readTime) + ' minutes');
+                            $('#time-field').html(formatTime(response.readTime));
 
                             addPhotoPreview(response.cover);
 

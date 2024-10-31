@@ -416,7 +416,7 @@ class Epub {
             '   <dc:title>' + this.bookTitle + '</dc:title>' +
             (this.author.length > 0 ?
             '   <dc:creator>' + this.author + '</dc:creator>\n' : '') +
-            '   <dc:description>Read time: ' + this.bookReadTime + ' minutes</dc:description>\n' +
+            '   <dc:description>Read time: ' + this.bookReadTime + '</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
             '   <dc:publisher>Instabook (https://instabook.site)</dc:publisher>\n' +
             '   <meta property="dcterms:modified">2024-10-15T23:46:34Z</meta>\n' + // FIXME - modified date
@@ -666,7 +666,7 @@ class Epub {
                     );
                 }
                 currentPosY = that.drawTitle(
-                    ctx, 'Read time: ' + that.bookReadTime + ' minutes', 12, '', 22, coverWidth,
+                    ctx, 'Read time: ' + that.bookReadTime, 12, '', 22, coverWidth,
                     currentPosY, 'rgba(255, 255, 255, 0.6)'
                 );
                 that.drawTitle(
@@ -913,8 +913,14 @@ class Epub {
     static formatTime(timeInMinutes, asObject = false) {
         const hours = Math.floor(timeInMinutes / 60);
         timeInMinutes -= hours * 60;
-        return asObject ?
-            { hours: hours, minutes: timeInMinutes, seconds: 0 } :
-            (hours > 0 ? hours + (hours === 1 ? ' hour ' : ' hours ') : '') + timeInMinutes;
+        if (asObject) {
+            return { hours: hours, minutes: timeInMinutes, seconds: 0 };
+        } else {
+            let result = hours > 0 ? hours + (hours === 1 ? ' hour' : ' hours') : '';
+            if (timeInMinutes > 0) {
+                result += (result.length > 0 ? ' ' : '') + timeInMinutes + (timeInMinutes === 1 ? 'minute' : 'minutes');
+            }
+            return result;
+        }
     }
 }
