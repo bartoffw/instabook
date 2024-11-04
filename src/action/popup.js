@@ -362,11 +362,6 @@ function loadChapters() {
             currentCover = storedCover;
             refreshUI();
             refreshCoverCarousel();
-            /*$('#chapters-list').sortable({
-                handle: 'span.grippy'
-            }).bind('sortupdate', (e, ui) => {
-                console.log(e, ui.item);
-            });*/
         });
     });
 }

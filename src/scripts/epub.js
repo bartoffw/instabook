@@ -273,8 +273,8 @@ class Epub {
             );
             const ext = Epub.extractExt(url);
             if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
-                const newName = 'images/img' + imageIndex + '.' + ext;
-                const imageItem = '<item id="img' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
+                const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
+                const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
                 if (that.#hasChapters) {
                     that.#chapters[chapterKey].imageUrls[newName] = url;
                     that.#chapters[chapterKey].imageItems.push(imageItem);
@@ -300,8 +300,8 @@ class Epub {
                 );
                 const ext = Epub.extractExt(url);
                 if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
-                    const newName = 'images/img' + imageIndex + '.' + ext;
-                    const imageItem = '<item id="img' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
+                    const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
+                    const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
                     if (that.#hasChapters) {
                         that.#chapters[chapterKey].imageUrls[newName] = url;
                         that.#chapters[chapterKey].imageItems.push(imageItem);
@@ -318,8 +318,8 @@ class Epub {
                 const url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
                 const ext = Epub.extractExt(url);
                 if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
-                    const newName = 'images/img' + imageIndex + '.' + ext;
-                    const imageItem = '<item id="img' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
+                    const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
+                    const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
                     if (that.#hasChapters) {
                         that.#chapters[chapterKey].imageUrls[newName] = url;
                         that.#chapters[chapterKey].imageItems.push(imageItem);
@@ -918,7 +918,7 @@ class Epub {
         } else {
             let result = hours > 0 ? hours + (hours === 1 ? ' hour' : ' hours') : '';
             if (timeInMinutes > 0) {
-                result += (result.length > 0 ? ' ' : '') + timeInMinutes + (timeInMinutes === 1 ? 'minute' : 'minutes');
+                result += (result.length > 0 ? ' ' : '') + timeInMinutes + (timeInMinutes === 1 ? ' minute' : ' minutes');
             }
             return result;
         }
