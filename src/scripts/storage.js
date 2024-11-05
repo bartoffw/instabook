@@ -1,4 +1,20 @@
 class Storage {
+    static storeGlobalValue(key, value) {
+        let content = {};
+        content[key] = JSON.stringify(value);
+        browser.storage.local.set(content);
+    }
+
+    static async getStoredGlobalValue(key, defaultValue = null) {
+        const result = await browser.storage.local.get(key);
+        return Object.keys(result).length > 0 ?
+            JSON.parse(result[Object.keys(result)[0]]) : defaultValue;
+    }
+
+    static deleteGlobalValue(key) {
+        browser.storage.local.remove([ key ]);
+    }
+
     static storeValue(url, key, value) {
         let content = {};
         content[this.buildKey(url, key)] = value;

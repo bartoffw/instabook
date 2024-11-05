@@ -10,34 +10,132 @@ body {
     max-width: 300px;
     overflow: hidden;
 }
-#error-content {
+#error-content,
+#chapters-error-content {
     display: none;
     font-size: 0.9em;
     padding: 0.5em;
 }
-#error-content p {
+#error-content p,
+#chapters-error-content p {
     margin-bottom: 0;
 }
 #extension-version a {
     font-size: 0.8em;
 }
-#book-preview {
+#chapter-group:hover button,
+#chapters-chapter-group:hover button {
+    border: 1px solid #aaa;
+}
+#chapter-group button:hover,
+#chapters-chapter-group button:hover {
+    border: 1px solid #333;
+}
+#chapter-group #add-chapter {
+    flex: 0 1 auto;
+}
+#chapters-card-body {
+    background: #ffeed6;
+    display: none;
+}
+.offcanvas-header .offcanvas-title {
+    font-size: 0.9em;
+}
+.offcanvas #chapters-controls,
+.offcanvas #no-chapters {
+    font-size: 0.8em;
+}
+.offcanvas-body {
+    padding-top: 0;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+}
+.offcanvas-body #chapters-list {
+    counter-reset: line-number;
+}
+.offcanvas-body #chapters-list .chapter-item {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: -10px;
+    margin-right: -5px;
+    height: 2.5em;
+    position: relative;
+    counter-increment: line-number;
+}
+.offcanvas-body #chapters-list .chapter-item:before {
+    content: counter(line-number)". ";
+    color: #999;
+    position: absolute;
+    left: 3px;
+}
+.offcanvas-body #chapters-list .chapter-item .delete-chapter {
+    display: none;
+    font-size: 1.5em;
+    padding: 0;
+    line-height: 2em;
+}
+.offcanvas-body #chapters-list .chapter-item:hover:before {
+    display: none;
+}
+.offcanvas-body #chapters-list .chapter-item:hover .delete-chapter {
+    display: block;
+}
+.offcanvas-body #chapters-list .chapter-item:hover .move-item {
+    visibility: visible;
+}
+.offcanvas-body #chapters-list .edit-chapter {
+    text-decoration: none;
+    color: var(--bs-list-group-color);
+}
+.offcanvas-body #chapters-list .chapter-item .edit-chapter:hover {
+    text-decoration: underline;
+}
+.offcanvas-body #chapters-list .chapter-template {
+    display: none !important;
+}
+#book-preview,
+#chapters-book-preview {
     width: 250px;
     height: 333px;
     position: relative;
     margin-bottom: 0.5em;
 }
-#bg-image, #text-section {
+#bg-image, #text-section,
+#chapters-text-section {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
 }
-#bg-image {
+#bg-image,
+.cover-image {
     background-position: bottom;
     background-repeat: no-repeat;
     background-size: cover;
+}
+#cover-carousel,
+#cover-carousel .carousel-inner,
+#cover-carousel .carousel-item,
+#cover-carousel .cover-image {
+    width: 100%;
+    height: 100%;
+}
+.carousel-indicators .indicator-button {
+    border: 1px solid #888;
+}
+#cover-carousel .carousel-control-prev,
+#cover-carousel .carousel-control-next {
+    background-color: #ccc;
+}
+.carousel-indicators, .carousel-control {
+    display: none;
+}
+#chapters-book-preview:hover .carousel-indicators {
+    display: flex;
+}
+#chapters-book-preview:hover .carousel-control {
+    display: block;
 }
 h1, h2, h3 {
     margin: 0;
@@ -61,13 +159,23 @@ h2, h3 {
     font-size: 0.8em;
     font-weight: normal;
 }
-#author-field {
+.mode-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    text-transform: uppercase;
+    font-size: .7em;
+}
+#author-field,
+#chapters-author-field {
     font-weight: bold;
 }
-#page-title, #revert-title-btn {
+#page-title, #revert-title-btn,
+#chapters-page-title, #chapters-revert-title-btn {
     cursor: pointer;
 }
-#edit-buttons {
+#edit-buttons,
+#chapters-edit-buttons {
     text-align: center;
     visibility: hidden;
     margin: 0.2em 0;
@@ -77,10 +185,12 @@ h2, h3 {
     font-size: 0.8em;
     background-color: rgba(255, 255, 255, 0.5);
 }
-#page-title:hover {
+#page-title:hover,
+#chapters-page-title:hover {
     color: #55658e;
 }
-#edit-title {
+#edit-title,
+#chapters-edit-title {
     display: none;
     border: 0 none;
     text-align: center;
@@ -94,10 +204,94 @@ h2, h3 {
     font-weight: bold;
     font-variant: small-caps;
 }
-#edit-title:focus {
+#chapters-edit-title {
+    z-index: 99999;
+}
+#edit-title:focus,
+#chapters-edit-title:focus,
+.chapters-edit-chapter-name:focus {
     outline: 0;
     box-shadow: none;
 }
-#book-preview:hover #edit-buttons {
+#book-preview:hover #edit-buttons,
+#chapters-book-preview:hover #chapters-edit-buttons {
     visibility: visible;
+}
+.chapter-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chapter-name, .delete-chapter {
+    cursor: pointer;
+}
+.chapter-name:hover {
+    text-decoration: underline;
+}
+.delete-chapter:hover {
+    color: darkred;
+}
+.chapters-edit-chapter-name {
+    position: absolute;
+    display: none;
+    border: 0 none;
+    padding: 0.1em;
+    resize: none;
+    line-height: 1.3em;
+    font-size: 1em;
+    left: 17px;
+    right: 17px;
+    top: 6px;
+}
+span.move-item {
+    width: 13px;
+    height: 20px;
+    display: inline-block;
+    visibility: hidden;
+    position: relative;
+    padding: 3px 4px;
+    margin-top: -.7em;
+    margin-right: .7em;
+}
+span.move-item .move-up, span.move-item .move-down {
+    position: absolute;
+    left: 1px;
+    width: 10px;
+    height: 10px;
+    cursor: pointer;
+    color: #777;
+}
+span.move-item .move-up:hover, span.move-item .move-down:hover {
+    color: #333;
+}
+span.move-item .move-up {
+    top: 0;
+}
+span.move-item .move-down {
+    bottom: 0;
+}
+span.move-item .move-up:before {
+    content: '\25B2';
+}
+span.move-item .move-down:before {
+    content: '\25BC';
+}
+.list-group-item:hover span.grippy {
+    visibility: visible;
+}
+#chapters-button-content {
+    margin-bottom: 1.5em;
+}
+.chapters-divider {
+    width: 100%;
+    text-align: center;
+    border-bottom: 1px solid #999;
+    line-height: 0.1em;
+    font-size: 1.1em;
+    font-weight: bold;
+    font-variant: small-caps;
+}
+.chapters-divider span {
+    background: #fff;
+    padding: 0 10px;
 }

@@ -63,9 +63,11 @@ browser.runtime.onMessage.addListener(request => {
     }
     /** get the ebook cover preview in the popup **/
     else if (request.type === 'preview') {
-        const epub = new Epub(
-            document.documentElement.outerHTML, getCurrentUrl(), {}, {}, getCurrentUrl(), getOriginUrl()
-        );
+        const epub = new Epub({
+            docHTML: document.documentElement.outerHTML,
+            sourceUrl: getCurrentUrl(),
+            currentUrl: getCurrentUrl()
+        });
         const parsedInfo = epub.check();
         return Promise.resolve(parsedInfo);
         /*images: parsedInfo.images.map((url) => {
@@ -76,7 +78,7 @@ browser.runtime.onMessage.addListener(request => {
 
 /**
  * Get page data required to generate the complete epub file
- * @returns {{currentUrl: string, images: {}, originUrl: string, html: string, iframes: {}}}
+ * @returns {{currentUrl: string, images: {}, html: string, iframes: {}}}
  */
 function getPageData() {
     const imgElements = document.getElementsByTagName('img'),
@@ -112,8 +114,7 @@ function getPageData() {
         html: document.documentElement.outerHTML,
         iframes: iframes,
         images: images,
-        currentUrl: currentUrl,
-        originUrl: getOriginUrl()
+        currentUrl: currentUrl
     }
 }
 
@@ -144,12 +145,4 @@ function getCurrentUrl() {
     }
     url = url.substring(0, url.lastIndexOf('/') + 1);
     return url;
-}
-
-function getOriginUrl() {
-    let originUrl = window.location.origin;
-    if (!originUrl) {
-        originUrl = window.location.protocol + "//" + window.location.host;
-    }
-    return originUrl;
 }

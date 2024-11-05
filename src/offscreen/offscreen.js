@@ -14,8 +14,10 @@ async function handleMessages(message) {
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
         case 'create-epub':
-            //console.log('creating epub');
-            await handleEpubCreation(message.data);
+            await handleEpubCreation(message.data, false);
+            return true;
+        case 'create-chapters-epub':
+            await handleEpubCreation(message.data, true);
             return true;
         default:
             console.warn(`Unexpected message type received: '${message.type}'.`);
@@ -23,42 +25,57 @@ async function handleMessages(message) {
     }
 }
 
-async function handleEpubCreation(msg) {
-    const epub = new Epub(
-        msg.html, msg.url, msg.iframes, msg.images, msg.currentUrl, msg.originUrl, msg.coverUrl, msg.title, msg.displayTitle
-    );
-    epub.process().then(() => {
-        return epub.prepareEpubFile((imgUrl, isCover) => {
-            return new Promise((resolve, reject) => {
-                if (isCover) {
-                    epub.prepareCoverImage(imgUrl).then(response => {
-                        resolve(response);
-                    });
-                } else {
-                    JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            resolve(data);
-                        }
-                    });
-                }
-                /*browser.tabs.query({currentWindow: true, active: true})
-                    .then((tabs) => {
-                        browser.tabs
-                            .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
-                            .then(response => {
-                                resolve(response);
-                            })
-                            .catch(error => {
-                                reject(error);
-                                console.error('Error on send message: ' + error)
-                            });
-                    })
-                    .catch(error => {
-                        console.error('Error on tab query: ' + error)
-                    });*/
-            })
+async function handleEpubCreation(msg, hasChapters) {
+    if (hasChapters) {
+        let epub = new Epub({
+            cover: msg.cover,
+            chapters: msg.chapters,
+            dividerUrl: msg.dividerUrl
         });
+        epub.process().then(() => {
+            return prepareEpubFile(epub, 'conversion-finished');
+        });
+    } else {
+        let epub = new Epub({
+            docHTML: msg.html,
+            sourceUrl: msg.url,
+            iframes: msg.iframes,
+            images: msg.images,
+            currentUrl: msg.currentUrl,
+            defaultCoverUrl: msg.coverUrl,
+            docTitle: msg.title,
+            url: msg.url,
+            md5: msg.md5,
+            author: msg.author,
+            readTime: msg.readTime,
+            coverImage: msg.coverImage,
+            dividerUrl: msg.dividerUrl
+        });
+        epub.process().then(() => {
+            return prepareEpubFile(epub, 'chapters-conversion-finished');
+        });
+    }
+}
+
+function prepareEpubFile(epub, message) {
+    return epub.prepareEpubFile((imgUrl, isCover) => {
+        return new Promise((resolve, reject) => {
+            if (isCover) {
+                epub.prepareCoverImage(imgUrl).then(response => {
+                    resolve(response);
+                });
+            } else {
+                JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        chrome.runtime.sendMessage({
+                            type: message
+                        });
+                        resolve(data);
+                    }
+                });
+            }
+        })
     });
 }
