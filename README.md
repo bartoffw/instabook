@@ -21,13 +21,31 @@ To use Instabook, follow these steps:
 
 1. Navigate to the web page you want to convert.
 2. Click the Instabook icon in your browser's toolbar.
-3. Click "Download".
-4. Wait for the conversion and download process to complete.
-5. Enjoy!
+3. *Optional step:* Additionally, you can change the title of your Ebook by clicking on it and editing it. Once you're done, just hit Enter or click the area around the title.
+4. Click "Download".
+5. Wait for the conversion and download process to complete.
+6. Enjoy!
 
 ### Creating an ebook with chapters
 
-Version *1.2.0* added support for creating ebooks with chapters.
+Version *1.2.0* added support for creating ebooks with chapters. There's now an additional "Add as a chapter" button and
+a subpage for managing chapters of the Ebook.
+
+To start using this feature, follow these steps:
+
+1. Browse to the page you want to add as the Ebook chapter and click "Add as a chapter".
+   1. The chapter count will show up on the right side of the button. That number is also a button that opens the chapter management screen.
+2. Keep browsing to the pages you want to include in your Ebook and adding them using the new button.
+3. Once you're done adding the chapters, click on the chapter count button - this will open the chapter management screen.
+4. The cover image is a carousel showing the generic cover by default, but you can change it to any cover from the added chapters you want.
+5. The cover title also can be changed - just click on it and edit it.
+6. Then, scroll down to see the chapter list and manage it.
+   1. Each chapter name can be edited by clicking on it.
+   2. The chapter list can be also reordered using the triangle buttons on the left.
+   3. Each chapter can be deleted with the "X" button on the right.
+   4. There's also a "Delete All" button at the bottom which clears all chapters to start again.
+7. Once you're done with your edits, click on the "Download X Chapters" button (the X will be a number of chapters added) to get the file.
+8. To go back to the main screen just click on the "X" in the top-right corner.
 
 ### Availability
 
