@@ -85,7 +85,7 @@ document.addEventListener('click', (event) => {
                 unexpectedError('Error on tab query: ' + error);
             });
     }
-    else if (event.target.id === 'chapters-convert-btn') {
+    else if (event.target.id === 'chapters-convert-btn' || event.target.id === 'chapters-convert-text') {
         $('#error-content').hide();
         chaptersBtnLoading();
         sendRuntimeMessage({
@@ -308,18 +308,15 @@ function clearChapters() {
 }
 
 function deleteChapter(chapterId) {
-    //console.log('delete chapter: ' + chapterId);
     if (chapterId in currentChapters) {
         const imageIdx = currentCover.coverImages.indexOf(currentChapters[chapterId].coverImage);
         if (imageIdx >= 0) {
-            //console.log('cover: ' + currentCover.selectedCover + ', idx: ' + imageIdx);
             if (currentCover.selectedCover === imageIdx) {
                 currentCover.selectedCover = 0;
             } else if (currentCover.selectedCover > imageIdx) {
                 currentCover.selectedCover -= 1;
             }
             currentCover.coverImages.splice(imageIdx, 1);
-            //console.log('cover after: ' + currentCover.selectedCover);
             deleteCoverCarouselItem(imageIdx);
         }
         delete currentChapters[chapterId];
@@ -376,8 +373,7 @@ function refreshUI() {
         $('#chapters-controls').hide();
         $('#chapter-count').text('');
         $('#chapter-count-title').text('0');
-        $('#chapter-count-download').text('0');
-        $('#chapter-word').text('Chapters');
+        $('#chapters-convert-text').text('Download 0 Chapters');
         $('.offcanvas .offcanvas-header .btn-close').trigger('click');
     } else {
         const chaptersKeys = Object.keys(currentChapters);
@@ -386,8 +382,7 @@ function refreshUI() {
         $('#chapters-controls').show();
         $('#chapter-count').text(chaptersKeys.length);
         $('#chapter-count-title').text(chaptersKeys.length);
-        $('#chapter-count-download').text(chaptersKeys.length);
-        $('#chapter-word').text(chaptersKeys.length > 1 ? 'Chapters' : 'Chapter');
+        $('#chapters-convert-text').text('Download ' + chaptersKeys.length + ' ' + (chaptersKeys.length > 1 ? 'Chapters' : 'Chapter'));
         displayChaptersTitle(
             currentCover.customTitle !== null && currentCover.customTitle !== '' ?
                 currentCover.customTitle : currentCover.title
@@ -531,8 +526,6 @@ function addCoverCarouselItem(coverImage) {
 
     $carouselIndicators.append($indicatorElement);
     $('#cover-carousel .carousel-inner').append($imageElement);
-
-    console.log($carouselIndicators, $('#cover-carousel .carousel-inner'));
 
     $carouselIndicators.children().each(function (index, item) {
         $(item).attr('data-bs-slide-to', index);

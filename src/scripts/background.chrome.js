@@ -45,13 +45,14 @@ async function sendMessageToOffscreenDocument(type, data) {
     }
     // Now that we have an offscreen document, we can dispatch the
     // message.
-    const result = await chrome.runtime.sendMessage({
+    await chrome.runtime.sendMessage({
         type,
         target: 'offscreen',
         data
     });
+    const msgType = type === 'create-epub' ? 'conversion-finished' : 'chapters-conversion-finished';
     chrome.runtime.sendMessage({
-        type: 'conversion-finished'
+        type: msgType
     });
 }
 
