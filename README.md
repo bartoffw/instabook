@@ -1,6 +1,6 @@
 # Instabook
 
-Create an eBook from any web page instantly and beautifully.
+Create an Ebook from any web page instantly and beautifully. Now you can build your own Ebook with chapters from multiple pages.
 
 ![Instabook conversion](/screenshots/extension-large-horizontal.png)
 
@@ -8,7 +8,11 @@ Create an eBook from any web page instantly and beautifully.
 
 Instabook is a browser extension that makes it easy to convert any web page with content into a stylish and clean Ebook for free.
 You can save web pages as EPUB files and read them offline on your computer or Ebook reader.
+
 You also get to preview the cover page of your Ebook before the epub file is generated.
+
+The latest version also allows you to build a multi-chapter Ebook with each chapter being a snapshot of a different page.
+Read the *Creating an Ebook with chapters* section for details.
 
 ## Installation
 
@@ -26,9 +30,9 @@ To use Instabook, follow these steps:
 5. Wait for the conversion and download process to complete.
 6. Enjoy!
 
-### Creating an ebook with chapters
+### Creating an Ebook with chapters
 
-Version *1.2.0* added support for creating ebooks with chapters. There's now an additional "Add as a chapter" button and
+Version *1.2.0* added support for creating Ebooks with chapters. There's now an additional "Add as a chapter" button and
 a subpage for managing chapters of the Ebook.
 
 To start using this feature, follow these steps:
@@ -36,16 +40,30 @@ To start using this feature, follow these steps:
 1. Browse to the page you want to add as the Ebook chapter and click "Add as a chapter".
    1. The chapter count will show up on the right side of the button. That number is also a button that opens the chapter management screen.
 2. Keep browsing to the pages you want to include in your Ebook and adding them using the new button.
+
+   ![Add as a chapter](/screenshots/add-as-chapter.png)
+
 3. Once you're done adding the chapters, click on the chapter count button - this will open the chapter management screen.
+
+   ![Chapter count button](/screenshots/chapter-count.png)
+
 4. The cover image is a carousel showing the generic cover by default, but you can change it to any cover from the added chapters you want.
 5. The cover title also can be changed - just click on it and edit it.
 6. Then, scroll down to see the chapter list and manage it.
    1. Each chapter name can be edited by clicking on it.
    2. The chapter list can be also reordered using the triangle buttons on the left.
+   
+      ![Instabook conversion](/screenshots/reorder-chapters.png)
+   
    3. Each chapter can be deleted with the "X" button on the right.
+   
+      ![Delete chapter](/screenshots/delete-chapter.png)
+   
    4. There's also a "Delete All" button at the bottom which clears all chapters to start again.
 7. Once you're done with your edits, click on the "Download X Chapters" button (the X will be a number of chapters added) to get the file.
 8. To go back to the main screen just click on the "X" in the top-right corner.
+
+   ![Chapters header](/screenshots/chapters-header.png)
 
 ### Availability
 
@@ -61,7 +79,7 @@ The extension is available for most of the modern browsers:
 - release the extension for mobile (Firefox)
 - adding multiple language support for the extension
 - adding config page
-- customizing the title page in the ebook (adding a cover image)
+- customizing the title page in the Ebook (adding a cover image)
 
 ## Configuration
 
@@ -76,7 +94,7 @@ Running `npm run clean` cleans the `dist` folder. The dist folder is also cleane
 
 ## Troubleshooting
 
-No issues reported yet. Please submit any problems you find on the [GitHub page](https://github.com/bartoffw/instabook/issues).
+Please submit any problems you find on the [GitHub page](https://github.com/bartoffw/instabook/issues).
 
 ## Contributing
 
@@ -84,7 +102,7 @@ Propositions for new features are welcome. Please submit them on the [GitHub pag
 
 ## Credits
 
-* The extension is utilizing the [Readability](https://github.com/mozilla/readability) library to generate the ebook content.
+* The extension is utilizing the [Readability](https://github.com/mozilla/readability) library to generate the Ebook content.
 It's the same library that is used by Mozilla Firefox in the [Firefox Reader View](https://support.mozilla.org/kb/firefox-reader-view-clutter-free-web-pages).
 * The extension is inspired by [alexadam/save-as-ebook](https://github.com/alexadam/save-as-ebook) extension
 
