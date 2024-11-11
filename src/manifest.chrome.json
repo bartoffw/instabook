@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Instabook",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "author": "Bartosz Wójcik",
   "homepage_url": "https://github.com/bartoffw/instabook",
   "description": "Create an eBook from any page instantly and beautifully.",
@@ -23,6 +23,7 @@
         "scripts/jquery.min.js",
         "scripts/jszip-utils.min.js",
         "scripts/purify.js",
+        "scripts/filesaver.min.js",
         "scripts/Readability.js",
         "scripts/epub.js",
         "scripts/content_script.js"
@@ -33,7 +34,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "assets/cover.jpg"
+        "assets/cover.jpg",
+        "assets/divider.png"
       ],
       "matches": [
         "*://*/*"

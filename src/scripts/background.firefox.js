@@ -16,9 +16,8 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             coverImage: msg.coverImage,
             dividerUrl: msg.dividerUrl
         });
-        epub.process().then(() => {
-            return prepareEpubFile(epub, 'conversion-finished');
-        });
+        epub.process();
+        return prepareEpubFile(epub, 'conversion-finished');
     }
     else if (msg.type === 'convert-chapters') {
         const epub = new Epub({
@@ -26,9 +25,8 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             chapters: msg.chapters,
             dividerUrl: msg.dividerUrl
         });
-        epub.process().then(() => {
-            return prepareEpubFile(epub, 'chapters-conversion-finished');
-        });
+        epub.process();
+        return prepareEpubFile(epub, 'chapters-conversion-finished');
     }
     /** Received the Reset action (not used currently) **/
     else if (msg.type === 'reset') {

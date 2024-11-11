@@ -8,6 +8,7 @@ class Epub {
 
     static mimeTypes = {
         'png': 'png',
+        'gif': 'gif',
         'jpeg': 'jpg',
         'tiff': 'tif',
         'vnd.wap.wbmp': 'wbmp',
@@ -16,6 +17,22 @@ class Epub {
         'x-ms-bmp': 'bmp',
         'svg+xml': 'svg',
         'webp': 'webp'
+    };
+
+    // Add more from http://en.wikipedia.org/wiki/List_of_file_signatures
+    static fileHeaders = {
+        "89504e47": "png",
+        "47494638": "gif",
+        "ffd8ffe0": "jpg",
+        "ffd8ffe1": "jpg",
+        "ffd8ffdb": "jpg",
+        "ffd8ffe2": "jpg",
+        "25504446": "pdf",
+        "7b5c7274": "rtf",
+        "49492a00": "tif",
+        "4d4d002a": "tif",
+        "49492b00": "tif",
+        "4d4d002b": "tif",
     };
 
     #bookId;
@@ -142,15 +159,16 @@ class Epub {
 
     zipImages(zip, imageUrls, currentUrl, imageContentPromise) {
         const imageKeys = Object.keys(imageUrls);
-        let imageIndex = 1;
-        for (const imageKey of imageKeys) {
-            //const ext = Epub.extractExt(imgUrl);
-            zip.file('OEBPS/' + imageKey, imageContentPromise(Epub.getAbsoluteUrl(imageUrls[imageKey], currentUrl), false), { binary: true });
-            imageIndex++;
+        if (imageKeys.length > 0) {
+            let imageIndex = 1;
+            for (const imageKey of imageKeys) {
+                zip.file('OEBPS/' + imageKey, imageContentPromise(Epub.getAbsoluteUrl(imageUrls[imageKey], currentUrl), false), {binary: true});
+                imageIndex++;
+            }
         }
     }
 
-    async process() {
+    process() {
         this.#bookId = 'instabook-' + Epub.generateUuidv4();
 
         if (this.#hasChapters) {
@@ -173,21 +191,20 @@ class Epub {
 
         zip.file('META-INF/container.xml', this.getContainerXml());
 
+        // handle images
+        if (this.coverImage) {
+            //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
+            zip.file('OEBPS/images/cover.jpg', imageContentPromise(Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl), true), { binary: true });
+            if (this.#hasChapters) {
+                this.#cover.coverPath = 'images/cover.jpg';
+            } else {
+                this.#singleCover.coverPath = 'images/cover.jpg';
+            }
+        }
+
         // generate META files
         zip.file('OEBPS/content.opf', this.getContentOpf());
         zip.file('OEBPS/toc.ncx', this.getTocNcx());
-
-        // handle images
-        if (this.coverImage) {
-            const ext = Epub.extractExt(this.coverImage);
-            //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.' + ext, imageContentPromise(Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl), true), { binary: true });
-            if (this.#hasChapters) {
-                this.#cover.coverPath = 'images/cover.' + ext;
-            } else {
-                this.#singleCover.coverPath = 'images/cover.' + ext;
-            }
-        }
 
         // generate content files
         zip.file('OEBPS/styles/ebook.css', this.getBookStyles());
@@ -216,14 +233,40 @@ class Epub {
             type: 'blob',
             mimeType: 'application/epub+zip'
         }).then((content) => {
-            $('#convert-btn').prop('disabled', false);
-            $('#convert-spinner').removeClass('visually-hidden');
             let filename = Epub.stripHtml(this.bookTitle) + ' (Instabooked).epub';
             saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
-        }, (error) => {
-            $('#convert-btn').prop('disabled', false);
-            $('#convert-spinner').removeClass('visually-hidden');
+            //this.saveFile(content, filename.replace(/[/\\?%*:|"<>]/g, ''))
         });
+    }
+
+    async saveFile(blob, fileName) {
+        const fileStream = streamSaver.createWriteStream(fileName, {
+            size: blob.size // Makes the percentage visible in the download
+        })
+
+        // One quick alternetive way if you don't want the hole blob.js thing:
+        // const readableStream = new Response(
+        //   Blob || String || ArrayBuffer || ArrayBufferView
+        // ).body
+        const readableStream = blob.stream()
+
+        // more optimized pipe version
+        // (Safari may have pipeTo but it's useless without the WritableStream)
+        if (window.WritableStream && readableStream.pipeTo) {
+            return await readableStream.pipeTo(fileStream)
+                //.then(() => console.log('done writing'))
+        }
+
+        // Write (pipe) manually
+        window.writer = fileStream.getWriter()
+
+        const reader = readableStream.getReader()
+        const pump = () => reader.read()
+            .then(res => res.done
+                ? writer.close()
+                : writer.write(res.value).then(pump))
+
+        pump()
     }
 
     processIframes(doc, iframes) {
@@ -272,6 +315,7 @@ class Epub {
                     picImage.attr('src')
             );
             const ext = Epub.extractExt(url);
+            const noStretch = picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
             if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                 const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
                 const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
@@ -282,10 +326,10 @@ class Epub {
                     that.#singleChapter.imageUrls[newName] = url;
                     that.#singleChapter.imageItems.push(imageItem);
                 }
-                $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" />');
+                $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
                 imageIndex++;
             } else {
-                $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" />');
+                $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
             }
         });
         // <img> tags
@@ -299,6 +343,7 @@ class Epub {
                         picImage.attr('src')
                 );
                 const ext = Epub.extractExt(url);
+                const noStretch = picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
                 if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                     const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
                     const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
@@ -309,14 +354,15 @@ class Epub {
                         that.#singleChapter.imageUrls[newName] = url;
                         that.#singleChapter.imageItems.push(imageItem);
                     }
-                    $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" />');
+                    $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
                     imageIndex++;
                 } else {
-                    $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" />');
+                    $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
                 }
             } else {
                 const url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
                 const ext = Epub.extractExt(url);
+                const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
                 if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                     const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
                     const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
@@ -327,10 +373,10 @@ class Epub {
                         that.#singleChapter.imageUrls[newName] = url;
                         that.#singleChapter.imageItems.push(imageItem);
                     }
-                    $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" />');
+                    $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
                     imageIndex++;
                 } else {
-                    $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" />');
+                    $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
                 }
             }
         });
@@ -396,14 +442,14 @@ class Epub {
             for (const chapterKey of chaptersKeys) {
                 items += '   <item id="chapter' + index + '" href="pages/chapter' + index + '.xhtml" media-type="application/xhtml+xml" />\n';
                 spine += '   <itemref idref="chapter' + index + '" linear="yes" />\n';
-                allImageItems += this.#chapters[chapterKey].imageItems.join('\n   ');
+                allImageItems += this.#chapters[chapterKey].imageItems.join('\n   ') + '\n';
                 index++;
             }
         } else {
             items = '   <item id="content" href="pages/content.xhtml" media-type="application/xhtml+xml" />\n';
             spine = '   <itemref idref="content" linear="yes" />\n';
             guide = '   <reference type="text" title="Content" href="pages/content.xhtml"/>\n';
-            allImageItems += this.#singleChapter.imageItems.join('\n   ');
+            allImageItems += this.#singleChapter.imageItems.join('\n   ') + '\n';
         }
 
         return '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -430,7 +476,9 @@ class Epub {
             '   <item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav" />\n' +
             items + '   ' + allImageItems +
             (this.coverImage ?
-            '   <item id="cover_img" href="' + this.coverPath + '" media-type="image/' + Epub.extractExt(this.coverImage).replace('jpg', 'jpeg') + '" />\n' : '') +
+            '   <item id="cover_img" href="' + this.coverPath + '" media-type="image/jpeg" />\n' : '') +
+            (this.#hasChapters && this.#dividerUrl.length > 0 ?
+            '   <item id="divider_img" href="images/divider.png" media-type="image/png" />\n' : '') +
             '</manifest>\n' +
             '<spine toc="ncx"' + (this.dirRtl ? ' page-progression-direction="rtl"' : '') + '>\n' +
             '   <itemref idref="cover" linear="yes" />\n' +
@@ -534,8 +582,7 @@ class Epub {
             '</head>\n' +
             '<body>\n' +
             '   <nav id="toc" epub:type="toc">\n' +
-            '       <h2 class="chapter-title">Table of Contents</h2>\n' +
-            (this.#dividerUrl.length > 0 ? '       <img src="images/divider.png" class="toc-divider" />' : '') +
+            '       <h2 class="chapter-title' + (this.#hasChapters && this.#dividerUrl.length > 0 ? ' with-divider' : '') + '">Table of Contents</h2>\n' +
             '       <ol class="toc-contents">\n' +
             chapters.join('') +
             '       </ol>' +
@@ -568,10 +615,12 @@ class Epub {
             'h1 { font-weight: bold; font-size: 1.2em; } ' +
             'h2, h3, h4, h5, h6 { margin: 1.5em 0 1em 0; padding: 0; font-weight: bold; font-size: 1em; } ' +
             'h2.chapter-title { font-variant: small-caps; font-size: 1.2em; margin-bottom: 0.5em; text-align: center; } ' +
+            (this.#hasChapters && this.#dividerUrl.length > 0 ?
+            'h2.chapter-title.with-divider { width: 100%; padding-bottom: 25px; background-image: url(../images/divider.png); background-position: center bottom; background-repeat: no-repeat; } ' : '') +
             '.toc-divider { width: 100%; max-width: 100%; height: auto; text-align: center; margin: 0 auto; } ' +
             'ol.toc-contents { margin-left: 1em; } ol.toc-contents li { margin-bottom: 0.3em; } ' +
             'p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
-            'img { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
+            'img:not(.no-stretch) { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
             'table { border-collapse: collapse; border-spacing: 0 } table td, table th { padding: 3px; border: 1px solid black; } ' +
@@ -729,12 +778,16 @@ class Epub {
     static extractExt(fileName) {
         let ext = 'jpg';
         if (fileName.startsWith('data:image')) {
+            // const blob = await fetch(fileName).then(res => res.blob()).then((blob) => {
+            //     return blob;
+            // });
+            // extBlob =
             const type = fileName.substring(11, fileName.indexOf(';'));
             if (type.length > 0 && type in Epub.mimeTypes) {
                 ext = Epub.mimeTypes[type];
             }
         } else {
-            let ext = fileName.split('.').pop().toLowerCase();
+            ext = fileName.split('.').pop().toLowerCase();
             if (ext === fileName || ext.length > 4) {
                 ext = 'jpg';
             }
@@ -922,5 +975,21 @@ class Epub {
             }
             return result;
         }
+    }
+
+
+    //https://stackoverflow.com/questions/18299806/how-to-check-file-mime-type-with-javascript-before-upload/29672957#29672957
+    static getBLOBFileHeader(blob) {
+        const fileReader = new FileReader();
+        fileReader.onloadend = (e) => {
+            const arr = (new Uint8Array(e.target.result)).subarray(0, 4);
+            let header = "";
+            for (let i = 0; i < arr.length; i++) {
+                const s = "0000" + arr[i].toString(16);
+                header += s.substring(s.length - 2);
+            }
+            return header.length > 0 && header in Epub.fileHeaders ? Epub.fileHeaders[header] : null;
+        };
+        fileReader.readAsArrayBuffer(blob);
     }
 }

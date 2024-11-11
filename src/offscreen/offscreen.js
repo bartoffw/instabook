@@ -1,9 +1,7 @@
 // Registering this listener when the script is first executed ensures that the
 // offscreen document will be able to receive messages when the promise returned
 // by `offscreen.createDocument()` resolves.
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    handleMessages(message).then(sendResponse({ msg: 'Done!' }));
-});
+chrome.runtime.onMessage.addListener(handleMessages);
 
 async function handleMessages(message) {
     // Return early if this message isn't meant for the offscreen document.
@@ -32,9 +30,9 @@ async function handleEpubCreation(msg, hasChapters) {
             chapters: msg.chapters,
             dividerUrl: msg.dividerUrl
         });
-        epub.process().then(() => {
-            return prepareEpubFile(epub, 'conversion-finished');
-        });
+        epub.process();
+        await prepareEpubFile(epub);
+        sendToBackground('chapters-conversion-finished');
     } else {
         let epub = new Epub({
             docHTML: msg.html,
@@ -51,14 +49,14 @@ async function handleEpubCreation(msg, hasChapters) {
             coverImage: msg.coverImage,
             dividerUrl: msg.dividerUrl
         });
-        epub.process().then(() => {
-            return prepareEpubFile(epub, 'chapters-conversion-finished');
-        });
+        epub.process();
+        await prepareEpubFile(epub);
+        sendToBackground('conversion-finished');
     }
 }
 
-function prepareEpubFile(epub, message) {
-    return epub.prepareEpubFile((imgUrl, isCover) => {
+async function prepareEpubFile(epub) {
+    await epub.prepareEpubFile((imgUrl, isCover) => {
         return new Promise((resolve, reject) => {
             if (isCover) {
                 epub.prepareCoverImage(imgUrl).then(response => {
@@ -69,13 +67,17 @@ function prepareEpubFile(epub, message) {
                     if (err) {
                         reject(err);
                     } else {
-                        chrome.runtime.sendMessage({
-                            type: message
-                        });
                         resolve(data);
                     }
                 });
             }
         })
+    });
+}
+
+function sendToBackground(type) {
+    chrome.runtime.sendMessage({
+        type,
+        // target: 'background',
     });
 }
