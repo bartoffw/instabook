@@ -25,7 +25,7 @@ async function handleMessages(message) {
 
 async function handleEpubCreation(msg, hasChapters) {
     if (hasChapters) {
-        let epub = new Epub({
+        const epub = new Epub({
             cover: msg.cover,
             chapters: msg.chapters,
             dividerUrl: msg.dividerUrl
@@ -34,7 +34,7 @@ async function handleEpubCreation(msg, hasChapters) {
         await prepareEpubFile(epub);
         sendToBackground('chapters-conversion-finished');
     } else {
-        let epub = new Epub({
+        const epub = new Epub({
             docHTML: msg.html,
             sourceUrl: msg.url,
             iframes: msg.iframes,

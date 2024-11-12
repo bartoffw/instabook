@@ -1,6 +1,31 @@
-browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
+browser.runtime.onMessage.addListener(handleMessages);
+
+async function handleMessages(message) {
     /** Received the Convert/Download action **/
-    if (msg.type === 'convert') {
+    switch (message.type) {
+        case 'convert':
+            await handleEpubCreation(message, false);
+            return true;
+        case 'convert-chapters':
+            await handleEpubCreation(message, true);
+            return true;
+        default:
+            console.warn(`Unexpected message type received: '${message.type}'.`);
+            return false;
+    }
+}
+
+async function handleEpubCreation(msg, hasChapters) {
+    if (hasChapters) {
+        const epub = new Epub({
+            cover: msg.cover,
+            chapters: msg.chapters,
+            dividerUrl: msg.dividerUrl
+        });
+        epub.process();
+        await prepareEpubFile(epub);
+        sendToBackground('chapters-conversion-finished');
+    } else {
         const epub = new Epub({
             docHTML: msg.html,
             sourceUrl: msg.url,
@@ -17,25 +42,13 @@ browser.runtime.onMessage.addListener((msg, sender, sendRes) => {
             dividerUrl: msg.dividerUrl
         });
         epub.process();
-        return prepareEpubFile(epub, 'conversion-finished');
+        await prepareEpubFile(epub);
+        sendToBackground('conversion-finished');
     }
-    else if (msg.type === 'convert-chapters') {
-        const epub = new Epub({
-            cover: msg.cover,
-            chapters: msg.chapters,
-            dividerUrl: msg.dividerUrl
-        });
-        epub.process();
-        return prepareEpubFile(epub, 'chapters-conversion-finished');
-    }
-    /** Received the Reset action (not used currently) **/
-    else if (msg.type === 'reset') {
-        console.log('Reset msg');
-    }
-});
+}
 
-function prepareEpubFile(epub, message) {
-    return epub.prepareEpubFile((imgUrl, isCover) => {
+async function prepareEpubFile(epub) {
+    await epub.prepareEpubFile((imgUrl, isCover) => {
         return new Promise((resolve, reject) => {
             if (isCover) {
                 epub.prepareCoverImage(imgUrl).then(response => {
@@ -49,29 +62,18 @@ function prepareEpubFile(epub, message) {
                         if (err) {
                             reject(err);
                         } else {
-                            chrome.runtime.sendMessage({
-                                type: message
-                            });
                             resolve(data);
                         }
                     });
                 }
             }
-            /*browser.tabs.query({currentWindow: true, active: true})
-                .then((tabs) => {
-                    browser.tabs
-                        .sendMessage(tabs[0].id, { type: 'img', url: imgUrl })
-                        .then(response => {
-                            resolve(response);
-                        })
-                        .catch(error => {
-                            reject(error);
-                            console.error('Error on send message: ' + error)
-                        });
-                })
-                .catch(error => {
-                    console.error('Error on tab query: ' + error)
-                });*/
         })
+    });
+}
+
+function sendToBackground(type) {
+    chrome.runtime.sendMessage({
+        type,
+        // target: 'background',
     });
 }
