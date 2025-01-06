@@ -309,41 +309,14 @@ class Epub {
         // <picture> tags
         $content.find('picture').each(function (idx, picture) {
             const picImage = $(picture).find('img');
-            const url = decodeURIComponent(
-                !!picture.find ?
-                    picture.find('source').first().attr('srcset').split(',')[0] :
-                    picImage.attr('src')
-            );
-            const ext = Epub.extractExt(url);
-            const noStretch = picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
-            if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
-                const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
-                const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
-                if (that.#hasChapters) {
-                    that.#chapters[chapterKey].imageUrls[newName] = url;
-                    that.#chapters[chapterKey].imageItems.push(imageItem);
-                } else {
-                    that.#singleChapter.imageUrls[newName] = url;
-                    that.#singleChapter.imageItems.push(imageItem);
-                }
-                $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
-                imageIndex++;
-            } else {
-                $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
-            }
-        });
-        // <img> tags
-        $content.find('img').each(function (idx, image) {
-            if ($(image).parent().is('picture')) {
-                const picture = $(image).parent();
-                const picImage = $(picture).find('img');
+            if (picImage !== null && picImage.length > 0 || $(picture).find('source').length > 0) {
                 const url = decodeURIComponent(
-                    !!picture.find ?
-                        picture.find('source').first().attr('srcset').split(',')[0] :
+                    $(picture).find('source').length > 0 ?
+                        $(picture).find('source').first().attr('srcset').split(',')[0] :
                         picImage.attr('src')
                 );
                 const ext = Epub.extractExt(url);
-                const noStretch = picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
+                const noStretch = picImage !== null && picImage.length > 0 && picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
                 if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
                     const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
                     const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
@@ -354,10 +327,41 @@ class Epub {
                         that.#singleChapter.imageUrls[newName] = url;
                         that.#singleChapter.imageItems.push(imageItem);
                     }
-                    $(picture).replaceWith('<img src="../' + newName + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
+                    $(picture).replaceWith('<img src="../' + newName + '" alt="' + (picImage !== null && picImage.length > 0 ? $(picImage).attr('alt') : '') + '" ' + noStretch + ' />');
                     imageIndex++;
                 } else {
-                    $(picture).replaceWith('<img src="' + url + '" alt="' + $(picImage).attr('alt') + '" ' + noStretch + ' />');
+                    $(picture).replaceWith('<img src="' + url + '" alt="' + (picImage !== null && picImage.length > 0 ? $(picImage).attr('alt') : '') + '" ' + noStretch + ' />');
+                }
+            }
+        });
+        // <img> tags
+        $content.find('img').each(function (idx, image) {
+            if ($(image).parent().is('picture')) {
+                const picture = $(image).parent();
+                const picImage = $(picture).find('img');
+                if (picImage !== null && picImage.length > 0 || picture.find('source').length > 0) {
+                    const url = decodeURIComponent(
+                        !!picture.find ?
+                            picture.find('source').first().attr('srcset').split(',')[0] :
+                            picImage.attr('src')
+                    );
+                    const ext = Epub.extractExt(url);
+                    const noStretch = picImage !== null && picImage.length > 0 && picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
+                    if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
+                        const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
+                        const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
+                        if (that.#hasChapters) {
+                            that.#chapters[chapterKey].imageUrls[newName] = url;
+                            that.#chapters[chapterKey].imageItems.push(imageItem);
+                        } else {
+                            that.#singleChapter.imageUrls[newName] = url;
+                            that.#singleChapter.imageItems.push(imageItem);
+                        }
+                        $(picture).replaceWith('<img src="../' + newName + '" alt="' + (picImage !== null && picImage.length > 0 ? $(picImage).attr('alt') : '') + '" ' + noStretch + ' />');
+                        imageIndex++;
+                    } else {
+                        $(picture).replaceWith('<img src="' + url + '" alt="' + (picImage !== null && picImage.length > 0 ? $(picImage).attr('alt') : '') + '" ' + noStretch + ' />');
+                    }
                 }
             } else {
                 const url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
