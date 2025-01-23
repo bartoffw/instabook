@@ -398,15 +398,56 @@ function refreshUI() {
         } else {
             $('#chapters-author-field').html('').hide();
         }
+        //cleanupChapters();
         for (const chapterKey of chaptersKeys) {
             const chapter = currentChapters[chapterKey];
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
             $chapterElement.data('chapter-id', chapterKey);
-            $chapterElement.find('.chapter-name').html(chapter.title);
+            $chapterElement.find('.chapter-name').html(
+                chapter.cleanTitle !== null && chapter.cleanTitle !== '' ?
+                    chapter.cleanTitle : chapter.title
+            );
             $('#chapters-list').append($chapterElement);
         }
         refreshChaptersButtons();
+    }
+}
+
+function cleanupChapters() {
+    const chapterKeys = Object.keys(currentChapters);
+    if (chapterKeys.length <= 1) {
+        return;
+    }
+    let firstCommonStart = '', lastCommonStart = '',
+        firstTitle = currentChapters[chapterKeys[0]].title;
+    for (let i = 1; i < chapterKeys.length; i++) {
+        const current = getCommonStart(
+            firstTitle, currentChapters[chapterKeys[i]].title
+        )
+        if (current.length > firstCommonStart.length) {
+            firstCommonStart = current;
+        }
+    }
+    if (chapterKeys.length > 2) {
+        const lastTitle = currentChapters[chapterKeys[chapterKeys.length - 1]].title;
+        for (let i = chapterKeys.length - 2; i >= 0; i--) {
+            const current = getCommonStart(
+                lastTitle, currentChapters[chapterKeys[i]].title
+            )
+            if (current.length > lastCommonStart.length) {
+                lastCommonStart = current;
+            }
+        }
+    }
+    if (firstCommonStart.length > 0 || lastCommonStart.length > 0) {
+        const toRemove = firstCommonStart.length > lastCommonStart.length ?
+            firstCommonStart : lastCommonStart;
+        for (const chapterKey of chapterKeys) {
+            const title = currentChapters[chapterKey].title;
+            currentChapters[chapterKey].cleanTitle = title.indexOf(toRemove) === 0 ?
+                title.substring(toRemove.length) : title;
+        }
     }
 }
 
@@ -439,13 +480,15 @@ function reportExecuteScriptError(error) {
     console.error(`Failed to execute the content script: ${error.message}`);
 }
 
-function getErrorText() {
+function getErrorText(error) {
     return 'Could not generate the ebook. ' +
-        'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&title=' + encodeURIComponent('Error on ' + pageUrl) + '">on GitHub using this link</a>.';
+        'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&' +
+        'title=' + encodeURIComponent('Error on ' + pageUrl) + '&' +
+        'body=' + encodeURIComponent(error) + '">on GitHub using this link</a>.';
 }
 
 function unexpectedError(error) {
-    $('#error-content').html(getErrorText()).show();
+    $('#error-content').html(getErrorText(error)).show();
     $('#book-preview, #convert-btn, #chapter-group').hide();
     console.error(error);
 }
@@ -471,10 +514,10 @@ function chaptersBtnLoading(isLoading = true) {
 }
 
 function sanitizeUrl(url) {
-    if (url.indexOf('?') > 0) {
+    /*if (url.indexOf('?') > 0) {
         url = window.location.href.split('?')[0];
     }
-    url = url.substring(0, url.lastIndexOf('/') + 1);
+    url = url.substring(0, url.lastIndexOf('/') + 1);*/
     return url;
 }
 
@@ -604,6 +647,22 @@ function setAdditionalData(responseData, url) {
 
     // currentChapters[urlMd5] = chapterData;
     // Storage.storeGlobalValue(chaptersKey, currentChapters);
+}
+
+function getCommonStart(first, second) {
+    if (first === null || second === null || typeof first === 'undefined' || typeof second === 'undefined') {
+        return '';
+    }
+    const maxLen = Math.min(first.length, second.length);
+    let max = 0;
+    for (let i = 0; i < maxLen; i++) {
+        if (first[i] === second[i]) {
+            max++;
+        } else {
+            break;
+        }
+    }
+    return first.substring(0, max);
 }
 
 function formatTime(timeInMinutes, asObject = false) {

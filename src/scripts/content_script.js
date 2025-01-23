@@ -140,9 +140,9 @@ function getPageData() {
 
 function getCurrentUrl() {
     let url = window.location.href;
-    if (url.indexOf('?') > 0) {
-        url = window.location.href.split('?')[0];
-    }
-    url = url.substring(0, url.lastIndexOf('/') + 1);
+    // if (url.indexOf('?') > 0) {
+    //     url = window.location.href.split('?')[0];
+    // }
+    // url = url.substring(0, url.lastIndexOf('/') + 1);
     return url;
 }

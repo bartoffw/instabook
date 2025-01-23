@@ -817,8 +817,8 @@ class Epub {
             return urlStr;
         }
         try {
-            urlStr = Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr));
-            let absoluteUrl = new URL(urlStr, currentUrl).href;
+            urlStr = Epub.decodeHtmlEntity(urlStr);
+            let absoluteUrl = currentUrl.length > 0 ? new URL(urlStr, currentUrl).href : new URL(urlStr).href;
             return addProxy ?
                 Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
                 absoluteUrl;
