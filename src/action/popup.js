@@ -23,7 +23,8 @@ const titleKey = 'customTitle',
         ],
         selectedCover: 0,
         coverImage: '',
-        coverPath: ''
+        coverPath: '',
+        shortenTitles: true
     };
 
 /**
@@ -173,6 +174,13 @@ document.addEventListener('click', (event) => {
     }
 });
 
+document.addEventListener('change', (event) => {
+    if (event.target.id === 'shorten-titles') {
+        currentCover.shortenTitles = event.target.checked;
+        refreshUI();
+    }
+});
+
 document.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
         if (event.target.id === 'edit-title') {
@@ -245,6 +253,7 @@ function displayChapterTitle(title, chapterId) {
     const $edit = $('.chapters-edit-chapter-name:visible'),
         $chapterName = $edit.parents('.chapter-item').find('.chapter-name');
     $chapterName.text(title);
+    $chapterName.attr('title', title);
     $chapterName.show();
     $edit.hide();
 }
@@ -262,6 +271,7 @@ function saveEditedChaptersTitle(customTitle) {
 
 function saveEditedChapterTitle(customTitle, chapterId) {
     currentChapters[chapterId].title = customTitle;
+    currentChapters[chapterId].titleEdited = true;
     Storage.storeGlobalValue(chaptersKey, currentChapters);
     displayChapterTitle(customTitle, chapterId);
 }
@@ -398,16 +408,19 @@ function refreshUI() {
         } else {
             $('#chapters-author-field').html('').hide();
         }
-        //cleanupChapters();
+        $('#shorten-titles').prop('checked', currentCover.shortenTitles);
+        cleanupChapters();
         for (const chapterKey of chaptersKeys) {
-            const chapter = currentChapters[chapterKey];
+            const chapter = currentChapters[chapterKey],
+                chapterTitle = currentCover.shortenTitles &&
+                    typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' &&
+                    (typeof chapter.titleEdited === 'undefined' || !chapter.titleEdited) ?
+                        chapter.cleanTitle : chapter.title;
             let $chapterElement = $('#chapters-list .chapter-template').clone();
             $chapterElement.removeClass('chapter-template');
             $chapterElement.data('chapter-id', chapterKey);
-            $chapterElement.find('.chapter-name').html(
-                chapter.cleanTitle !== null && chapter.cleanTitle !== '' ?
-                    chapter.cleanTitle : chapter.title
-            );
+            $chapterElement.find('.chapter-name').html(chapterTitle);
+            $chapterElement.find('.chapter-name').attr('title', chapterTitle);
             $('#chapters-list').append($chapterElement);
         }
         refreshChaptersButtons();
@@ -419,36 +432,51 @@ function cleanupChapters() {
     if (chapterKeys.length <= 1) {
         return;
     }
+    if (!doCleanupChapters(chapterKeys, true)) {
+        doCleanupChapters(chapterKeys, false);
+    }
+}
+
+function doCleanupChapters(chapterKeys, fromBeginning = true) {
     let firstCommonStart = '', lastCommonStart = '',
-        firstTitle = currentChapters[chapterKeys[0]].title;
+        firstTitle = getTitleCorePart(currentChapters[chapterKeys[0]].title, fromBeginning);
     for (let i = 1; i < chapterKeys.length; i++) {
-        const current = getCommonStart(
-            firstTitle, currentChapters[chapterKeys[i]].title
+        const current = getCommonPart(
+            firstTitle, getTitleCorePart(currentChapters[chapterKeys[i]].title, fromBeginning), fromBeginning
         )
         if (current.length > firstCommonStart.length) {
             firstCommonStart = current;
         }
     }
     if (chapterKeys.length > 2) {
-        const lastTitle = currentChapters[chapterKeys[chapterKeys.length - 1]].title;
+        const lastTitle = getTitleCorePart(currentChapters[chapterKeys[chapterKeys.length - 1]].title, fromBeginning);
         for (let i = chapterKeys.length - 2; i >= 0; i--) {
-            const current = getCommonStart(
-                lastTitle, currentChapters[chapterKeys[i]].title
+            const current = getCommonPart(
+                lastTitle, getTitleCorePart(currentChapters[chapterKeys[i]].title, fromBeginning), fromBeginning
             )
             if (current.length > lastCommonStart.length) {
                 lastCommonStart = current;
             }
         }
     }
-    if (firstCommonStart.length > 0 || lastCommonStart.length > 0) {
+    if (firstCommonStart.length > 10 || lastCommonStart.length > 10) {
         const toRemove = firstCommonStart.length > lastCommonStart.length ?
             firstCommonStart : lastCommonStart;
+        console.log(firstCommonStart, lastCommonStart, toRemove, fromBeginning);
         for (const chapterKey of chapterKeys) {
             const title = currentChapters[chapterKey].title;
-            currentChapters[chapterKey].cleanTitle = title.indexOf(toRemove) === 0 ?
-                title.substring(toRemove.length) : title;
+            if (fromBeginning) {
+                currentChapters[chapterKey].cleanTitle = title.indexOf(toRemove) === 0 ?
+                    title.substring(toRemove.length).trim() : title;
+            } else {
+                const lastIndex = title.lastIndexOf(toRemove);
+                currentChapters[chapterKey].cleanTitle = lastIndex === title.length - toRemove.length ?
+                    title.substring(0, lastIndex).trim() : title;
+            }
         }
+        return true;
     }
+    return false;
 }
 
 function refreshChaptersButtons() {
@@ -649,20 +677,39 @@ function setAdditionalData(responseData, url) {
     // Storage.storeGlobalValue(chaptersKey, currentChapters);
 }
 
-function getCommonStart(first, second) {
+function getCommonPart(first, second, fromBeginning = true) {
     if (first === null || second === null || typeof first === 'undefined' || typeof second === 'undefined') {
         return '';
     }
     const maxLen = Math.min(first.length, second.length);
     let max = 0;
-    for (let i = 0; i < maxLen; i++) {
-        if (first[i] === second[i]) {
-            max++;
-        } else {
-            break;
+    if (fromBeginning) {
+        for (let i = 0; i < maxLen; i++) {
+            if (first[i] === second[i]) {
+                max++;
+            } else {
+                break;
+            }
         }
+        return first.substring(0, max);
+    } else {
+        for (let i = maxLen - 1; i >= 0; i--) {
+            if (first[i] === second[i]) {
+                max = i;
+            } else {
+                break;
+            }
+        }
+        return first.substring(max);
     }
-    return first.substring(0, max);
+}
+
+function getTitleCorePart(title, fromBeginning = true) {
+    const idx = title.lastIndexOf('-');
+    if (idx > 10) {
+        return fromBeginning ? title.substring(0, idx + 1).trim() : title.substring(idx - 1).trim();
+    }
+    return title;
 }
 
 function formatTime(timeInMinutes, asObject = false) {

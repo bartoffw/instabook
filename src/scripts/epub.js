@@ -147,10 +147,16 @@ class Epub {
             '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + parsedContent.lang + '" lang="' + parsedContent.lang + '" >\n' +
             '<head>\n' +
             '  <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
-            '  <title>' + Epub.stripHtml(chapter.title) + '</title>\n' +
+            '  <title>' + Epub.stripHtml(
+                typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                    chapter.cleanTitle : chapter.title
+            ) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
-            (addTitle ? '  <h2 class="chapter-title">' + Epub.stripHtml(chapter.title) + '</h2>\n' : '') +
+            (addTitle ? '  <h2 class="chapter-title">' + Epub.stripHtml(
+                typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                    chapter.cleanTitle : chapter.title
+            ) + '</h2>\n' : '') +
             parsedContent.content + '\n' +
             '</body>\n' +
             '</html>';
@@ -512,7 +518,10 @@ class Epub {
                 chapters +=
                     '   <navPoint class="text" id="navPoint-' + (index + 1) + '" playOrder="' + (index + 2) + '">\n' +
                     '       <navLabel>\n' +
-                    '           <text>' + chapter.title + '</text>\n' +
+                    '           <text>' + (
+                                    typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                                        chapter.cleanTitle : chapter.title
+                                ) + '</text>\n' +
                     '       </navLabel>\n' +
                     '       <content src="pages/chapter' + index + '.xhtml"></content>\n' +
                     '   </navPoint>\n';
@@ -564,8 +573,12 @@ class Epub {
             let index = 1;
             const chaptersKeys = Object.keys(this.#chapters);
             for (const chapterKey of chaptersKeys) {
+                const chapter = this.#chapters[chapterKey];
                 chapters.push(
-                    '           <li><a href="pages/chapter' + index + '.xhtml">' + Epub.stripHtml(this.#chapters[chapterKey].title) + '</a></li>\n'
+                    '           <li><a href="pages/chapter' + index + '.xhtml">' + Epub.stripHtml(
+                    typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                            chapter.cleanTitle : chapter.title
+                    ) + '</a></li>\n'
                 );
                 index++;
             }

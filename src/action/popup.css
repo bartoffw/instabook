@@ -38,6 +38,10 @@ body {
     background: #ffeed6;
     display: none;
 }
+.shorten-titles {
+    color: #888;
+    scale: 85%;
+}
 .offcanvas-header .offcanvas-title {
     font-size: 0.9em;
 }
