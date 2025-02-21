@@ -370,10 +370,19 @@ class Epub {
                     }
                 }
             } else {
-                const url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
+                let url;
+                const encodedUrl = Epub.getAbsoluteUrl(image.src, currentUrl, false);
+                const srcSet = $(image).attr('srcset');
+                if (typeof srcSet !== 'undefined') {
+                    // experimental: get the last size listed
+                    let srcSetParts = srcSet.split(',');
+                    url = Epub.getAbsoluteUrl(decodeURIComponent(srcSetParts[srcSetParts.length - 1].split(' ')[1]), currentUrl, false);
+                } else {
+                    url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
+                }
                 const ext = Epub.extractExt(url);
                 const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
-                if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
+                if (that.#allowedImgExtensions.includes(ext) && (encodedUrl in images)) {
                     const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
                     const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
                     if (that.#hasChapters) {
@@ -817,12 +826,14 @@ class Epub {
             return '';
         }
         if (urlStr.startsWith('moz-extension:') || urlStr.startsWith('chrome-extension:')) {
-            urlStr = urlStr.substring(urlStr.split('/', 3).join('/').length);
+            urlStr = urlStr.substring(urlStr.split('/', 2).join('/').length, urlStr.split('/', 3).join('/').length).indexOf('.') > 0 ?
+                'https:/' + urlStr.substring(urlStr.split('/', 2).join('/').length) :
+                urlStr.substring(urlStr.split('/', 3).join('/').length);
         }
         return urlStr;
     }
 
-    static getAbsoluteUrl(urlStr, currentUrl, addProxy = true) {
+    static getAbsoluteUrl(urlStr, currentUrl, addProxy = true, decodeHtml = true) {
         if (!urlStr || urlStr.length === 0) {
             return '';
         }
@@ -830,8 +841,10 @@ class Epub {
             return urlStr;
         }
         try {
-            urlStr = Epub.decodeHtmlEntity(urlStr);
-            let absoluteUrl = currentUrl.length > 0 ? new URL(urlStr, currentUrl).href : new URL(urlStr).href;
+            urlStr = decodeHtml ? Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr)) : Epub.cleanupUrl(urlStr);
+            let absoluteUrl = currentUrl.length === 0 || urlStr.substring(urlStr.split('/', 2).join('/').length, urlStr.split('/', 3).join('/').length).indexOf('.') > 0 ?
+                new URL(urlStr).href :
+                new URL(urlStr, currentUrl).href;
             return addProxy ?
                 Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
                 absoluteUrl;
