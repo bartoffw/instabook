@@ -370,16 +370,8 @@ class Epub {
                     }
                 }
             } else {
-                let url;
+                const url = Epub.biggestImage(image, currentUrl);
                 const encodedUrl = Epub.getAbsoluteUrl(image.src, currentUrl, false);
-                const srcSet = $(image).attr('srcset');
-                if (typeof srcSet !== 'undefined') {
-                    // experimental: get the last size listed
-                    let srcSetParts = srcSet.split(',');
-                    url = Epub.getAbsoluteUrl(decodeURIComponent(srcSetParts[srcSetParts.length - 1].split(' ')[1]), currentUrl, false);
-                } else {
-                    url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
-                }
                 const ext = Epub.extractExt(url);
                 const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
                 if (that.#allowedImgExtensions.includes(ext) && (encodedUrl in images)) {
@@ -646,6 +638,7 @@ class Epub {
             '.toc-divider { width: 100%; max-width: 100%; height: auto; text-align: center; margin: 0 auto; } ' +
             'ol.toc-contents { margin-left: 1em; } ol.toc-contents li { margin-bottom: 0.3em; } ' +
             'p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
+            'figure { margin: 1em 0; text-align: center; } ' +
             'img:not(.no-stretch) { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
             'pre, code, tt, kbd { font-size: 75%; } pre { white-space: pre-wrap; text-align: left; } ' +
@@ -970,6 +963,30 @@ class Epub {
             return inputStr.substring(0, inputStr.length - 1);
         }
         return inputStr;
+    }
+
+    static biggestImage(image, currentUrl) {
+        let url,
+            srcSet = $(image).attr('srcset');
+        if (typeof srcSet !== 'undefined') {
+            srcSet = srcSet.trim();
+            let biggestImage = image.src,
+                largestSize = 1,
+                srcSetParts = srcSet.split(',');
+            // get the biggest image
+            for (const imagePart of srcSetParts) {
+                const parts = imagePart.trim().split(' ');
+                let size = parseFloat(parts[1]);
+                if (size > largestSize) {
+                    biggestImage = parts[0];
+                    largestSize = size;
+                }
+            }
+            url = Epub.getAbsoluteUrl(decodeURIComponent(biggestImage), currentUrl, false);
+        } else {
+            url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
+        }
+        return url;
     }
 
     static generateUuidv4() {
