@@ -637,7 +637,8 @@ class Epub {
             'h2.chapter-title.with-divider { width: 100%; padding-bottom: 25px; background-image: url(../images/divider.png); background-position: center bottom; background-repeat: no-repeat; } ' : '') +
             '.toc-divider { width: 100%; max-width: 100%; height: auto; text-align: center; margin: 0 auto; } ' +
             'ol.toc-contents { margin-left: 1em; } ol.toc-contents li { margin-bottom: 0.3em; } ' +
-            'p.img, p img { margin: 1em 0; padding: 0; text-align: center; text-indent: 0; } ' +
+            'p.img, p img { margin: 1em 0; padding: 0; text-indent: 0; max-width: 100%; } ' +
+            'p:has(img) { margin: 0; text-align: center; } ' +
             'figure { margin: 1em 0; text-align: center; } ' +
             'img:not(.no-stretch) { min-width: 95%; max-width: 100%; padding: 0; margin: 0 }' +
             'span.filler { padding-right: 2em; } p.first-child { text-indent: 0; } ' +
