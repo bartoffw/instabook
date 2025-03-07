@@ -13,16 +13,19 @@ Thank you for considering a donation to support the development of this open-sou
 ### USDT (Tether) on Ethereum Network
 
 `0xC4423123593807eBc855D97c35E9AC95eb03910b`
+
 <img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/usdt-qr.png" alt="USDT QR Code" width="200"/>
 
 ### Ethereum (ETH)
 
 `0xC4423123593807eBc855D97c35E9AC95eb03910b`
+
 <img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/eth-qr.png" alt="Ethereum QR Code" width="200"/>
 
 ### XLM
 
 `GDY5HOMIIP7Q725WZAZPPFISUJPEFBS3QBESYSVIMR5EAMHSI4FAKBQZ`
+
 <img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/xlm-qr.png" alt="XLM QR Code" width="200"/>
 
 ## GitHub Sponsors

@@ -100,6 +100,10 @@ Please submit any problems you find on the [GitHub page](https://github.com/bart
 
 Propositions for new features are welcome. Please submit them on the [GitHub page](https://github.com/bartoffw/instabook/issues).
 
+## Sponsor this project
+
+See the [funding page](https://github.com/bartoffw/instabook/blob/main/DONATE.md) to choose the right option for you.
+
 ## Credits
 
 * The extension is utilizing the [Readability](https://github.com/mozilla/readability) library to generate the Ebook content.
