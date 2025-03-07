@@ -8,25 +8,55 @@ Thank you for considering a donation to support the development of this open-sou
 
 `bc1qu6fkd3mmkphc433c4n3fl84rvtvsa3n08wdsks`
 
+<details>
+<summary>See QR code for BTC</summary>
 <img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/btc-qr.png" alt="Bitcoin QR Code" width="200"/>
+</details>
 
-### USDT (Tether) on Ethereum Network
+### USDT (Tether) on Tron
 
-`0xC4423123593807eBc855D97c35E9AC95eb03910b`
+`TLpGdtvABsfdWDqUkcm2gD3erzngzXY8Lw`
 
+<details>
+<summary>See QR code for USDT</summary>
 <img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/usdt-qr.png" alt="USDT QR Code" width="200"/>
+</details>
 
 ### Ethereum (ETH)
 
 `0xC4423123593807eBc855D97c35E9AC95eb03910b`
 
+<details>
+<summary>See QR code for ETH</summary>
 <img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/eth-qr.png" alt="Ethereum QR Code" width="200"/>
+</details>
 
-### XLM
+### Nano (XNO)
 
-`GDY5HOMIIP7Q725WZAZPPFISUJPEFBS3QBESYSVIMR5EAMHSI4FAKBQZ`
+`nano_3a58f38rpjyy4ftaewza9ioh4b5qmnqehrantwx9ujo8h3payqesnsgzp13h`
 
-<img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/xlm-qr.png" alt="XLM QR Code" width="200"/>
+<details>
+<summary>See QR code for XNO</summary>
+<img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/xno-qr.png" alt="Nano QR Code" width="200"/>
+</details>
+
+### Ripple (XRP)
+
+`rQGSe81UMGGJKMFbi3xjCyDb2CB3yoCVuR`
+
+<details>
+<summary>See QR code for XRP</summary>
+<img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/xrp-qr.png" alt="Ripple QR Code" width="200"/>
+</details>
+
+### XMR
+
+`42ZRwy4yBP791zpWn6tw5wAdzNUWcw2V4iA78tyRA46WGLa2kkByjHiT1Cjtw2ME3RLPAjPkGgto6etEzkzyVBUwKNiqmuZ`
+
+<details>
+<summary>See QR code for XMR</summary>
+<img src="https://raw.githubusercontent.com/bartoffw/instabook/main/assets/xmr-qr.png" alt="XMR QR Code" width="200"/>
+</details>
 
 ## GitHub Sponsors
 

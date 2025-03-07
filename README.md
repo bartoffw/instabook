@@ -102,6 +102,8 @@ Propositions for new features are welcome. Please submit them on the [GitHub pag
 
 ## Sponsor this project
 
+[![Sponsor with Crypto](https://img.shields.io/badge/Sponsor-BTC%20|%20ETH%20|%20USDT%20|%20XNO%20|%20XRP%20|%20XMR-orange?style=for-the-badge&logo=bitcoin&logoColor=white)](https://github.com/bartoffw/instabook/blob/main/DONATE.md)
+
 See the [funding page](https://github.com/bartoffw/instabook/blob/main/DONATE.md) to choose the right option for you.
 
 ## Credits
