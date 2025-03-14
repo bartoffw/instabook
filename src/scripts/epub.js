@@ -98,7 +98,7 @@ class Epub {
                 this.#singleChapter.iframes
             );
             this.#singleChapter.readability =
-                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500) });
+                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: true, debug: true });
             this.#singleChapter.parsedContent = this.#singleChapter.readability.parse();
         } else if (optionsKeys.includes('chapters')) {
             this.#hasChapters = true;
@@ -371,23 +371,25 @@ class Epub {
                 }
             } else {
                 const url = Epub.biggestImage(image, currentUrl);
-                const encodedUrl = Epub.getAbsoluteUrl(image.src, currentUrl, false);
-                const ext = Epub.extractExt(url);
-                const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
-                if (that.#allowedImgExtensions.includes(ext) && (encodedUrl in images)) {
-                    const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
-                    const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
-                    if (that.#hasChapters) {
-                        that.#chapters[chapterKey].imageUrls[newName] = url;
-                        that.#chapters[chapterKey].imageItems.push(imageItem);
+                if (url !== null) {
+                    const encodedUrl = Epub.getAbsoluteUrl(image.src, currentUrl, false);
+                    const ext = Epub.extractExt(url);
+                    const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
+                    if (that.#allowedImgExtensions.includes(ext) && (encodedUrl in images)) {
+                        const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
+                        const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
+                        if (that.#hasChapters) {
+                            that.#chapters[chapterKey].imageUrls[newName] = url;
+                            that.#chapters[chapterKey].imageItems.push(imageItem);
+                        } else {
+                            that.#singleChapter.imageUrls[newName] = url;
+                            that.#singleChapter.imageItems.push(imageItem);
+                        }
+                        $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
+                        imageIndex++;
                     } else {
-                        that.#singleChapter.imageUrls[newName] = url;
-                        that.#singleChapter.imageItems.push(imageItem);
+                        $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
                     }
-                    $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
-                    imageIndex++;
-                } else {
-                    $(image).replaceWith('<img src="' + $(image).attr('src') + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
                 }
             }
         });
@@ -983,11 +985,12 @@ class Epub {
                     largestSize = size;
                 }
             }
-            url = Epub.getAbsoluteUrl(decodeURIComponent(biggestImage), currentUrl, false);
+            url = decodeURIComponent(biggestImage);
         } else {
-            url = Epub.getAbsoluteUrl(decodeURIComponent(image.src), currentUrl, false);
+            url = decodeURIComponent(image.src);
         }
-        return url;
+        return url.length > 0 && (url.indexOf('http') === 0 || url.indexOf('data:image') === 0) ?
+            Epub.getAbsoluteUrl(url, currentUrl, false) : null;
     }
 
     static generateUuidv4() {

@@ -82,6 +82,6 @@ Donations to this project are used to:
 
 ## Current Sponsors
 
-None yet!
+- _aahmozart_
 
 ❤️ Thank you for your support! ❤️
