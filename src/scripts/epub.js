@@ -370,9 +370,9 @@ class Epub {
                     }
                 }
             } else {
-                const url = Epub.biggestImage(image, currentUrl);
-                if (url !== null) {
-                    const encodedUrl = Epub.getAbsoluteUrl(image.src, currentUrl, false);
+                const url = Epub.biggestImage(image, currentUrl),
+                    encodedUrl = Epub.getAbsoluteUrl(image.src, currentUrl, false);
+                if (url !== null && encodedUrl !== null) {
                     const ext = Epub.extractExt(url);
                     const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
                     if (that.#allowedImgExtensions.includes(ext) && (encodedUrl in images)) {
@@ -838,12 +838,16 @@ class Epub {
         }
         try {
             urlStr = decodeHtml ? Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr)) : Epub.cleanupUrl(urlStr);
-            let absoluteUrl = currentUrl.length === 0 || urlStr.substring(urlStr.split('/', 2).join('/').length, urlStr.split('/', 3).join('/').length).indexOf('.') > 0 ?
-                new URL(urlStr).href :
-                new URL(urlStr, currentUrl).href;
-            return addProxy ?
-                Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
-                absoluteUrl;
+            if (urlStr.length > 0 && urlStr.startsWith('http')) {
+                let absoluteUrl = currentUrl.length === 0 || urlStr.substring(urlStr.split('/', 2).join('/').length, urlStr.split('/', 3).join('/').length).indexOf('.') > 0 ?
+                    new URL(urlStr).href :
+                    new URL(urlStr, currentUrl).href;
+                return addProxy ?
+                    Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
+                    absoluteUrl;
+            } else {
+                return null;
+            }
         } catch (e) {
             console.log('Error:', e);
             return urlStr;
@@ -969,8 +973,7 @@ class Epub {
     }
 
     static biggestImage(image, currentUrl) {
-        let url,
-            srcSet = $(image).attr('srcset');
+        let url, srcSet = $(image).attr('srcset');
         if (typeof srcSet !== 'undefined') {
             srcSet = srcSet.trim();
             let biggestImage = image.src,
@@ -989,8 +992,7 @@ class Epub {
         } else {
             url = decodeURIComponent(image.src);
         }
-        return url.length > 0 && (url.indexOf('http') === 0 || url.indexOf('data:image') === 0) ?
-            Epub.getAbsoluteUrl(url, currentUrl, false) : null;
+        return Epub.getAbsoluteUrl(url, currentUrl, false);
     }
 
     static generateUuidv4() {

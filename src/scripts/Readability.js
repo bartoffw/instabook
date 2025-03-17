@@ -66,11 +66,11 @@ function Readability(doc, options) {
   this._linkDensityModifier = options.linkDensityModifier || 0;
   this._keepComments = options.keepComments || false;
 
-  if (!this._keepComments) {
+  /*if (!this._keepComments) {
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("comment");
     this.DYNAMIC_REGEXPS.negative.push("comment");
     this.DYNAMIC_REGEXPS.extraneous.push("comment");
-  }
+  }*/
   this.REGEXPS.unlikelyCandidates = new RegExp(
       this.DYNAMIC_REGEXPS.unlikelyCandidates.join("|"),
       "i"
@@ -762,6 +762,8 @@ Readability.prototype = {
       this._replaceBrs(doc.body);
     }
 
+    this._moveNodesUp(this._getAllNodesWithTag(doc, ["h1", "h2", "h3", "h4", "h5", "h6"]));
+
     this._replaceNodeTags(this._getAllNodesWithTag(doc, ["font"]), "SPAN");
   },
 
@@ -780,6 +782,19 @@ Readability.prototype = {
       next = next.nextSibling;
     }
     return next;
+  },
+
+  /**
+   * Moves nodes up in the DOM hierarchy, usually useful when
+   * getting headers out of divs (e.g. on Wikipedia)
+   */
+  _moveNodesUp(nodeList) {
+    this._forEachNode(nodeList, (node) => {
+      var parent = node.parentNode;
+      if (parent.tagName !== "BODY") {
+        parent.parentNode.insertBefore(node, node.parentNode);
+      }
+    })
   },
 
   /**
@@ -1598,6 +1613,21 @@ Readability.prototype = {
           // have been shifted.
           s -= 1;
           sl -= 1;
+        }
+      }
+
+      if (this._keepComments) {
+        var node = this._doc.documentElement,
+          commentRegex = new RegExp("comment");
+        while (node) {
+          matchString = node.className + " " + node.id;
+          if (commentRegex.test(matchString)) {
+            this.log("Found comments section: " + node.innerHTML)
+            articleContent.appendChild(node);
+            break;
+          } else {
+            node = this._getNextNode(node);
+          }
         }
       }
 
