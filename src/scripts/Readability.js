@@ -158,6 +158,7 @@ Readability.prototype = {
       "banner",
       "breadcrumbs",
       "combx",
+      "comment", // TODO: this will be updated with the comments support
       "community",
       "cover-wrap",
       "disqus",
@@ -194,6 +195,7 @@ Readability.prototype = {
       "banner",
       "combx",
       "com-",
+      "comment", // TODO: this will be updated with the comments support
       "contact",
       "footer",
       "gdpr",
@@ -216,6 +218,7 @@ Readability.prototype = {
     extraneous: [
       "print",
       "archive",
+      "comment", // TODO: this will be updated with the comments support
       "discuss",
       "e[\\-]?mail",
       "share",
@@ -797,6 +800,7 @@ Readability.prototype = {
       var parent = node.parentNode;
       if (parent.tagName !== "BODY" && this._isFirstElement(node)) {
         parent.parentNode.insertBefore(node, node.parentNode);
+        this._moveNodesUp([node]);
       }
     })
   },
