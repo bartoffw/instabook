@@ -784,6 +784,10 @@ Readability.prototype = {
     return next;
   },
 
+  _isFirstElement(node) {
+    return node.parentNode.firstElementChild === node;
+  },
+
   /**
    * Moves nodes up in the DOM hierarchy, usually useful when
    * getting headers out of divs (e.g. on Wikipedia)
@@ -791,7 +795,7 @@ Readability.prototype = {
   _moveNodesUp(nodeList) {
     this._forEachNode(nodeList, (node) => {
       var parent = node.parentNode;
-      if (parent.tagName !== "BODY") {
+      if (parent.tagName !== "BODY" && this._isFirstElement(node)) {
         parent.parentNode.insertBefore(node, node.parentNode);
       }
     })
@@ -1616,7 +1620,7 @@ Readability.prototype = {
         }
       }
 
-      if (this._keepComments) {
+      /*if (this._keepComments) {
         var node = this._doc.documentElement,
           commentRegex = new RegExp("comment");
         while (node) {
@@ -1629,7 +1633,7 @@ Readability.prototype = {
             node = this._getNextNode(node);
           }
         }
-      }
+      }*/
 
       if (this._debug) {
         this.log("Article content pre-prep: " + articleContent.innerHTML);

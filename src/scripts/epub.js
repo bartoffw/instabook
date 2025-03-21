@@ -98,7 +98,7 @@ class Epub {
                 this.#singleChapter.iframes
             );
             this.#singleChapter.readability =
-                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: true, debug: true });
+                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500) });
             this.#singleChapter.parsedContent = this.#singleChapter.readability.parse();
         } else if (optionsKeys.includes('chapters')) {
             this.#hasChapters = true;
