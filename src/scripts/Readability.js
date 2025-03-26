@@ -66,11 +66,11 @@ function Readability(doc, options) {
   this._linkDensityModifier = options.linkDensityModifier || 0;
   this._keepComments = options.keepComments || false;
 
-  /*if (!this._keepComments) {
+  if (!this._keepComments) {
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("comment");
-    this.DYNAMIC_REGEXPS.negative.push("comment");
-    this.DYNAMIC_REGEXPS.extraneous.push("comment");
-  }*/
+    //this.DYNAMIC_REGEXPS.negative.push("comment");
+    //this.DYNAMIC_REGEXPS.extraneous.push("comment");
+  }
   this.REGEXPS.unlikelyCandidates = new RegExp(
       this.DYNAMIC_REGEXPS.unlikelyCandidates.join("|"),
       "i"
@@ -158,7 +158,7 @@ Readability.prototype = {
       "banner",
       "breadcrumbs",
       "combx",
-      "comment", // TODO: this will be updated with the comments support
+      //"comment", // TODO: this will be updated with the comments support
       "community",
       "cover-wrap",
       "disqus",
@@ -1624,20 +1624,21 @@ Readability.prototype = {
         }
       }
 
-      /*if (this._keepComments) {
+      if (this._keepComments) {
         var node = this._doc.documentElement,
           commentRegex = new RegExp("comment");
         while (node) {
           matchString = node.className + " " + node.id;
-          if (commentRegex.test(matchString)) {
-            this.log("Found comments section: " + node.innerHTML)
+          if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
+            this.log("Found comments section", node);
+            node.className = "ebook-comments-section";
             articleContent.appendChild(node);
             break;
           } else {
             node = this._getNextNode(node);
           }
         }
-      }*/
+      }
 
       if (this._debug) {
         this.log("Article content pre-prep: " + articleContent.innerHTML);
@@ -2612,6 +2613,14 @@ Readability.prototype = {
           )
       ) {
         return false;
+      }
+
+      if (this._keepComments) {
+        var commentRegex = new RegExp("comment"),
+          matchString = node.className + " " + node.id;
+        if (commentRegex.test(matchString)) {
+          return false;
+        }
       }
 
       var weight = this._getClassWeight(node);
