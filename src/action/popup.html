@@ -100,12 +100,6 @@
                             <button class="btn btn-sm text-danger delete-chapter" aria-label="Close">&times;</button>
                         </li>
                     </ul>
-                    <div class="text-center mt-2" id="shorten-option">
-                        <label for="shorten-titles" class="shorten-titles" title="Remove repeating text from titles">
-                            <input type="checkbox" id="shorten-titles" checked />
-                            Shorten titles
-                        </label>
-                    </div>
                     <div class="text-center mt-3" id="delete-button">
                         <a href="#" class="btn btn-sm btn-danger" id="clear-chapters">Delete All</a>
                     </div>
@@ -115,12 +109,53 @@
                 </div>
             </div>
         </div>
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasSettings" aria-labelledby="offcanvasSettingsLabel">
+            <div class="offcanvas-header">
+                <h6 class="offcanvas-title fw-bold" id="offcanvasSettingsLabel">Settings</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <p class="text-secondary" id="settings-info">
+                    All these settings are experimental and may fail in rare occasions.
+                </p>
+                <hr/>
+                <div class="vstack gap-3">
+                    <div class="section">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="1" id="include-comments">
+                            <label class="form-check-label" for="include-comments" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Include comments when downloading the article (if available)">
+                                Include comments
+                            </label>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <p class="fw-bold mb-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="These settings are applied only when downloading multiple chapters">
+                            Multi-chapter
+                        </p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="1" id="shorten-titles">
+                            <label class="form-check-label" for="shorten-titles" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Removes repeating text from titles">
+                                Shorten repeatable titles
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-footer">
-        <div class="d-grid text-center" id="extension-version">
+    <div class="card-footer position-relative" style="height: 50px">
+        <div class="position-absolute top-50 start-50 translate-middle" id="extension-version">
             <a href="https://instabook.site/">
                 <small>Instabook v1.2.5</small>
             </a>
+        </div>
+        <div class="position-absolute top-50 start-100 translate-middle" id="extension-settings">
+            <button type="button" class="btn btn-default float-end position-relative" id="open-settings" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSettings" aria-controls="offcanvasSettings">
+                ⚙️
+                <!-- <span class="position-absolute top-0 start-100 translate-middle bg-success border border-light rounded-circle" id="settings-enabled">
+                    <span class="visually-hidden">Settings enabled</span>
+                </span> -->
+            </button>
         </div>
     </div>
 </div>

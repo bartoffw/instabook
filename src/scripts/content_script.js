@@ -66,7 +66,8 @@ browser.runtime.onMessage.addListener(request => {
         const epub = new Epub({
             docHTML: document.documentElement.outerHTML,
             sourceUrl: getCurrentUrl(),
-            currentUrl: getCurrentUrl()
+            currentUrl: getCurrentUrl(),
+            includeComments: request.includeComments
         });
         const parsedInfo = epub.check();
         return Promise.resolve(parsedInfo);

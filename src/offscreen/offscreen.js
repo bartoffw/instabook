@@ -28,7 +28,8 @@ async function handleEpubCreation(msg, hasChapters) {
         const epub = new Epub({
             cover: msg.cover,
             chapters: msg.chapters,
-            dividerUrl: msg.dividerUrl
+            dividerUrl: msg.dividerUrl,
+            includeComments: msg.includeComments
         });
         epub.process();
         await prepareEpubFile(epub);
@@ -47,7 +48,8 @@ async function handleEpubCreation(msg, hasChapters) {
             author: msg.author,
             readTime: msg.readTime,
             coverImage: msg.coverImage,
-            dividerUrl: msg.dividerUrl
+            dividerUrl: msg.dividerUrl,
+            includeComments: msg.includeComments
         });
         epub.process();
         await prepareEpubFile(epub);

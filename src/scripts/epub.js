@@ -5,6 +5,7 @@ class Epub {
     #singleChapter = {};
     #singleCover = {};
     #dividerUrl = '';
+    #keepComments = false;
 
     static mimeTypes = {
         'png': 'png',
@@ -86,6 +87,7 @@ class Epub {
                 this.#singleCover.selectedCover = 1;
             }
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
+            this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
 
             if (this.#singleCover.coverImages.length > 0) {
                 this.#singleCover.coverImage = this.#singleCover.selectedCover in this.#singleCover.coverImages ?
@@ -98,13 +100,14 @@ class Epub {
                 this.#singleChapter.iframes
             );
             this.#singleChapter.readability =
-                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500) });
+                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments, debug: true });
             this.#singleChapter.parsedContent = this.#singleChapter.readability.parse();
         } else if (optionsKeys.includes('chapters')) {
             this.#hasChapters = true;
             this.#chapters = options.chapters;
             this.#cover = options.cover;
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
+            this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
 
             if (this.#cover.coverImages.length > 0) {
                 this.#cover.coverImage = this.#cover.selectedCover in this.#cover.coverImages ?
@@ -120,7 +123,7 @@ class Epub {
                     chapter.iframes
                 );
                 this.#chapters[chapterKey].readability =
-                    new Readability(this.#chapters[chapterKey].docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500) });
+                    new Readability(this.#chapters[chapterKey].docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments });
                 this.#chapters[chapterKey].parsedContent = this.#chapters[chapterKey].readability.parse();
             }
         }
@@ -627,6 +630,12 @@ class Epub {
     }
 
     getBookStyles() {
+        let commentsStyles = '';
+        if (this.#keepComments) {
+            commentsStyles = ' ' +
+                '.ebook-comments-section { border-top: 1px solid #777; } ' +
+                '.ebook-comments-section .no-stretch { float: left; margin: 0 1em 1em 0; max-width: 64px; }';
+        }
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
             'body { padding: 0; margin: 1em; text-align: left; font-family: georgia, times new roman, times roman, times, roman, serif } ' +
             'div, p { margin: 0.5em 0; text-align: left } ' +
@@ -651,7 +660,7 @@ class Epub {
             '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
             '.cover-image, .cover-image, .cover-image img { text-align:center; padding:0; margin:0 } ' +
             '.cover-image img { height: 100%; max-width: 100%; text-align: center } ' +
-            '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover }';
+            '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover }' + commentsStyles;
     }
 
     estimateReadingTime(plainText, wpm = 200, inMinutes = true) {

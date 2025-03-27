@@ -5,6 +5,7 @@ let pageUrl = '',
     currentPageData = null,
     currentChapters = null,
     currentCover = null,
+    currentSettings = null,
     isChapterMode = false,
     coverCarousel = null,
     carouselElement = {};
@@ -12,6 +13,11 @@ let pageUrl = '',
 const titleKey = 'customTitle',
     chaptersKey = 'instabookChapters',
     coverKey = 'instabookCover',
+    settingsKey = 'instabookSettings',
+    defaultSettings = {
+        includeComments: false,
+        shortenTitles: false
+    },
     defaultCoverData = {
         title: '',
         customTitle: null,
@@ -23,8 +29,7 @@ const titleKey = 'customTitle',
         ],
         selectedCover: 0,
         coverImage: '',
-        coverPath: '',
-        shortenTitles: true
+        coverPath: ''
     };
 
 /**
@@ -49,6 +54,7 @@ document.addEventListener('click', (event) => {
                         if (currentPageData !== null && currentPageData['md5'] === MD5(pageUrl)) {
                             responseData = Object.assign(responseData, currentPageData);
                         }
+                        responseData.includeComments = currentSettings.includeComments;
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
@@ -93,7 +99,8 @@ document.addEventListener('click', (event) => {
             type: 'convert-chapters',
             cover: currentCover,
             chapters: currentChapters,
-            dividerUrl: bookDividerUrl
+            dividerUrl: bookDividerUrl,
+            includeComments: currentSettings.includeComments
         });
     }
     else if (event.target.id === 'page-title') {
@@ -176,8 +183,14 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('change', (event) => {
     if (event.target.id === 'shorten-titles') {
-        currentCover.shortenTitles = event.target.checked;
-        refreshUI();
+        currentSettings.shortenTitles = event.target.checked;
+        Storage.storeGlobalValue(settingsKey, currentSettings);
+        //$('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
+    }
+    if (event.target.id === 'include-comments') {
+        currentSettings.includeComments = event.target.checked;
+        Storage.storeGlobalValue(settingsKey, currentSettings);
+        //$('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
     }
 });
 
@@ -374,6 +387,7 @@ function loadChapters() {
 }
 
 function refreshUI() {
+    loadSettings();
     getCurrentPageData();
 
     $('#chapters-list').find('li:not(.chapter-template)').remove();
@@ -408,11 +422,10 @@ function refreshUI() {
         } else {
             $('#chapters-author-field').html('').hide();
         }
-        $('#shorten-titles').prop('checked', currentCover.shortenTitles);
         cleanupChapters();
         for (const chapterKey of chaptersKeys) {
             const chapter = currentChapters[chapterKey],
-                chapterTitle = currentCover.shortenTitles &&
+                chapterTitle = currentSettings.shortenTitles &&
                     typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' &&
                     (typeof chapter.titleEdited === 'undefined' || !chapter.titleEdited) ?
                         chapter.cleanTitle : chapter.title;
@@ -425,6 +438,15 @@ function refreshUI() {
         }
         refreshChaptersButtons();
     }
+}
+
+function loadSettings() {
+    Storage.getStoredGlobalValue(settingsKey, defaultSettings).then((storedSettings) => {
+        currentSettings = storedSettings;
+        $('#include-comments').prop('checked', currentSettings.includeComments);
+        $('#shorten-titles').prop('checked', currentSettings.shortenTitles);
+        //$('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
+    });
 }
 
 function cleanupChapters() {
@@ -738,7 +760,7 @@ function getCurrentPageData() {
             browser.tabs.query({currentWindow: true, active: true})
                 .then((tabs) => {
                     browser.tabs
-                        .sendMessage(tabs[0].id, {type: 'preview'})
+                        .sendMessage(tabs[0].id, { type: 'preview', includeComments: currentSettings.includeComments })
                         .then(response => {
                             setAdditionalData(response, pageUrl);
 

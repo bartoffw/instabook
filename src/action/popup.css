@@ -38,6 +38,18 @@ body {
     background: #ffeed6;
     display: none;
 }
+#offcanvasSettings {
+    font-size: 0.9em;
+}
+#offcanvasSettings #settings-info {
+    font-size: 0.8em;
+}
+.card-footer {
+    height: 30px;
+}
+.card-footer #extension-settings {
+    margin-left: -25px;
+}
 .shorten-titles {
     color: #888;
     scale: 85%;
