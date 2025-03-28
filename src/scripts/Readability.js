@@ -52,10 +52,6 @@ function Readability(doc, options) {
   this._nbTopCandidates =
       options.nbTopCandidates || this.DEFAULT_N_TOP_CANDIDATES;
   this._charThreshold = options.charThreshold || this.DEFAULT_CHAR_THRESHOLD;
-  this._classesToPreserve = this.CLASSES_TO_PRESERVE.concat(
-      options.classesToPreserve || []
-  );
-  this._keepClasses = !!options.keepClasses;
   this._serializer =
       options.serializer ||
       function (el) {
@@ -66,13 +62,26 @@ function Readability(doc, options) {
   this._linkDensityModifier = options.linkDensityModifier || 0;
   this._keepComments = options.keepComments || false;
 
-  if (!this._keepComments) {
+  if (this._keepComments) {
+    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("wpd-comment");
+    this.CLASSES_TO_PRESERVE.push('ebook-comments-section');
+    this.CLASSES_TO_PRESERVE.push('wpd-comment-header');
+    this.CLASSES_TO_PRESERVE.push('wpd-comment-author');
+    this.CLASSES_TO_PRESERVE.push('wpd-comment-date');
+    this.CLASSES_TO_PRESERVE.push('wpd-reply-to');
+    this.CLASSES_TO_PRESERVE.push('wpd-comment-text');
+  } else {
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("comment");
-    //this.DYNAMIC_REGEXPS.negative.push("comment");
-    //this.DYNAMIC_REGEXPS.extraneous.push("comment");
+    this.DYNAMIC_REGEXPS.unlikelyCandidates.push("disqus");
+    this.DYNAMIC_REGEXPS.negative.push("comment");
+    this.DYNAMIC_REGEXPS.extraneous.push("comment");
   }
   this.REGEXPS.unlikelyCandidates = new RegExp(
       this.DYNAMIC_REGEXPS.unlikelyCandidates.join("|"),
+      "i"
+  );
+  this.REGEXPS.okMaybeItsACandidate = new RegExp(
+      this.DYNAMIC_REGEXPS.okMaybeItsACandidate.join("|"),
       "i"
   );
   this.REGEXPS.negative = new RegExp(
@@ -83,6 +92,10 @@ function Readability(doc, options) {
       this.DYNAMIC_REGEXPS.extraneous.join("|"),
       "i"
   );
+  this._classesToPreserve = this.CLASSES_TO_PRESERVE.concat(
+      options.classesToPreserve || []
+  );
+  this._keepClasses = !!options.keepClasses;
 
   // Start with all flags set
   this._flags =
@@ -158,10 +171,8 @@ Readability.prototype = {
       "banner",
       "breadcrumbs",
       "combx",
-      //"comment", // TODO: this will be updated with the comments support
       "community",
       "cover-wrap",
-      "disqus",
       "extra",
       "footer",
       "gdpr",
@@ -185,6 +196,15 @@ Readability.prototype = {
       "popup",
       "yom-remote",
     ],
+    okMaybeItsACandidate: [
+      "and",
+      "article",
+      "body",
+      "column",
+      "content",
+      "main",
+      "shadow"
+    ],
     negative: [
       "-ad-",
       "hidden",
@@ -195,7 +215,6 @@ Readability.prototype = {
       "banner",
       "combx",
       "com-",
-      "comment", // TODO: this will be updated with the comments support
       "contact",
       "footer",
       "gdpr",
@@ -218,7 +237,6 @@ Readability.prototype = {
     extraneous: [
       "print",
       "archive",
-      "comment", // TODO: this will be updated with the comments support
       "discuss",
       "e[\\-]?mail",
       "share",
@@ -236,16 +254,8 @@ Readability.prototype = {
   REGEXPS: {
     // NOTE: These two regular expressions are duplicated in
     // Readability-readerable.js. Please keep both copies in sync.
-    //unlikelyCandidates:
-    //  //i,
-    okMaybeItsACandidate: /and|article|body|column|content|main|shadow/i,
-
     positive:
         /article|body|content|entry|hentry|h-entry|heading|main|page|pagination|post|text|blog|story/i,
-    //negative:
-    //  //i,
-    //extraneous:
-    //  //i,
     byline: /byline|author|dateline|writtenby|p-author/i,
     replaceFonts: /<(\/?)font[^>]*>/gi,
     normalize: /\s{2,}/g,
@@ -1630,9 +1640,9 @@ Readability.prototype = {
         while (node) {
           matchString = node.className + " " + node.id;
           if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
-            this.log("Found comments section", node);
             node.className = "ebook-comments-section";
             articleContent.appendChild(node);
+            this.log("Found comments section", node);
             break;
           } else {
             node = this._getNextNode(node);
@@ -2618,7 +2628,7 @@ Readability.prototype = {
       if (this._keepComments) {
         var commentRegex = new RegExp("comment"),
           matchString = node.className + " " + node.id;
-        if (commentRegex.test(matchString)) {
+        if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
           return false;
         }
       }
@@ -2895,6 +2905,8 @@ Readability.prototype = {
     this.log("Grabbed: " + articleContent.innerHTML);
 
     this._postProcessContent(articleContent);
+
+    this.log("PostProcessed: " + articleContent.innerHTML);
 
     // If we haven't found an excerpt in the article's metadata, use the article's
     // first paragraph as the excerpt. This is used for displaying a preview of

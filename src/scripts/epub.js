@@ -633,8 +633,9 @@ class Epub {
         let commentsStyles = '';
         if (this.#keepComments) {
             commentsStyles = ' ' +
-                '.ebook-comments-section { border-top: 1px solid #777; } ' +
-                '.ebook-comments-section .no-stretch { float: left; margin: 0 1em 1em 0; max-width: 64px; }';
+                '.ebook-comments-section { border-top: 1px solid #777; margin-top: 1em; padding-top: 1em; } ' +
+                '.ebook-comments-section .no-stretch { float: left; margin: 0 1em 1em 0; max-width: 48px; } ' +
+                'div[id^="wpd-comm-"] { clear: both; margin-top: 1em; } div[id^="wpd-comm-"] div[id^="wpd-comm-"] { padding-left: 20px; }';
         }
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
             'body { padding: 0; margin: 1em; text-align: left; font-family: georgia, times new roman, times roman, times, roman, serif } ' +

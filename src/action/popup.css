@@ -50,6 +50,11 @@ body {
 .card-footer #extension-settings {
     margin-left: -25px;
 }
+.card-footer #settings-enabled {
+    padding: 0.15rem;
+    top: 25%;
+    left: 70%;
+}
 .shorten-titles {
     color: #888;
     scale: 85%;

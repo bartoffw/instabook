@@ -185,12 +185,12 @@ document.addEventListener('change', (event) => {
     if (event.target.id === 'shorten-titles') {
         currentSettings.shortenTitles = event.target.checked;
         Storage.storeGlobalValue(settingsKey, currentSettings);
-        //$('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
+        $('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
     }
     if (event.target.id === 'include-comments') {
         currentSettings.includeComments = event.target.checked;
         Storage.storeGlobalValue(settingsKey, currentSettings);
-        //$('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
+        $('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
     }
 });
 
@@ -445,7 +445,7 @@ function loadSettings() {
         currentSettings = storedSettings;
         $('#include-comments').prop('checked', currentSettings.includeComments);
         $('#shorten-titles').prop('checked', currentSettings.shortenTitles);
-        //$('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
+        $('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
     });
 }
 
