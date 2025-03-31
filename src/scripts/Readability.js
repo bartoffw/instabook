@@ -233,6 +233,8 @@ Readability.prototype = {
       "shopping",
       "tags",
       "widget",
+      "wpd-comment-footer",
+      "wpd-reply-button"
     ],
     extraneous: [
       "print",
@@ -659,6 +661,7 @@ Readability.prototype = {
             this._hasSingleTagInsideElement(node, "DIV") ||
             this._hasSingleTagInsideElement(node, "SECTION")
         ) {
+          this.log('_simplifyNestedElements', node);
           var child = node.children[0];
           for (var i = 0; i < node.attributes.length; i++) {
             child.setAttributeNode(node.attributes[i].cloneNode());
@@ -1299,9 +1302,14 @@ Readability.prototype = {
             var nextSibling = childNode.nextSibling;
             if (this._isPhrasingContent(childNode)) {
               if (p !== null) {
+                this.log("Fixing DIV tag 1", p, childNode);
                 p.appendChild(childNode);
               } else if (!this._isWhitespace(childNode)) {
+                this.log("Fixing DIV tag 2", node, childNode);
                 p = doc.createElement("p");
+                for (i = 0; i < node.attributes.length; i++) {
+                  p.setAttributeNode(node.attributes[i].cloneNode());
+                }
                 node.replaceChild(p, childNode);
                 p.appendChild(childNode);
               }
@@ -1323,6 +1331,10 @@ Readability.prototype = {
               this._getLinkDensity(node) < 0.25
           ) {
             var newNode = node.children[0];
+            this.log("Fixing DIV tag 3", node, newNode);
+            for (i = 0; i < node.attributes.length; i++) {
+              newNode.setAttributeNode(node.attributes[i].cloneNode());
+            }
             node.parentNode.replaceChild(newNode, node);
             node = newNode;
             elementsToScore.push(node);
