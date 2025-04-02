@@ -64,16 +64,43 @@ function Readability(doc, options) {
 
   if (this._keepComments) {
     this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("wpd-comment");
+    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("js-discussion");
+    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("js-comment-container");
+    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("gistcomment");
+
     this.CLASSES_TO_PRESERVE.push('ebook-comments-section');
-    this.CLASSES_TO_PRESERVE.push('wpd-comment-header');
-    this.CLASSES_TO_PRESERVE.push('wpd-comment-author');
-    this.CLASSES_TO_PRESERVE.push('wpd-comment-date');
-    this.CLASSES_TO_PRESERVE.push('wpd-reply-to');
-    this.CLASSES_TO_PRESERVE.push('wpd-comment-text');
+    this.CLASSES_TO_PRESERVE.push('comment-header');
+    this.CLASSES_TO_PRESERVE.push('comment-author');
+    this.CLASSES_TO_PRESERVE.push('comment-date');
+    this.CLASSES_TO_PRESERVE.push('comment-reply');
+    this.CLASSES_TO_PRESERVE.push('comment-text');
+    this.CLASSES_TO_PRESERVE.push('comment-element');
+
+    this.CLASSES_IDS_TO_CHANGE = {
+      'js-quote-selection-container': 'ebook-comments-section',
+      'wpd-comment-header': 'comment-header',
+      'wpd-comment-author': 'comment-author',
+      'wpd-comment-date': 'comment-date',
+      'wpd-reply-to': 'comment-reply',
+      'wpd-comment-text': 'comment-text',
+      'timeline-comment-header': 'comment-header',
+      'comment-body': 'comment-text'
+    };
+    this.PARTIAL_CLASSES_IDS_TO_CHANGE = {
+      'comments_commentsSection_': 'ebook-comments-section',
+      'wpd-comm-': 'comment-element',
+      'gistcomment-': 'comment-element',
+      'comments_commentWrapper_': 'comment-element',
+      'comments_commentList_': 'comment-element',
+      'comments_childComment_': 'comment-element',
+      'comments_nameRow_': 'comment-author',
+      'comments_comment_': 'comment-text'
+    };
   } else {
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("comment");
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("disqus");
     this.DYNAMIC_REGEXPS.negative.push("comment");
+    this.DYNAMIC_REGEXPS.negative.push("js-discussion");
     this.DYNAMIC_REGEXPS.extraneous.push("comment");
   }
   this.REGEXPS.unlikelyCandidates = new RegExp(
@@ -248,7 +275,7 @@ Readability.prototype = {
       "sign",
       "single",
       "utility",
-    ],
+    ]
   },
 
   // All of the regular expressions in use within readability.
@@ -393,6 +420,11 @@ Readability.prototype = {
     // Readability cannot open relative uris so we convert them to absolute uris.
     this._fixRelativeUris(articleContent);
 
+    if (this._keepComments) {
+      // replace classes and IDs for the comments section
+      this._changeClasses(articleContent);
+    }
+
     this._simplifyNestedElements(articleContent);
 
     if (!this._keepClasses) {
@@ -515,6 +547,36 @@ Readability.prototype = {
           return Array.isArray(collection) ? collection : Array.from(collection);
         })
     );
+  },
+
+  _changeClasses(node) {
+    var fullNamesToFind = Object.keys(this.CLASSES_IDS_TO_CHANGE);
+    var partialNamesToFind = new RegExp(
+        Object.keys(this.PARTIAL_CLASSES_IDS_TO_CHANGE).join('|'),
+        'i'
+    );
+    var originalName = (
+        (typeof node.className === "string" && node.className !== "" ? node.className : '') + ' ' +
+        (typeof node.id === "string" && node.id !== "" ? node.id : '')
+    ).trim();
+    if (originalName.length > 0) {
+      for (const val of originalName.split(/\s+/)) {
+        if (fullNamesToFind.includes(val)) {
+          node.setAttribute('class', this.CLASSES_IDS_TO_CHANGE[val]);
+          break;
+        } else {
+          var match = val.match(partialNamesToFind);
+          if (match) {
+            node.setAttribute('class', this.PARTIAL_CLASSES_IDS_TO_CHANGE[match[0]]);
+            break;
+          }
+        }
+      }
+    }
+
+    for (node = node.firstElementChild; node; node = node.nextElementSibling) {
+      this._changeClasses(node);
+    }
   },
 
   /**

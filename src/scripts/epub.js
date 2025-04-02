@@ -635,7 +635,12 @@ class Epub {
             commentsStyles = ' ' +
                 '.ebook-comments-section { border-top: 1px solid #777; margin-top: 1em; padding-top: 1em; } ' +
                 '.ebook-comments-section .no-stretch { float: left; margin: 0 1em 1em 0; max-width: 48px; } ' +
-                'div[id^="wpd-comm-"] { clear: both; margin-top: 1em; } div[id^="wpd-comm-"] div[id^="wpd-comm-"] { padding-left: 20px; }';
+                '.ebook-comments-section .comment-element { clear: both; margin-top: 1em; } ' +
+                '.ebook-comments-section .comment-element .comment-element { padding-left: 20px; } ' +
+                '.ebook-comments-section .comment-header > *, .ebook-comments-section .comment-header p { display: inline; } ' +
+                '.ebook-comments-section .comment-author { font-weight: bold; padding-right: 0.5em; } ' +
+                '.ebook-comments-section .comment-date { font-size: 0.9em; color: #999; font-style: italic; } ' +
+                '.ebook-comments-section .comment-reply { font-size: 0.9em; color: #999; }';
         }
         return '#logo { display: inline; border: 0; height: 32px; width: 160px; margin: 0 0 2em 0; padding: 0; } ' +
             'body { padding: 0; margin: 1em; text-align: left; font-family: georgia, times new roman, times roman, times, roman, serif } ' +
