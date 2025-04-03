@@ -72,21 +72,24 @@ function Readability(doc, options) {
     this.CLASSES_TO_PRESERVE.push('comment-header');
     this.CLASSES_TO_PRESERVE.push('comment-author');
     this.CLASSES_TO_PRESERVE.push('comment-date');
+    this.CLASSES_TO_PRESERVE.push('comment-avatar');
     this.CLASSES_TO_PRESERVE.push('comment-reply');
     this.CLASSES_TO_PRESERVE.push('comment-text');
     this.CLASSES_TO_PRESERVE.push('comment-element');
 
-    this.CLASSES_IDS_TO_CHANGE = {
+    this.COMMENS_CLASSES_IDS_TO_CHANGE = {
       'js-quote-selection-container': 'ebook-comments-section',
+      'comments-area': 'ebook-comments-section',
+      'wpd-thread-wrapper': 'ebook-comments-section',
       'wpd-comment-header': 'comment-header',
       'wpd-comment-author': 'comment-author',
       'wpd-comment-date': 'comment-date',
       'wpd-reply-to': 'comment-reply',
+      'wpd-avatar': 'comment-avatar',
       'wpd-comment-text': 'comment-text',
+      'no-stretch': 'comment-avatar',
       'timeline-comment-header': 'comment-header',
-      'comment-body': 'comment-text'
-    };
-    this.PARTIAL_CLASSES_IDS_TO_CHANGE = {
+      'comment-body': 'comment-text',
       'comments_commentsSection_': 'ebook-comments-section',
       'wpd-comm-': 'comment-element',
       'gistcomment-': 'comment-element',
@@ -96,6 +99,9 @@ function Readability(doc, options) {
       'comments_nameRow_': 'comment-author',
       'comments_comment_': 'comment-text'
     };
+    this.COMMENS_CLASSES_IDS_TO_REMOVE = [
+      'wpd-comment-footer'
+    ];
   } else {
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("comment");
     this.DYNAMIC_REGEXPS.unlikelyCandidates.push("disqus");
@@ -291,6 +297,7 @@ Readability.prototype = {
     videos:
         /\/\/(www\.)?((dailymotion|youtube|youtube-nocookie|player\.vimeo|v\.qq)\.com|(archive|upload\.wikimedia)\.org|player\.twitch\.tv)/i,
     shareElements: /(\b|_)(share|sharedaddy)(\b|_)/i,
+    comments: /comment|discussion|ebook-comments-section/i,
     nextLink: /(next|weiter|continue|>([^\|]|$)|»([^\|]|$))/i,
     prevLink: /(prev|earl|old|new|<|«)/i,
     tokenize: /\W+/g,
@@ -420,11 +427,6 @@ Readability.prototype = {
     // Readability cannot open relative uris so we convert them to absolute uris.
     this._fixRelativeUris(articleContent);
 
-    if (this._keepComments) {
-      // replace classes and IDs for the comments section
-      this._changeClasses(articleContent);
-    }
-
     this._simplifyNestedElements(articleContent);
 
     if (!this._keepClasses) {
@@ -549,10 +551,21 @@ Readability.prototype = {
     );
   },
 
-  _changeClasses(node) {
-    var fullNamesToFind = Object.keys(this.CLASSES_IDS_TO_CHANGE);
-    var partialNamesToFind = new RegExp(
-        Object.keys(this.PARTIAL_CLASSES_IDS_TO_CHANGE).join('|'),
+  _getAllNodesWithClass(node, className) {
+    if (node.querySelectorAll) {
+      return node.querySelectorAll('.' + className);
+    }
+    var collection = node.getElementsByClassName(className);
+    return Array.isArray(collection) ? collection : Array.from(collection);
+  },
+
+  _cleanupComments(node) {
+    var namesToChange = new RegExp(
+        Object.keys(this.COMMENS_CLASSES_IDS_TO_CHANGE).join('|'),
+        'i'
+    );
+    var namesToRemove = new RegExp(
+        this.COMMENS_CLASSES_IDS_TO_REMOVE.join('|'),
         'i'
     );
     var originalName = (
@@ -560,22 +573,21 @@ Readability.prototype = {
         (typeof node.id === "string" && node.id !== "" ? node.id : '')
     ).trim();
     if (originalName.length > 0) {
-      for (const val of originalName.split(/\s+/)) {
-        if (fullNamesToFind.includes(val)) {
-          node.setAttribute('class', this.CLASSES_IDS_TO_CHANGE[val]);
-          break;
-        } else {
-          var match = val.match(partialNamesToFind);
-          if (match) {
-            node.setAttribute('class', this.PARTIAL_CLASSES_IDS_TO_CHANGE[match[0]]);
-            break;
-          }
+      if (namesToRemove.test(originalName)) {
+        var parentNode = node.parentNode;
+        if (parentNode) {
+          parentNode.removeChild(node);
+        }
+      } else {
+        var match = originalName.match(namesToChange);
+        if (match) {
+          node.setAttribute('class', this.COMMENS_CLASSES_IDS_TO_CHANGE[match[0]]);
         }
       }
     }
 
     for (node = node.firstElementChild; node; node = node.nextElementSibling) {
-      this._changeClasses(node);
+      this._cleanupComments(node);
     }
   },
 
@@ -983,6 +995,8 @@ Readability.prototype = {
 
     this._fixLazyImages(articleContent);
 
+    this.log('Article content init cleaned: ' + articleContent.innerHTML);
+
     // Clean out junk from the article content
     this._cleanConditionally(articleContent, "form");
     this._cleanConditionally(articleContent, "fieldset");
@@ -991,6 +1005,8 @@ Readability.prototype = {
     this._clean(articleContent, "footer");
     this._clean(articleContent, "link");
     this._clean(articleContent, "aside");
+
+    this.log('Article content conditionally cleaned: ' + articleContent.innerHTML);
 
     // Clean out elements with little content that have "share" in their id/class combinations from final top candidates,
     // which means we don't remove the top candidates even they have "share".
@@ -1013,11 +1029,15 @@ Readability.prototype = {
     this._clean(articleContent, "button");
     this._cleanHeaders(articleContent);
 
+    this.log('Article content shares and forms cleaned: ' + articleContent.innerHTML);
+
     // Do these last as the previous stuff may have removed junk
     // that will affect these
     this._cleanConditionally(articleContent, "table");
     this._cleanConditionally(articleContent, "ul");
     this._cleanConditionally(articleContent, "div");
+
+    this.log('Article content table/ul/div cleaned: ' + articleContent.innerHTML);
 
     // replace H1 with H2 as H1 should be only title that is displayed separately
     this._replaceNodeTags(
@@ -1053,6 +1073,8 @@ Readability.prototype = {
         }
     );
 
+    this.log('Article content extra paragraphs cleaned: ' + articleContent.innerHTML);
+
     // Remove single-cell tables
     this._forEachNode(
         this._getAllNodesWithTag(articleContent, ["table"]),
@@ -1075,6 +1097,8 @@ Readability.prototype = {
           }
         }
     );
+
+    this.log('Article content single-cell tables cleaned: ' + articleContent.innerHTML);
   },
 
   /**
@@ -1710,11 +1734,13 @@ Readability.prototype = {
 
       if (this._keepComments) {
         var node = this._doc.documentElement,
-          commentRegex = new RegExp("comment");
+          commentRegex = new RegExp(this.REGEXPS.comments);
         while (node) {
           matchString = node.className + " " + node.id;
           if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
             node.className = "ebook-comments-section";
+            // replace classes and IDs for the comments section and remove unnecessary elements
+            this._cleanupComments(node);
             articleContent.appendChild(node);
             this.log("Found comments section", node);
             break;
@@ -1761,7 +1787,16 @@ Readability.prototype = {
       // grabArticle with different flags set. This gives us a higher likelihood of
       // finding the content, and the sieve approach gives us a higher likelihood of
       // finding the -right- content.
-      var textLength = this._getInnerText(articleContent, true).length;
+      var articleContentClean = articleContent;
+      if (this._keepComments) {
+        articleContentClean = articleContent.cloneNode(true);
+        this._removeNodes(this._getAllNodesWithTag(articleContentClean, ['DIV', 'SECTION']), (e) => {
+          return e.className === "ebook-comments-section";
+        });
+      }
+      this.log('Article content clean: ' + articleContentClean.innerHTML);
+
+      var textLength = this._getInnerText(articleContentClean, true).length;
       if (textLength < this._charThreshold) {
         parseSuccessful = false;
         // eslint-disable-next-line no-unsanitized/property
@@ -2700,7 +2735,7 @@ Readability.prototype = {
       }
 
       if (this._keepComments) {
-        var commentRegex = new RegExp("comment"),
+        var commentRegex = new RegExp(this.REGEXPS.comments),
           matchString = node.className + " " + node.id;
         if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
           return false;
