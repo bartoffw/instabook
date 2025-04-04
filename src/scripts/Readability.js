@@ -63,11 +63,6 @@ function Readability(doc, options) {
   this._keepComments = options.keepComments || false;
 
   if (this._keepComments) {
-    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("wpd-comment");
-    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("js-discussion");
-    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("js-comment-container");
-    this.DYNAMIC_REGEXPS.okMaybeItsACandidate.push("gistcomment");
-
     this.CLASSES_TO_PRESERVE.push('ebook-comments-section');
     this.CLASSES_TO_PRESERVE.push('comment-header');
     this.CLASSES_TO_PRESERVE.push('comment-author');
@@ -79,20 +74,24 @@ function Readability(doc, options) {
 
     this.COMMENS_CLASSES_IDS_TO_CHANGE = {
       'js-quote-selection-container': 'ebook-comments-section',
-      'comments-area': 'ebook-comments-section',
+      'js-discussion': 'ebook-comments-section',
+      'comments-': 'ebook-comments-section',
       'wpd-thread-wrapper': 'ebook-comments-section',
+      'comments_commentsSection_': 'ebook-comments-section',
       'wpd-comment-header': 'comment-header',
       'wpd-comment-author': 'comment-author',
       'wpd-comment-date': 'comment-date',
       'wpd-reply-to': 'comment-reply',
       'wpd-avatar': 'comment-avatar',
       'wpd-comment-text': 'comment-text',
+      'avatar-parent-child': 'comment-avatar',
       'no-stretch': 'comment-avatar',
-      'timeline-comment-header': 'comment-header',
+      'timeline-comment-header': 'comment-author',
+      'Comment-username-': 'comment-author',
       'comment-body': 'comment-text',
-      'comments_commentsSection_': 'ebook-comments-section',
       'wpd-comm-': 'comment-element',
       'gistcomment-': 'comment-element',
+      'CommentContainer-': 'comment-element',
       'comments_commentWrapper_': 'comment-element',
       'comments_commentList_': 'comment-element',
       'comments_childComment_': 'comment-element',
@@ -265,9 +264,7 @@ Readability.prototype = {
       "sponsor",
       "shopping",
       "tags",
-      "widget",
-      "wpd-comment-footer",
-      "wpd-reply-button"
+      "widget"
     ],
     extraneous: [
       "print",
@@ -297,7 +294,7 @@ Readability.prototype = {
     videos:
         /\/\/(www\.)?((dailymotion|youtube|youtube-nocookie|player\.vimeo|v\.qq)\.com|(archive|upload\.wikimedia)\.org|player\.twitch\.tv)/i,
     shareElements: /(\b|_)(share|sharedaddy)(\b|_)/i,
-    comments: /comment|discussion|ebook-comments-section/i,
+    comments: /comment|discussion|js-quote-selection-container|ebook-comments-section/i,
     nextLink: /(next|weiter|continue|>([^\|]|$)|»([^\|]|$))/i,
     prevLink: /(prev|earl|old|new|<|«)/i,
     tokenize: /\W+/g,
@@ -1733,20 +1730,16 @@ Readability.prototype = {
       }
 
       if (this._keepComments) {
-        var node = this._doc.documentElement,
-          commentRegex = new RegExp(this.REGEXPS.comments);
-        while (node) {
-          matchString = node.className + " " + node.id;
-          if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
-            node.className = "ebook-comments-section";
-            // replace classes and IDs for the comments section and remove unnecessary elements
-            this._cleanupComments(node);
-            articleContent.appendChild(node);
-            this.log("Found comments section", node);
-            break;
-          } else {
-            node = this._getNextNode(node);
-          }
+        var commentsFound = this._findCommentsSection(
+            this._getAllNodesWithTag(this._doc.documentElement, ["DIV", "SECTION"]),
+            articleContent
+        );
+        if (!commentsFound) {
+          this._findCommentsSection(
+              this._getAllNodesWithTag(articleContent, ["DIV", "SECTION"]),
+              articleContent,
+              false
+          );
         }
       }
 
@@ -1848,6 +1841,23 @@ Readability.prototype = {
         return articleContent;
       }
     }
+  },
+
+  _findCommentsSection(nodes, articleContent, addToContent = true) {
+    for (const node of nodes) {
+      matchString = node.className + " " + node.id;
+      if (this.REGEXPS.comments.test(matchString)) {
+        node.className = "ebook-comments-section";
+        // replace classes and IDs for the comments section and remove unnecessary elements
+        this._cleanupComments(node);
+        if (addToContent) {
+          articleContent.appendChild(node);
+        }
+        this.log("Found comments section", node);
+        return true;
+      }
+    }
+    return false;
   },
 
   /**
@@ -2735,9 +2745,8 @@ Readability.prototype = {
       }
 
       if (this._keepComments) {
-        var commentRegex = new RegExp(this.REGEXPS.comments),
-          matchString = node.className + " " + node.id;
-        if (["DIV", "SECTION"].includes(node.tagName) && commentRegex.test(matchString)) {
+        var matchString = node.className + " " + node.id;
+        if (["DIV", "SECTION"].includes(node.tagName) && this.REGEXPS.comments.test(matchString)) {
           return false;
         }
       }
