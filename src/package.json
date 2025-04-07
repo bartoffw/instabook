@@ -1,7 +1,7 @@
 {
   "name": "Instabook",
   "private": true,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "type": "module",
   "config": {
 
@@ -12,6 +12,12 @@
     "clean": "npm run clean:firefox && npm run clean:chrome",
     "build:firefox": "npm run clean:firefox && mkdir -p dist/firefox/action && mkdir -p dist/firefox/assets && mkdir -p dist/firefox/icons && mkdir -p dist/firefox/scripts && mkdir -p dist/firefox/styles && cp action/* dist/firefox/action && cp assets/* dist/firefox/assets && cp icons/* dist/firefox/icons && cp scripts/* dist/firefox/scripts && cp styles/* dist/firefox/styles && cp scripts/background.firefox.js dist/firefox/scripts/background.js && rm dist/firefox/scripts/background.*.js && cp manifest.firefox.json dist/firefox/manifest.json",
     "build:chrome": "npm run clean:chrome && mkdir -p dist/chrome/action && mkdir -p dist/chrome/assets && mkdir -p dist/chrome/icons && mkdir -p dist/chrome/offscreen && mkdir -p dist/chrome/scripts && mkdir -p dist/chrome/styles && cp action/* dist/chrome/action && cp assets/* dist/chrome/assets && cp icons/* dist/chrome/icons && cp offscreen/* dist/chrome/offscreen && cp scripts/* dist/chrome/scripts && cp styles/* dist/chrome/styles && cp scripts/background.chrome.js dist/chrome/scripts/background.js && rm dist/chrome/scripts/background.*.js && cp manifest.chrome.json dist/chrome/manifest.json",
-    "build": "npm run build:firefox && npm run build:chrome"
+    "build": "npm run build:firefox && npm run build:chrome",
+    "release:firefox":  "npm install && npm run build:firefox && rm -f ./dist/instabook-$npm_package_version-firefox.zip && (cd ./dist/firefox && zip -r ../instabook-$npm_package_version-firefox.zip .)",
+    "release:chrome":  "npm install && npm run build:chrome && rm -f ./dist/instabook-$npm_package_version-chromium.zip && (cd ./dist/chrome && zip -r ../instabook-$npm_package_version-chromium.zip .)",
+    "release": "npm run release:firefox && npm run release:chrome"
+  },
+  "devDependencies": {
+    "cross-zip": "^4.0.0"
   }
 }

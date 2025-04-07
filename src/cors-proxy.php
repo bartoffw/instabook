@@ -27,8 +27,8 @@ if (!$url) {
     $status = array('http_code' => 'ERROR');
 
 } else {
-    if (str_starts_with($url, 'moz-extension:')) {
-        $url = str_replace('moz-extension:', 'https:', $url);
+    if (str_starts_with($url, 'moz-extension:') || str_starts_with($url, 'chrome-extension:')) {
+        $url = str_replace(['moz-extension:', 'chrome-extension:'], 'https:', $url);
     }
 
     $ch = curl_init($url);

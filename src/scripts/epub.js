@@ -248,7 +248,7 @@ class Epub {
         });
     }
 
-    async saveFile(blob, fileName) {
+    /*async saveFile(blob, fileName) {
         const fileStream = streamSaver.createWriteStream(fileName, {
             size: blob.size // Makes the percentage visible in the download
         })
@@ -276,7 +276,7 @@ class Epub {
                 : writer.write(res.value).then(pump))
 
         pump()
-    }
+    }*/
 
     processIframes(doc, iframes) {
         let $doc = $(doc), url = null;

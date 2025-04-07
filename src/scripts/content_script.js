@@ -107,6 +107,10 @@ function getPageData() {
         iframe = iframeElements[i];
         url = new URL(Epub.cleanupUrl($(iframe).attr('src')), currentUrl).href;
         if (!(url in iframes)) {
+            /*const proxyUrl = Epub.getAbsoluteUrl($(iframe).attr('src'), currentUrl);
+            $.get(proxyUrl).success(function(content) {
+                iframes[url] = content;
+            });*/
             iframes[url] = getIframeContent(iframe);
         }
     }
