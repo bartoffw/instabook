@@ -5,7 +5,7 @@ let pageUrl = '',
     currentPageData = null,
     currentChapters = null,
     currentCover = null,
-    currentSettings = null,
+    currentSettings = {},
     isChapterMode = false,
     coverCarousel = null,
     carouselElement = {};
@@ -54,7 +54,7 @@ document.addEventListener('click', (event) => {
                         if (currentPageData !== null && currentPageData['md5'] === MD5(pageUrl)) {
                             responseData = Object.assign(responseData, currentPageData);
                         }
-                        responseData.includeComments = currentSettings.includeComments;
+                        responseData.includeComments = currentSettings.includeComments ?? false;
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
@@ -100,7 +100,7 @@ document.addEventListener('click', (event) => {
             cover: currentCover,
             chapters: currentChapters,
             dividerUrl: bookDividerUrl,
-            includeComments: currentSettings.includeComments
+            includeComments: currentSettings.includeComments ?? false
         });
     }
     else if (event.target.id === 'page-title') {
@@ -185,13 +185,12 @@ document.addEventListener('change', (event) => {
     if (event.target.id === 'shorten-titles') {
         currentSettings.shortenTitles = event.target.checked;
         Storage.storeGlobalValue(settingsKey, currentSettings);
-        $('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
     }
     if (event.target.id === 'include-comments') {
         currentSettings.includeComments = event.target.checked;
         Storage.storeGlobalValue(settingsKey, currentSettings);
-        $('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
     }
+    $('#settings-enabled').css('display', (currentSettings.includeComments ?? false) || (currentSettings.shortenTitles ?? false) ? 'inline' : 'none');
 });
 
 document.addEventListener('keypress', (event) => {
@@ -425,7 +424,7 @@ function refreshUI() {
         cleanupChapters();
         for (const chapterKey of chaptersKeys) {
             const chapter = currentChapters[chapterKey],
-                chapterTitle = currentSettings.shortenTitles &&
+                chapterTitle = (currentSettings.shortenTitles ?? false) &&
                     typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' &&
                     (typeof chapter.titleEdited === 'undefined' || !chapter.titleEdited) ?
                         chapter.cleanTitle : chapter.title;
@@ -443,9 +442,9 @@ function refreshUI() {
 function loadSettings() {
     Storage.getStoredGlobalValue(settingsKey, defaultSettings).then((storedSettings) => {
         currentSettings = storedSettings;
-        $('#include-comments').prop('checked', currentSettings.includeComments);
-        $('#shorten-titles').prop('checked', currentSettings.shortenTitles);
-        $('#settings-enabled').css('display', currentSettings.includeComments || currentSettings.shortenTitles ? 'inline' : 'none');
+        $('#include-comments').prop('checked', currentSettings.includeComments ?? false);
+        $('#shorten-titles').prop('checked', currentSettings.shortenTitles ?? false);
+        $('#settings-enabled').css('display', (currentSettings.includeComments ?? false) || (currentSettings.shortenTitles ?? false) ? 'inline' : 'none');
     });
 }
 
@@ -760,7 +759,10 @@ function getCurrentPageData() {
             browser.tabs.query({currentWindow: true, active: true})
                 .then((tabs) => {
                     browser.tabs
-                        .sendMessage(tabs[0].id, { type: 'preview', includeComments: currentSettings.includeComments })
+                        .sendMessage(tabs[0].id, {
+                            type: 'preview',
+                            includeComments: currentSettings.includeComments ?? false
+                        })
                         .then(response => {
                             setAdditionalData(response, pageUrl);
 
