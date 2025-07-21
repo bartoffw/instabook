@@ -3,7 +3,7 @@
 // by `offscreen.createDocument()` resolves.
 chrome.runtime.onMessage.addListener(handleMessages);
 
-async function handleMessages(message) {
+async function handleMessages(message, sender, sendResponse) {
     // Return early if this message isn't meant for the offscreen document.
     if (message.target !== 'offscreen') {
         return false;
@@ -12,10 +12,26 @@ async function handleMessages(message) {
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
         case 'create-epub':
-            await handleEpubCreation(message.data, false);
+            try {
+                const result = await handleEpubCreation(message.data, false);
+                // Send the blob data back to background script
+                await sendEpubToBackground(result);
+                sendResponse({success: true});
+            } catch (error) {
+                console.error('Error creating EPUB:', error);
+                sendResponse({ success: false, error: error.message });
+            }
             return true;
         case 'create-chapters-epub':
-            await handleEpubCreation(message.data, true);
+            try {
+                const result = await handleEpubCreation(message.data, true);
+                // Send the blob data back to background script
+                await sendEpubToBackground(result);
+                sendResponse({ success: true });
+            } catch (error) {
+                console.error('Error creating chapters EPUB:', error);
+                sendResponse({ success: false, error: error.message });
+            }
             return true;
         default:
             console.warn(`Unexpected message type received: '${message.type}'.`);
@@ -32,8 +48,7 @@ async function handleEpubCreation(msg, hasChapters) {
             includeComments: msg.includeComments
         });
         epub.process();
-        await prepareEpubFile(epub);
-        sendToBackground('chapters-conversion-finished');
+        return await prepareEpubFileOffscreen(epub);
     } else {
         const epub = new Epub({
             docHTML: msg.html,
@@ -52,13 +67,12 @@ async function handleEpubCreation(msg, hasChapters) {
             includeComments: msg.includeComments
         });
         epub.process();
-        await prepareEpubFile(epub);
-        sendToBackground('conversion-finished');
+        return await prepareEpubFileOffscreen(epub);
     }
 }
 
-async function prepareEpubFile(epub) {
-    await epub.prepareEpubFile((imgUrl, isCover) => {
+async function prepareEpubFileOffscreen(epub) {
+    return await epub.prepareEpubFile((imgUrl, isCover) => {
         return new Promise((resolve, reject) => {
             if (isCover) {
                 epub.prepareCoverImage(imgUrl).then(response => {
@@ -77,9 +91,44 @@ async function prepareEpubFile(epub) {
     });
 }
 
-function sendToBackground(type) {
+async function sendEpubToBackground(epubResult) {
+    try {
+        // Convert blob to ArrayBuffer for transfer
+        const arrayBuffer = await epubResult.blob.arrayBuffer();
+        const dataArray = Array.from(new Uint8Array(arrayBuffer));
+        console.log('Offscreen epub: ', dataArray);
+
+        // Send the blob data back to background script
+        chrome.runtime.sendMessage({
+            type: 'epub-ready',
+            target: 'background',
+            data: {
+                buffer: dataArray,
+                filename: epubResult.fileName,
+                size: epubResult.blob.size
+            }
+        });
+    } catch (error) {
+        console.error('Error sending EPUB to background:', error);
+        throw error;
+    }
+}
+
+function sendToBackground(type, data) {
     chrome.runtime.sendMessage({
         type,
-        // target: 'background',
+        target: 'background',
+        data
     });
+}
+
+function saveBlobFile(blob, fileName) {
+    if (window.navigator && window.navigator.msSaveBlob) {
+        window.navigator.msSaveBlob(blob, fileName); // For IE
+    } else {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+    }
 }

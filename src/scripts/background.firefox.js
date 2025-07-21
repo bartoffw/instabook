@@ -24,7 +24,7 @@ async function handleEpubCreation(msg, hasChapters) {
             includeComments: msg.includeComments
         });
         epub.process();
-        await prepareEpubFile(epub);
+        await prepareEpubFileBackground(epub);
         sendToBackground('chapters-conversion-finished');
     } else {
         const epub = new Epub({
@@ -44,12 +44,12 @@ async function handleEpubCreation(msg, hasChapters) {
             includeComments: msg.includeComments
         });
         epub.process();
-        await prepareEpubFile(epub);
+        await prepareEpubFileBackground(epub);
         sendToBackground('conversion-finished');
     }
 }
 
-async function prepareEpubFile(epub) {
+async function prepareEpubFileBackground(epub) {
     await epub.prepareEpubFile((imgUrl, isCover) => {
         return new Promise((resolve, reject) => {
             if (isCover) {

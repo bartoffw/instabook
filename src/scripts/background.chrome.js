@@ -11,23 +11,144 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     /** Received the Convert/Download action **/
     if (message.type === 'convert') {
-        return sendMessageToOffscreenDocument('create-epub', message).then(response => {
-            sendResponse({ msg: 'received in background!' })
-        });
+        handleConversion(message)
+            .then(result => {
+                console.log('Conversion completed:', result);
+                sendResponse({ msg: 'received in background!' });
+            })
+            .catch(error => {
+                console.error('Conversion failed:', error);
+                sendResponse({ msg: 'conversion failed', error: error.message });
+            });
+        return true; // Keep message channel open for async response
     }
     else if (message.type === 'convert-chapters') {
-        return sendMessageToOffscreenDocument('create-chapters-epub', message).then(response => {
-            sendResponse({ msg: 'received in background!' })
-        });
+        handleChaptersConversion(message)
+            .then(result => {
+                console.log('Chapters conversion completed:', result);
+                sendResponse({ msg: 'received in background!' });
+            })
+            .catch(error => {
+                console.error('Chapters conversion failed:', error);
+                sendResponse({ msg: 'conversion failed', error: error.message });
+            });
+        return true; // Keep message channel open for async response
     }
-    else if (message.target === 'background' && message.type === 'epub-prepared') {
-
+    else if (message.target === 'background') {
+        // messaging back from the offscreen
+        //console.log(message);
+        // Handle messages from offscreen with blob data
+        if (message.type === 'epub-ready') {
+            handleEpubDownload(message.data)
+                .then(() => {
+                    sendResponse({ msg: 'download-started' });
+                })
+                .catch(error => {
+                    console.error('Download failed:', error);
+                    sendResponse({ msg: 'download-failed', error: error.message });
+                });
+            return true;
+        }
+        sendResponse({ msg: 'conversion-finished !!!'});
     }
     /** Received the Reset action (not used currently) **/
     else if (message.type === 'reset') {
-        console.log('Reset msg');
+        //console.log('Reset msg');
     }
 });
+
+async function handleConversion(message) {
+    try {
+        await sendMessageToOffscreenDocument('create-epub', message);
+        // The actual download will be handled when offscreen sends back the blob
+        return { success: true };
+    } catch (error) {
+        console.error('Error in handleConversion:', error);
+        throw error;
+    }
+}
+
+async function handleChaptersConversion(message) {
+    try {
+        await sendMessageToOffscreenDocument('create-chapters-epub', message);
+        // The actual download will be handled when offscreen sends back the blob
+        return { success: true };
+    } catch (error) {
+        console.error('Error in handleChaptersConversion:', error);
+        throw error;
+    }
+}
+
+async function handleEpubDownload(epubData) {
+    try {
+        console.log('Background buffer: ', epubData.buffer);
+
+        // Clean up old EPUB data first
+        await cleanupOldEpubData();
+
+        // Store the EPUB data in chrome.storage.local
+        const storageKey = `epub_${Date.now()}`;
+        await chrome.storage.local.set({
+            [storageKey]: {
+                buffer: epubData.buffer,
+                filename: epubData.filename,
+                size: epubData.size,
+                timestamp: Date.now()
+            }
+        });
+
+        // Send notification to popup with storage key
+        await notifyPopup('epub-ready', {
+            storageKey: storageKey,
+            filename: epubData.filename,
+            size: epubData.size
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error in handleEpubDownload:', error);
+        throw error;
+    }
+}
+
+async function cleanupOldEpubData() {
+    try {
+        const result = await chrome.storage.local.get(null);
+        const keysToRemove = [];
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+
+        for (const [key, value] of Object.entries(result)) {
+            if (key.startsWith('epub_') && value.timestamp && value.timestamp < fiveMinutesAgo) {
+                keysToRemove.push(key);
+            }
+        }
+
+        if (keysToRemove.length > 0) {
+            await chrome.storage.local.remove(keysToRemove);
+            console.log('Cleaned up old EPUB data:', keysToRemove);
+        }
+    } catch (error) {
+        console.error('Error cleaning up old EPUB data:', error);
+    }
+}
+
+async function notifyPopup(type, data) {
+    try {
+        // Try to send message to popup directly
+        await chrome.runtime.sendMessage({
+            target: 'popup',
+            type: type,
+            data: data
+        });
+        console.log('Message sent to popup:', type);
+    } catch (error) {
+        console.log('Popup not available, storing message:', error.message);
+        // Popup is not open, store the message for when it opens
+        await chrome.storage.local.set({
+            pendingMessage: { type, data, timestamp: Date.now() }
+        });
+    }
+}
 
 async function sendMessageToOffscreenDocument(type, data) {
     // Create an offscreen document if one doesn't exist yet
@@ -35,7 +156,7 @@ async function sendMessageToOffscreenDocument(type, data) {
         try {
             await chrome.offscreen.createDocument({
                 url: OFFSCREEN_DOCUMENT_PATH,
-                reasons: [ chrome.offscreen.Reason.DOM_PARSER ],
+                reasons: [ chrome.offscreen.Reason.DOM_PARSER, chrome.offscreen.Reason.BLOBS ],
                 justification: 'Making an offline copy of the document'
             });
         } catch (error) {

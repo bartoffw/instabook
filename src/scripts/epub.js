@@ -100,7 +100,7 @@ class Epub {
                 this.#singleChapter.iframes
             );
             this.#singleChapter.readability =
-                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments, debug: true });
+                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments });
             this.#singleChapter.parsedContent = this.#singleChapter.readability.parse();
         } else if (optionsKeys.includes('chapters')) {
             this.#hasChapters = true;
@@ -238,17 +238,31 @@ class Epub {
             this.zipImages(zip, this.#singleChapter.imageUrls, this.#singleChapter.currentUrl, imageContentPromise);
         }
 
-        await zip.generateAsync({
+        return await zip.generateAsync({
             type: 'blob',
             mimeType: 'application/epub+zip'
-        }).then((content) => {
-            let filename = Epub.stripHtml(this.bookTitle) + ' (Instabooked).epub';
-            saveAs(content, filename.replace(/[/\\?%*:|"<>]/g, ''));
-            //this.saveFile(content, filename.replace(/[/\\?%*:|"<>]/g, ''))
+        }).then((blob) => {
+            let filename = (Epub.stripHtml(this.bookTitle) + ' (Instabooked).epub').replace(/[/\\?%*:|"<>]/g, '');
+            console.log('epub generated: ', blob.text());
+            return {
+                blob: blob,
+                fileName: filename
+            };
         });
     }
 
-    /*async saveFile(blob, fileName) {
+    saveBlobFile(blob, fileName) {
+        if (window.navigator && window.navigator.msSaveBlob) {
+            window.navigator.msSaveBlob(blob, fileName); // For IE
+        } else {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+        }
+    }
+
+    async saveFile(blob, fileName) {
         const fileStream = streamSaver.createWriteStream(fileName, {
             size: blob.size // Makes the percentage visible in the download
         })
@@ -276,7 +290,7 @@ class Epub {
                 : writer.write(res.value).then(pump))
 
         pump()
-    }*/
+    }
 
     processIframes(doc, iframes) {
         let $doc = $(doc), url = null;

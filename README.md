@@ -94,6 +94,9 @@ Running `npm run build` builds the extension for all browsers. The result is sto
 
 Running `npm run clean` cleans the `dist` folder. The dist folder is also cleaned before every build.
 
+The extension can be also zipped and prepared for distribution (uploading to extension stores) using `npm run release`.
+This will build one zip file for each standard (Firefox and Chromium).
+
 ## Troubleshooting
 
 Please submit any problems you find on the [GitHub page](https://github.com/bartoffw/instabook/issues).

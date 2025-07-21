@@ -511,18 +511,92 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         btnLoading(false);
     } else if (message.type === 'chapters-conversion-finished') {
         chaptersBtnLoading(false);
-    }
-})
-
-function sendRuntimeMessage(data) {
-    const result = browser.runtime.sendMessage(data);
-    result.then((response) => {
-        //btnLoading(false);
-    }, (error) => {
-        unexpectedError('Error on background script query: ' + error);
+    } else if (message.type === 'epub-ready') {
         btnLoading(false);
-        chaptersBtnLoading(false);
-    });
+        handleEpubDownload(message.data);
+    }
+});
+
+// window.handleBackgroundMessage = function(type, data) {
+//     console.log('Received background message:', type, data);
+//
+//     switch (type) {
+//         case 'conversion-started':
+//             updateUI('converting', `Converting ${data.type}...`);
+//             break;
+//
+//         case 'epub-ready':
+//             handleEpubDownload(data);
+//             btnLoading(false);
+//             break;
+//
+//         case 'conversion-error':
+//             updateUI('error', `Conversion failed: ${data.error}`);
+//             break;
+//     }
+// };
+
+async function sendRuntimeMessage(data) {
+    const result = await browser.runtime.sendMessage(data);
+    console.log(result);
+    // result.then((response) => {
+    //     console.log(response);
+    //     //btnLoading(false);
+    // }, (error) => {
+    //     unexpectedError('Error on background script query: ' + error);
+    //     btnLoading(false);
+    //     chaptersBtnLoading(false);
+    // });
+}
+
+async function handleEpubDownload(epubData) {
+    try {
+        console.log('Handling EPUB download in popup:', epubData.filename);
+
+        let buffer;
+        if (epubData.storageKey) {
+            // Retrieve EPUB data from storage
+            const result = await chrome.storage.local.get([epubData.storageKey]);
+            if (!result[epubData.storageKey]) {
+                throw new Error('EPUB data not found in storage');
+            }
+
+            buffer = result[epubData.storageKey].buffer;
+
+            // Clean up storage after retrieving
+            await chrome.storage.local.remove([epubData.storageKey]);
+        } else {
+            // Fallback: data passed directly (for backwards compatibility)
+            buffer = epubData.buffer;
+        }
+
+        // Convert array buffer to Blob
+        const uint8Array = new Uint8Array(buffer);
+        const blob = new Blob([uint8Array], { type: 'application/epub+zip' });
+
+        // Create download URL
+        const url = URL.createObjectURL(blob);
+
+        // Create download link and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = epubData.filename;
+        link.style.display = 'none';
+
+        // Add to document, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the blob URL
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 1000);
+
+    } catch (error) {
+        console.error('Error downloading EPUB in popup:', error);
+        //updateUI('error', `Download failed: ${error.message}`);
+    }
 }
 
 function reportExecuteScriptError(error) {
@@ -533,7 +607,7 @@ function getErrorText(error) {
     return 'Could not generate the ebook. ' +
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&' +
         'title=' + encodeURIComponent('Error on ' + pageUrl) + '&' +
-        'body=' + encodeURIComponent(error) + '">on GitHub using this link</a>.';
+        'body=' + encodeURIComponent(error) + '" target="_blank">on GitHub using this link</a>.';
 }
 
 function unexpectedError(error) {

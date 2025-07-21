@@ -46,7 +46,8 @@
   "permissions": [
     "activeTab",
     "offscreen",
-    "storage"
+    "storage",
+    "downloads"
   ],
 
   "action": {
