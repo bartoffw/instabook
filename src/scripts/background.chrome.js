@@ -11,9 +11,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     /** Received the Convert/Download action **/
     if (message.type === 'convert') {
-        handleConversion(message)
+        handleConversion('create-epub', message)
             .then(result => {
-                console.log('Conversion completed:', result);
                 sendResponse({ msg: 'received in background!' });
             })
             .catch(error => {
@@ -23,9 +22,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // Keep message channel open for async response
     }
     else if (message.type === 'convert-chapters') {
-        handleChaptersConversion(message)
+        handleConversion('create-chapters-epub', message)
             .then(result => {
-                console.log('Chapters conversion completed:', result);
                 sendResponse({ msg: 'received in background!' });
             })
             .catch(error => {
@@ -36,10 +34,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     else if (message.target === 'background') {
         // messaging back from the offscreen
-        //console.log(message);
-        // Handle messages from offscreen with blob data
-        if (message.type === 'epub-ready') {
-            handleEpubDownload(message.data)
+        if (message.type === 'epub-ready' || message.type === 'chapters-epub-ready') {
+            // Handle messages from offscreen with blob data
+            handleEpubDownload(message.type, message.data)
                 .then(() => {
                     sendResponse({ msg: 'download-started' });
                 })
@@ -49,7 +46,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 });
             return true;
         }
-        sendResponse({ msg: 'conversion-finished !!!'});
     }
     /** Received the Reset action (not used currently) **/
     else if (message.type === 'reset') {
@@ -57,9 +53,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-async function handleConversion(message) {
+async function handleConversion(type, message) {
     try {
-        await sendMessageToOffscreenDocument('create-epub', message);
+        await sendMessageToOffscreenDocument(type, message);
         // The actual download will be handled when offscreen sends back the blob
         return { success: true };
     } catch (error) {
@@ -68,21 +64,8 @@ async function handleConversion(message) {
     }
 }
 
-async function handleChaptersConversion(message) {
+async function handleEpubDownload(dataType, epubData) {
     try {
-        await sendMessageToOffscreenDocument('create-chapters-epub', message);
-        // The actual download will be handled when offscreen sends back the blob
-        return { success: true };
-    } catch (error) {
-        console.error('Error in handleChaptersConversion:', error);
-        throw error;
-    }
-}
-
-async function handleEpubDownload(epubData) {
-    try {
-        console.log('Background buffer: ', epubData.buffer);
-
         // Clean up old EPUB data first
         await cleanupOldEpubData();
 
@@ -98,7 +81,7 @@ async function handleEpubDownload(epubData) {
         });
 
         // Send notification to popup with storage key
-        await notifyPopup('epub-ready', {
+        await notifyPopup(dataType, {
             storageKey: storageKey,
             filename: epubData.filename,
             size: epubData.size
@@ -140,7 +123,6 @@ async function notifyPopup(type, data) {
             type: type,
             data: data
         });
-        console.log('Message sent to popup:', type);
     } catch (error) {
         console.log('Popup not available, storing message:', error.message);
         // Popup is not open, store the message for when it opens
@@ -156,7 +138,7 @@ async function sendMessageToOffscreenDocument(type, data) {
         try {
             await chrome.offscreen.createDocument({
                 url: OFFSCREEN_DOCUMENT_PATH,
-                reasons: [ chrome.offscreen.Reason.DOM_PARSER, chrome.offscreen.Reason.BLOBS ],
+                reasons: [ chrome.offscreen.Reason.DOM_PARSER ],
                 justification: 'Making an offline copy of the document'
             });
         } catch (error) {

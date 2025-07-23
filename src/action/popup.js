@@ -55,6 +55,7 @@ document.addEventListener('click', (event) => {
                             responseData = Object.assign(responseData, currentPageData);
                         }
                         responseData.includeComments = currentSettings.includeComments ?? false;
+                        responseData.shortenTitles = currentSettings.shortenTitles ?? false;
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
@@ -100,7 +101,8 @@ document.addEventListener('click', (event) => {
             cover: currentCover,
             chapters: currentChapters,
             dividerUrl: bookDividerUrl,
-            includeComments: currentSettings.includeComments ?? false
+            includeComments: currentSettings.includeComments ?? false,
+            shortenTitles: currentSettings.shortenTitles ?? false
         });
     }
     else if (event.target.id === 'page-title') {
@@ -507,52 +509,28 @@ function refreshChaptersButtons() {
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'conversion-finished') {
-        btnLoading(false);
-    } else if (message.type === 'chapters-conversion-finished') {
-        chaptersBtnLoading(false);
-    } else if (message.type === 'epub-ready') {
-        btnLoading(false);
-        handleEpubDownload(message.data);
+    console.log('message received: ' + message.type);
+    if (message.target === 'popup') {
+        if (message.type === 'conversion-finished') {
+            btnLoading(false);
+        } else if (message.type === 'chapters-conversion-finished') {
+            chaptersBtnLoading(false);
+        } else if (message.type === 'epub-ready') {
+            btnLoading(false);
+            handleEpubDownload(message.data);
+        } else if (message.type === 'chapters-epub-ready') {
+            chaptersBtnLoading(false);
+            handleEpubDownload(message.data);
+        }
     }
 });
 
-// window.handleBackgroundMessage = function(type, data) {
-//     console.log('Received background message:', type, data);
-//
-//     switch (type) {
-//         case 'conversion-started':
-//             updateUI('converting', `Converting ${data.type}...`);
-//             break;
-//
-//         case 'epub-ready':
-//             handleEpubDownload(data);
-//             btnLoading(false);
-//             break;
-//
-//         case 'conversion-error':
-//             updateUI('error', `Conversion failed: ${data.error}`);
-//             break;
-//     }
-// };
-
 async function sendRuntimeMessage(data) {
-    const result = await browser.runtime.sendMessage(data);
-    console.log(result);
-    // result.then((response) => {
-    //     console.log(response);
-    //     //btnLoading(false);
-    // }, (error) => {
-    //     unexpectedError('Error on background script query: ' + error);
-    //     btnLoading(false);
-    //     chaptersBtnLoading(false);
-    // });
+    await browser.runtime.sendMessage(data);
 }
 
 async function handleEpubDownload(epubData) {
     try {
-        console.log('Handling EPUB download in popup:', epubData.filename);
-
         let buffer;
         if (epubData.storageKey) {
             // Retrieve EPUB data from storage
@@ -595,7 +573,6 @@ async function handleEpubDownload(epubData) {
 
     } catch (error) {
         console.error('Error downloading EPUB in popup:', error);
-        //updateUI('error', `Download failed: ${error.message}`);
     }
 }
 

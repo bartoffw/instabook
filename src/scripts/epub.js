@@ -6,6 +6,7 @@ class Epub {
     #singleCover = {};
     #dividerUrl = '';
     #keepComments = false;
+    #shortenTitles = false;
 
     static mimeTypes = {
         'png': 'png',
@@ -88,6 +89,7 @@ class Epub {
             }
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
+            this.#shortenTitles = optionsKeys.includes('shortenTitles') ? options.shortenTitles : false;
 
             if (this.#singleCover.coverImages.length > 0) {
                 this.#singleCover.coverImage = this.#singleCover.selectedCover in this.#singleCover.coverImages ?
@@ -108,6 +110,7 @@ class Epub {
             this.#cover = options.cover;
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
+            this.#shortenTitles = optionsKeys.includes('shortenTitles') ? options.shortenTitles : false;
 
             if (this.#cover.coverImages.length > 0) {
                 this.#cover.coverImage = this.#cover.selectedCover in this.#cover.coverImages ?
@@ -151,13 +154,13 @@ class Epub {
             '<head>\n' +
             '  <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '  <title>' + Epub.stripHtml(
-                typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
                     chapter.cleanTitle : chapter.title
             ) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
             (addTitle ? '  <h2 class="chapter-title">' + Epub.stripHtml(
-                typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
                     chapter.cleanTitle : chapter.title
             ) + '</h2>\n' : '') +
             parsedContent.content + '\n' +
@@ -242,54 +245,12 @@ class Epub {
             type: 'blob',
             mimeType: 'application/epub+zip'
         }).then((blob) => {
-            let filename = (Epub.stripHtml(this.bookTitle) + ' (Instabooked).epub').replace(/[/\\?%*:|"<>]/g, '');
-            console.log('epub generated: ', blob.text());
+            const filename = (Epub.stripHtml(this.bookTitle) + ' (Instabooked).epub').replace(/[/\\?%*:|"<>]/g, '');
             return {
                 blob: blob,
                 fileName: filename
             };
         });
-    }
-
-    saveBlobFile(blob, fileName) {
-        if (window.navigator && window.navigator.msSaveBlob) {
-            window.navigator.msSaveBlob(blob, fileName); // For IE
-        } else {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            link.click();
-        }
-    }
-
-    async saveFile(blob, fileName) {
-        const fileStream = streamSaver.createWriteStream(fileName, {
-            size: blob.size // Makes the percentage visible in the download
-        })
-
-        // One quick alternetive way if you don't want the hole blob.js thing:
-        // const readableStream = new Response(
-        //   Blob || String || ArrayBuffer || ArrayBufferView
-        // ).body
-        const readableStream = blob.stream()
-
-        // more optimized pipe version
-        // (Safari may have pipeTo but it's useless without the WritableStream)
-        if (window.WritableStream && readableStream.pipeTo) {
-            return await readableStream.pipeTo(fileStream)
-                //.then(() => console.log('done writing'))
-        }
-
-        // Write (pipe) manually
-        window.writer = fileStream.getWriter()
-
-        const reader = readableStream.getReader()
-        const pump = () => reader.read()
-            .then(res => res.done
-                ? writer.close()
-                : writer.write(res.value).then(pump))
-
-        pump()
     }
 
     processIframes(doc, iframes) {
@@ -539,7 +500,7 @@ class Epub {
                     '   <navPoint class="text" id="navPoint-' + (index + 1) + '" playOrder="' + (index + 2) + '">\n' +
                     '       <navLabel>\n' +
                     '           <text>' + (
-                                    typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                                    chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
                                         chapter.cleanTitle : chapter.title
                                 ) + '</text>\n' +
                     '       </navLabel>\n' +
@@ -596,7 +557,7 @@ class Epub {
                 const chapter = this.#chapters[chapterKey];
                 chapters.push(
                     '           <li><a href="pages/chapter' + index + '.xhtml">' + Epub.stripHtml(
-                    typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
+                    chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
                             chapter.cleanTitle : chapter.title
                     ) + '</a></li>\n'
                 );

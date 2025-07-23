@@ -15,7 +15,7 @@ async function handleMessages(message, sender, sendResponse) {
             try {
                 const result = await handleEpubCreation(message.data, false);
                 // Send the blob data back to background script
-                await sendEpubToBackground(result);
+                await sendEpubToBackground(result, false);
                 sendResponse({success: true});
             } catch (error) {
                 console.error('Error creating EPUB:', error);
@@ -26,7 +26,7 @@ async function handleMessages(message, sender, sendResponse) {
             try {
                 const result = await handleEpubCreation(message.data, true);
                 // Send the blob data back to background script
-                await sendEpubToBackground(result);
+                await sendEpubToBackground(result, true);
                 sendResponse({ success: true });
             } catch (error) {
                 console.error('Error creating chapters EPUB:', error);
@@ -45,7 +45,8 @@ async function handleEpubCreation(msg, hasChapters) {
             cover: msg.cover,
             chapters: msg.chapters,
             dividerUrl: msg.dividerUrl,
-            includeComments: msg.includeComments
+            includeComments: msg.includeComments,
+            shortenTitles: msg.shortenTitles
         });
         epub.process();
         return await prepareEpubFileOffscreen(epub);
@@ -64,7 +65,8 @@ async function handleEpubCreation(msg, hasChapters) {
             readTime: msg.readTime,
             coverImage: msg.coverImage,
             dividerUrl: msg.dividerUrl,
-            includeComments: msg.includeComments
+            includeComments: msg.includeComments,
+            shortenTitles: msg.shortenTitles
         });
         epub.process();
         return await prepareEpubFileOffscreen(epub);
@@ -91,16 +93,15 @@ async function prepareEpubFileOffscreen(epub) {
     });
 }
 
-async function sendEpubToBackground(epubResult) {
+async function sendEpubToBackground(epubResult, hasChapters) {
     try {
         // Convert blob to ArrayBuffer for transfer
         const arrayBuffer = await epubResult.blob.arrayBuffer();
         const dataArray = Array.from(new Uint8Array(arrayBuffer));
-        console.log('Offscreen epub: ', dataArray);
 
         // Send the blob data back to background script
         chrome.runtime.sendMessage({
-            type: 'epub-ready',
+            type: hasChapters ? 'chapters-epub-ready' : 'epub-ready',
             target: 'background',
             data: {
                 buffer: dataArray,
@@ -111,24 +112,5 @@ async function sendEpubToBackground(epubResult) {
     } catch (error) {
         console.error('Error sending EPUB to background:', error);
         throw error;
-    }
-}
-
-function sendToBackground(type, data) {
-    chrome.runtime.sendMessage({
-        type,
-        target: 'background',
-        data
-    });
-}
-
-function saveBlobFile(blob, fileName) {
-    if (window.navigator && window.navigator.msSaveBlob) {
-        window.navigator.msSaveBlob(blob, fileName); // For IE
-    } else {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
-        link.click();
     }
 }
