@@ -76,6 +76,7 @@ async function handleEpubDownload(dataType, epubData) {
                 buffer: epubData.buffer,
                 filename: epubData.filename,
                 size: epubData.size,
+                storageKey: storageKey,
                 timestamp: Date.now()
             }
         });
@@ -124,11 +125,7 @@ async function notifyPopup(type, data) {
             data: data
         });
     } catch (error) {
-        console.log('Popup not available, storing message:', error.message);
-        // Popup is not open, store the message for when it opens
-        await chrome.storage.local.set({
-            pendingMessage: { type, data, timestamp: Date.now() }
-        });
+        console.log('Popup not available');
     }
 }
 

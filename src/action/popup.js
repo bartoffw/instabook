@@ -33,6 +33,33 @@ const titleKey = 'customTitle',
     };
 
 /**
+ * Checking for pending local storage messages
+ */
+document.addEventListener('DOMContentLoaded', async function() {
+    // Check for pending messages from background
+    try {
+        const result = await browser.storage.local.get(null);
+        const keysToRemove = [];
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+
+        for (const [key, value] of Object.entries(result)) {
+            // Only process recent messages (within last 5 minutes)
+            if (key.startsWith('epub_') && value.timestamp && value.timestamp >= fiveMinutesAgo) {
+                handleEpubDownload(value);
+                keysToRemove.push(key);
+            }
+        }
+
+        if (keysToRemove.length > 0) {
+            await browser.storage.local.remove(keysToRemove);
+            console.log('Cleaned up pending EPUB data:', keysToRemove);
+        }
+    } catch (error) {
+        console.error('Error checking pending messages:', error);
+    }
+});
+
+/**
  * Listening for extension UI events
  */
 document.addEventListener('click', (event) => {
@@ -485,7 +512,7 @@ function doCleanupChapters(chapterKeys, fromBeginning = true) {
     if (firstCommonStart.length > 10 || lastCommonStart.length > 10) {
         const toRemove = firstCommonStart.length > lastCommonStart.length ?
             firstCommonStart : lastCommonStart;
-        console.log(firstCommonStart, lastCommonStart, toRemove, fromBeginning);
+        // console.log(firstCommonStart, lastCommonStart, toRemove, fromBeginning);
         for (const chapterKey of chapterKeys) {
             const title = currentChapters[chapterKey].title;
             if (fromBeginning) {
@@ -509,18 +536,13 @@ function refreshChaptersButtons() {
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('message received: ' + message.type);
     if (message.target === 'popup') {
-        if (message.type === 'conversion-finished') {
-            btnLoading(false);
-        } else if (message.type === 'chapters-conversion-finished') {
-            chaptersBtnLoading(false);
-        } else if (message.type === 'epub-ready') {
-            btnLoading(false);
+        if (message.type === 'epub-ready') {
             handleEpubDownload(message.data);
+            btnLoading(false);
         } else if (message.type === 'chapters-epub-ready') {
-            chaptersBtnLoading(false);
             handleEpubDownload(message.data);
+            chaptersBtnLoading(false);
         }
     }
 });
@@ -534,7 +556,7 @@ async function handleEpubDownload(epubData) {
         let buffer;
         if (epubData.storageKey) {
             // Retrieve EPUB data from storage
-            const result = await chrome.storage.local.get([epubData.storageKey]);
+            const result = await browser.storage.local.get([epubData.storageKey]);
             if (!result[epubData.storageKey]) {
                 throw new Error('EPUB data not found in storage');
             }
@@ -542,7 +564,7 @@ async function handleEpubDownload(epubData) {
             buffer = result[epubData.storageKey].buffer;
 
             // Clean up storage after retrieving
-            await chrome.storage.local.remove([epubData.storageKey]);
+            await browser.storage.local.remove([epubData.storageKey]);
         } else {
             // Fallback: data passed directly (for backwards compatibility)
             buffer = epubData.buffer;

@@ -1,7 +1,7 @@
 {
   "name": "Instabook",
   "private": true,
-  "version": "1.2.7",
+  "version": "1.2.8",
   "type": "module",
   "config": {
 
@@ -16,8 +16,5 @@
     "release:firefox":  "npm install && npm run build:firefox && rm -f ./dist/instabook-$npm_package_version-firefox.zip && (cd ./dist/firefox && zip -r ../instabook-$npm_package_version-firefox.zip .)",
     "release:chrome":  "npm install && npm run build:chrome && rm -f ./dist/instabook-$npm_package_version-chromium.zip && (cd ./dist/chrome && zip -r ../instabook-$npm_package_version-chromium.zip .)",
     "release": "npm run release:firefox && npm run release:chrome"
-  },
-  "devDependencies": {
-    "cross-zip": "^4.0.0"
   }
 }

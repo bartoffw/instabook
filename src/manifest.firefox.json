@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Instabook",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "author": "Bartosz Wójcik",
   "homepage_url": "https://github.com/bartoffw/instabook",
   "description": "Create an eBook from any page instantly and beautifully.",
@@ -47,7 +47,8 @@
 
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "unlimitedStorage"
   ],
 
   "browser_action": {
