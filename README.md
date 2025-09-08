@@ -80,7 +80,7 @@ The extension is available for most of the modern browsers:
 
 - release the extension for mobile (Firefox)
 - adding multiple language support for the extension
-- adding config page
+- ~~adding config page~~ - implemented
 - customizing the title page in the Ebook (adding a cover image)
 
 ## Configuration

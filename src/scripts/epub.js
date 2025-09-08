@@ -829,7 +829,7 @@ class Epub {
         }
         try {
             urlStr = decodeHtml ? Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr)) : Epub.cleanupUrl(urlStr);
-            if (urlStr.length > 0 && urlStr.startsWith('http')) {
+            if (urlStr.length > 0) {
                 let absoluteUrl = currentUrl.length === 0 || urlStr.substring(urlStr.split('/', 2).join('/').length, urlStr.split('/', 3).join('/').length).indexOf('.') > 0 ?
                     new URL(urlStr).href :
                     new URL(urlStr, currentUrl).href;
