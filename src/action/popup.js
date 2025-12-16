@@ -191,6 +191,14 @@ document.addEventListener('click', (event) => {
             reorderChapters();
         }
     }
+    else if (event.target.id === 'downloaded-from' || event.target.id === 'url-field') {
+        currentPageData.hideDownloadedFrom = true;
+        $('#downloaded-from').hide();
+    }
+    else if (event.target.id === 'chapters-downloaded-from' || event.target.id === 'chapters-url-field') {
+        currentPageData.hideDownloadedFrom = true;
+        $('#chapters-downloaded-from').hide();
+    }
 
     // clicking outside of the edited title makes it auto-save
     if (event.target.id !== 'page-title' && event.target.id !== 'edit-title' && $('#edit-title').is(':visible')) {
@@ -615,6 +623,11 @@ function unexpectedError(error) {
     console.error(error);
 }
 
+function showInfo(info) {
+    $('#error-content').removeClass('alert').html(info).show();
+    $('#book-preview, #convert-btn, #chapter-group').hide();
+}
+
 function btnLoading(isLoading = true) {
     if (isLoading) {
         $('#convert-spinner').removeClass('visually-hidden');
@@ -764,6 +777,7 @@ function setAdditionalData(responseData, url) {
     pageData.readTime = responseData.readTime;
     pageData.coverImage = responseData.cover;
     pageData.dividerUrl = bookDividerUrl;
+    pageData.hideDownloadedFrom = false;
 
     currentPageData = pageData;
 
@@ -838,25 +852,49 @@ function getCurrentPageData() {
                         })
                         .then(response => {
                             setAdditionalData(response, pageUrl);
-
-                            if (response.author.length > 0) {
-                                $('#author-field').html(response.author).show();
+                            if ((typeof response.author === 'undefined' || response.author.length === 0) && response.readTime === 0 &&
+                                (typeof response.cover === 'undefined' || response.cover.length === 0) &&
+                                (typeof response.content === 'undefined' || response.content.length < 250)) {
+                                if (typeof response.iframes !== 'undefined' && response.iframes.length > 0) {
+                                    let iframeLinks = [];
+                                    response.iframes.forEach(function (element, index) {
+                                        iframeLinks.push(
+                                            '<a href="' + element + '" target="_blank" title="' + element + '">Page' + (response.iframes.length > 1 ? ' ' + (index + 1) : '') + ' Link</a>'
+                                        );
+                                    });
+                                    showInfo(
+                                        '<p class="text-center"><span class="h1">⚠️</span><br/><br/>' +
+                                        'Content not found on this page, but <strong>I found ' +
+                                        (response.iframes.length > 1 ? 'some embedded pages' : 'an embedded page') +
+                                        '</strong> you can open and try again:<br/><br/>' + iframeLinks.join('<br/>') +
+                                        '</p>'
+                                    );
+                                } else {
+                                    showInfo(
+                                        '<p class="text-center"><span class="h1">⚠️</span><br/><br/>' +
+                                        'Content not found on this page.</p>'
+                                    );
+                                }
                             } else {
-                                $('#author-field').hide();
+                                if (response.author.length > 0) {
+                                    $('#author-field').html(response.author).show();
+                                } else {
+                                    $('#author-field').hide();
+                                }
+                                $('#time-field').html(formatTime(response.readTime));
+
+                                addPhotoPreview(response.cover);
+
+                                $('#convert-btn').prop('disabled', false);
+                                $('#chapters-convert-btn').prop('disabled', false);
+
+                                $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
+
+                                // get custom title if exists
+                                Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
+                                    displayTitle(customTitle ? customTitle : pageTitle, customTitle);
+                                });
                             }
-                            $('#time-field').html(formatTime(response.readTime));
-
-                            addPhotoPreview(response.cover);
-
-                            $('#convert-btn').prop('disabled', false);
-                            $('#chapters-convert-btn').prop('disabled', false);
-
-                            $('#url-field').html((new URL(pageUrl)).hostname); //('<a href="' + pageUrl + '">' + (new URL(pageUrl)).hostname + '</a>');
-
-                            // get custom title if exists
-                            Storage.getStoredValue(pageUrl, titleKey).then((customTitle) => {
-                                displayTitle(customTitle ? customTitle : pageTitle, customTitle);
-                            });
                         })
                         .catch(error => {
                             unexpectedError('Error on send preview message: ' + error);

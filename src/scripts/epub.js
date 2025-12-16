@@ -7,6 +7,7 @@ class Epub {
     #dividerUrl = '';
     #keepComments = false;
     #shortenTitles = false;
+    #hideDownloadedFrom = false;
 
     static mimeTypes = {
         'png': 'png',
@@ -90,6 +91,7 @@ class Epub {
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
             this.#shortenTitles = optionsKeys.includes('shortenTitles') ? options.shortenTitles : false;
+            this.#hideDownloadedFrom = optionsKeys.includes('hideDownloadedFrom') ? options.hideDownloadedFrom : false;
 
             if (this.#singleCover.coverImages.length > 0) {
                 this.#singleCover.coverImage = this.#singleCover.selectedCover in this.#singleCover.coverImages ?
@@ -111,6 +113,7 @@ class Epub {
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
             this.#shortenTitles = optionsKeys.includes('shortenTitles') ? options.shortenTitles : false;
+            this.#hideDownloadedFrom = optionsKeys.includes('hideDownloadedFrom') ? options.hideDownloadedFrom : false;
 
             if (this.#cover.coverImages.length > 0) {
                 this.#cover.coverImage = this.#cover.selectedCover in this.#cover.coverImages ?
@@ -731,10 +734,12 @@ class Epub {
                     ctx, 'Read time: ' + that.bookReadTime, 12, '', 22, coverWidth,
                     currentPosY, 'rgba(255, 255, 255, 0.6)'
                 );
-                that.drawTitle(
-                    ctx, 'Downloaded from ' + that.sourceDomain, 12, '', 22, coverWidth,
-                    currentPosY, 'rgba(255, 255, 255, 0.6)'
-                );
+                if (!this.#hideDownloadedFrom) {
+                    that.drawTitle(
+                        ctx, 'Downloaded from ' + that.sourceDomain, 12, '', 22, coverWidth,
+                        currentPosY, 'rgba(255, 255, 255, 0.6)'
+                    );
+                }
 
                 // https://stackoverflow.com/questions/57403688/how-can-i-implement-word-wrap-and-carriage-returns-in-canvas-filltext
                 // https://stackoverflow.com/questions/49614129/wrap-text-within-rect-without-overflowing-it-fiddle-canvas-html5

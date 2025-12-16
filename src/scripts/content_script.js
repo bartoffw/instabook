@@ -69,7 +69,14 @@ browser.runtime.onMessage.addListener(request => {
             currentUrl: getCurrentUrl(),
             includeComments: request.includeComments
         });
-        const parsedInfo = epub.check();
+        let parsedInfo = epub.check();
+        // try finding embedded iframes
+        parsedInfo.iframes = [];
+        $(document.documentElement.outerHTML).find('iframe').each(function () {
+            if (typeof $(this).attr('src') !== 'undefined' && $(this).attr('src').length > 0) {
+                parsedInfo.iframes.push($(this).attr('src'));
+            }
+        });
         return Promise.resolve(parsedInfo);
         /*images: parsedInfo.images.map((url) => {
             return getAbsoluteUrl(url);

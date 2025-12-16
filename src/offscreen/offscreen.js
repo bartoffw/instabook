@@ -46,7 +46,8 @@ async function handleEpubCreation(msg, hasChapters) {
             chapters: msg.chapters,
             dividerUrl: msg.dividerUrl,
             includeComments: msg.includeComments,
-            shortenTitles: msg.shortenTitles
+            shortenTitles: msg.shortenTitles,
+            hideDownloadedFrom: msg.hideDownloadedFrom
         });
         epub.process();
         return await prepareEpubFileOffscreen(epub);
@@ -66,7 +67,8 @@ async function handleEpubCreation(msg, hasChapters) {
             coverImage: msg.coverImage,
             dividerUrl: msg.dividerUrl,
             includeComments: msg.includeComments,
-            shortenTitles: msg.shortenTitles
+            shortenTitles: msg.shortenTitles,
+            hideDownloadedFrom: msg.hideDownloadedFrom
         });
         epub.process();
         return await prepareEpubFileOffscreen(epub);
