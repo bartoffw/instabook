@@ -42,7 +42,7 @@ class Epub {
     #bookLanguage = 'en';
     #bookReadTime = null;
 
-    #allowedImgExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'wbmp', 'jng', 'svg'];
+    #allowedImgExtensions = ['png', 'jpg', 'gif', 'webp', 'bmp', 'tif', 'wbmp', 'jng', 'svg', 'heic'];
     #titleKey = 'customTitle';
 
     constructor(options) {
@@ -805,9 +805,15 @@ class Epub {
                 ext = Epub.mimeTypes[type];
             }
         } else {
-            ext = fileName.split('.').pop().toLowerCase();
-            if (ext === fileName || ext.length > 4) {
+            ext = fileName.split('.').pop().toLowerCase().substring(0, 3);
+            if (ext === fileName || ext === 'jpe') {
                 ext = 'jpg';
+            } else if (ext === 'web') {
+                ext = 'webp';
+            } else if (ext === 'hei') {
+                ext = 'heic';
+            } else if (ext === 'wbm') {
+                ext = 'wbmp';
             }
         }
         return ext;
@@ -836,11 +842,13 @@ class Epub {
             urlStr = decodeHtml ? Epub.cleanupUrl(Epub.decodeHtmlEntity(urlStr)) : Epub.cleanupUrl(urlStr);
             if (urlStr.length > 0) {
                 let absoluteUrl = currentUrl.length === 0 || urlStr.substring(urlStr.split('/', 2).join('/').length, urlStr.split('/', 3).join('/').length).indexOf('.') > 0 ?
-                    new URL(urlStr).href :
-                    new URL(urlStr, currentUrl).href;
+                    new URL(urlStr) :
+                    new URL(urlStr, currentUrl);
+                absoluteUrl.search = '';
+                absoluteUrl.hash = '';
                 return addProxy ?
-                    Epub.proxyUrl + encodeURIComponent(absoluteUrl) :
-                    absoluteUrl;
+                    Epub.proxyUrl + encodeURIComponent(absoluteUrl.href) :
+                    absoluteUrl.href;
             } else {
                 return null;
             }

@@ -103,7 +103,10 @@ function getPageData() {
 
     for (let i = 0; i < imgElements.length; i++) {
         img = imgElements[i];
-        url = new URL($(img).attr('src'), currentUrl).href;
+        url = new URL($(img).attr('src'), currentUrl);
+        url.search = '';
+        url.hash = '';
+        url = url.href;
         if (!(url in images)) {
             images[url] = true; ///*await*/ getImageViaCanvas(img);
             imageList[url] = img;
@@ -112,7 +115,10 @@ function getPageData() {
 
     for (let i = 0; i < iframeElements.length; i++) {
         iframe = iframeElements[i];
-        url = new URL(Epub.cleanupUrl($(iframe).attr('src')), currentUrl).href;
+        url = new URL(Epub.cleanupUrl($(iframe).attr('src')), currentUrl);
+        url.search = '';
+        url.hash = '';
+        url = url.href;
         if (!(url in iframes)) {
             /*const proxyUrl = Epub.getAbsoluteUrl($(iframe).attr('src'), currentUrl);
             $.get(proxyUrl).success(function(content) {
