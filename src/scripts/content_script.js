@@ -1,6 +1,10 @@
-let imageList = {};
+(() => {
+    if (window.__instabookInitialized) return;
+    window.__instabookInitialized = true;
 
-console.log('Welcome to Instabook!');
+    let imageList = {};
+
+    console.log('Welcome to Instabook!');
 
 browser.runtime.onMessage.addListener(request => {
     /** get page data needed to generate the epub file **/
@@ -164,3 +168,4 @@ function getCurrentUrl() {
     // url = url.substring(0, url.lastIndexOf('/') + 1);
     return url;
 }
+})();

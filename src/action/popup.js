@@ -70,8 +70,7 @@ document.addEventListener('click', (event) => {
         /** Send the Get message to the content script to get the page content and meta info **/
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
-                browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'get' })
+                sendMessageToTabWithRetry(tabs[0].id, { type: 'get' })
                     .then(response => {
                         let responseData = response;
                         responseData.type = 'convert';
@@ -101,8 +100,7 @@ document.addEventListener('click', (event) => {
         /** Send the Get message to the content script to get the page content and meta info **/
         browser.tabs.query({currentWindow: true, active: true})
             .then((tabs) => {
-                browser.tabs
-                    .sendMessage(tabs[0].id, { type: 'get' })
+                sendMessageToTabWithRetry(tabs[0].id, { type: 'get' })
                     .then(response => {
                         let responseData = response;
                         responseData.title = $('#page-title').text();
@@ -613,7 +611,7 @@ function reportExecuteScriptError(error) {
 function getErrorText(error) {
     return 'Could not generate the ebook. ' +
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&' +
-        'title=' + encodeURIComponent('[1.2.11] Error on ' + pageUrl) + '&' +
+        'title=' + encodeURIComponent('[1.2.12] Error on ' + pageUrl) + '&' +
         'body=' + encodeURIComponent(error) + '" target="_blank">on GitHub using this link</a>.';
 }
 
@@ -845,8 +843,7 @@ function getCurrentPageData() {
             pageTitle = tabs[0].title;
             browser.tabs.query({currentWindow: true, active: true})
                 .then((tabs) => {
-                    browser.tabs
-                        .sendMessage(tabs[0].id, {
+                    sendMessageToTabWithRetry(tabs[0].id, {
                             type: 'preview',
                             includeComments: currentSettings.includeComments ?? false
                         })
@@ -908,6 +905,51 @@ function getCurrentPageData() {
                     chaptersBtnLoading(false);
                 });
         }, reportExecuteScriptError);
+}
+
+const CHROMIUM_CONTENT_SCRIPTS = [
+    'scripts/browser-polyfill.min.js',
+    'scripts/jquery.min.js',
+    'scripts/jszip-utils.min.js',
+    'scripts/purify.js',
+    'scripts/filesaver.min.js',
+    'scripts/Readability.js',
+    'scripts/epub.js',
+    'scripts/content_script.js'
+];
+
+const FIREFOX_CONTENT_SCRIPTS = [
+    'scripts/jquery.min.js',
+    'scripts/jszip-utils.min.js',
+    'scripts/purify.js',
+    'scripts/Readability.js',
+    'scripts/epub.js',
+    'scripts/content_script.js'
+];
+
+async function injectContentScripts(tabId) {
+    if (typeof browser.scripting !== 'undefined') {
+        await browser.scripting.executeScript({
+            target: { tabId },
+            files: CHROMIUM_CONTENT_SCRIPTS
+        });
+    } else {
+        for (const file of FIREFOX_CONTENT_SCRIPTS) {
+            await browser.tabs.executeScript(tabId, { file });
+        }
+    }
+}
+
+async function sendMessageToTabWithRetry(tabId, message) {
+    try {
+        return await browser.tabs.sendMessage(tabId, message);
+    } catch (error) {
+        if (!error.message.includes('Receiving end does not exist')) {
+            throw error;
+        }
+        await injectContentScripts(tabId);
+        return await browser.tabs.sendMessage(tabId, message);
+    }
 }
 
 loadChapters();
