@@ -1,0 +1,245 @@
+:root { --line: #d8d4cc; --dim: #6b6862; --accent: #7a4a2b; --bg: #faf8f5; }
+* { box-sizing: border-box; }
+/* Must beat #preview { display: grid }, which would otherwise override the
+   UA's [hidden] { display: none } and keep the pane visible on error. */
+[hidden] { display: none !important; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg);
+    color: #1e1c19;
+    overflow: hidden;
+}
+
+/* The header is a flex sibling of the scrolling #page-body, not part of its
+   scroll container, so it stays glued to the top of the window no matter how
+   far the previews are scrolled — position: sticky on its own would only
+   hold within whatever it happens to be scrolling inside of. */
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+#converter-header {
+    flex: 0 0 auto;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    z-index: 5;
+}
+#converter-header h1 {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 600;
+}
+#status {
+    color: var(--dim);
+    font-size: 12.5px;
+    flex: 1;
+}
+#para-gap-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 12px;
+    color: var(--dim);
+    white-space: nowrap;
+}
+#para-gap-factor {
+    width: 100px;
+}
+#para-gap-value {
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    min-width: 2.4em;
+}
+
+#header-actions {
+    display: flex;
+    align-items: center;
+}
+
+#page-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+
+#privacy-note {
+    margin: 12px 20px 0;
+    padding: 8px 12px;
+    border: 1px solid #cfe3d6;
+    border-radius: 6px;
+    background: #eef7f1;
+    color: #2f5d43;
+    text-align: center;
+    font-size: 1.2em;
+    line-height: 1.4;
+}
+
+#error-content {
+    margin: 16px 20px;
+}
+
+#preview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 16px 20px 40px;
+}
+#preview.single {
+    grid-template-columns: 1fr;
+}
+#preview.single #pdfwrap {
+    display: none;
+}
+
+.pane {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    min-width: 0;
+}
+.panehead {
+    position: sticky;
+    top: 0;
+    background: #f4efe8;
+    border-bottom: 1px solid var(--line);
+    border-radius: 6px 6px 0 0;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    color: var(--dim);
+    z-index: 2;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.panehead .hint {
+    font-size: 11px;
+    color: var(--dim);
+    margin: 0;
+}
+#pdfpane {
+    padding: 10px;
+}
+.pdfpage {
+    position: relative;
+    margin: 0 auto 12px;
+    background: #fff;
+    width: 100%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+}
+.pdfpage canvas {
+    display: block;
+    width: 100%;
+}
+.pdfpage .pno {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    z-index: 1;
+}
+.pdfpage.current {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+#parsed {
+    padding: 14px 20px;
+}
+#parsed .blk {
+    cursor: pointer;
+    position: relative;
+}
+#parsed .blk:hover {
+    background: #fdf6ec;
+}
+#parsed .blk .del {
+    display: none;
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    z-index: 1;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: #fff;
+    cursor: pointer;
+}
+#parsed .blk:hover .del {
+    display: inline-block;
+}
+#parsed .blk.deleted {
+    cursor: default;
+    opacity: .55;
+    background: #f4efe8;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    margin: 2px 0;
+}
+#parsed .blk.deleted:hover {
+    background: #f4efe8;
+}
+#parsed .blk.deleted .del {
+    display: inline-block;
+    position: static;
+    cursor: pointer;
+}
+#parsed p {
+    text-indent: 1.2em;
+    margin: 0;
+    text-align: justify;
+}
+#parsed h1, #parsed h2, #parsed h3 {
+    margin: 1.1em 0 .3em;
+    line-height: 1.25;
+}
+#parsed p.ind {
+    text-indent: 0;
+    margin: .5em 0;
+    border-left: 2px solid #e6ded2;
+    padding-left: 6px;
+}
+#parsed figure {
+    margin: 1em auto;
+    text-align: center;
+}
+#parsed figure img {
+    max-width: 100%;
+    height: auto;
+    border: 1px dashed #cfc8bd;
+}
+#parsed figcaption {
+    font-size: 10.5px;
+    color: var(--dim);
+}
+#parsed table {
+    width: 100%;
+    margin: 1em 0;
+    border-collapse: collapse;
+    font-size: .9em;
+}
+#parsed th, #parsed td {
+    border: 1px solid var(--line);
+    padding: .3em .6em;
+    text-align: left;
+    vertical-align: top;
+}
+#parsed th {
+    background: #f4efe8;
+}

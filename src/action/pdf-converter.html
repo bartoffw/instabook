@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>PDF &rarr; EPUB &mdash; Instabook</title>
+    <link href="../styles/bootstrap.min.css" rel="stylesheet">
+    <link href="./pdf-converter.css" rel="stylesheet">
+</head>
+<body>
+<header id="converter-header">
+    <h1>🔒 PDF &rarr; EPUB</h1>
+    <span id="status">Loading&hellip;</span>
+    <label id="para-gap-label" title="Controls how big a vertical gap between lines has to be before it's treated as a new paragraph instead of a continuation. Lower it if the preview is merging separate paragraphs together; raise it if it's splitting single paragraphs apart. Depends on how the source PDF was laid out.">
+        Paragraph factor
+        <input id="para-gap-factor" type="range" min="0.2" max="2.5" step="0.05" value="0.5">
+        <span id="para-gap-value">0.50</span>
+    </label>
+    <div id="header-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="convert-btn" disabled>
+            Convert
+            <span id="convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
+        </button>
+    </div>
+</header>
+
+<div id="page-body">
+    <div id="privacy-note">
+        100% local &amp; private &mdash; your PDF is parsed and converted entirely on this device.
+        Nothing is uploaded or sent anywhere, so it's a fast, efficient way to get an EPUB from a PDF
+        without your file ever leaving your browser.
+    </div>
+
+    <div class="alert alert-danger" id="error-content" hidden>
+        <p>Could not load the selected PDF. Please go back to the Instabook popup and pick a file again.</p>
+    </div>
+
+    <main id="preview">
+        <div class="pane" id="pdfwrap">
+            <div class="panehead">
+                <strong>Original PDF</strong>
+                <span id="pdfinfo"></span>
+            </div>
+            <div id="pdfpane"></div>
+        </div>
+        <div class="pane" id="parsedwrap">
+            <div class="panehead">
+                <strong>Parsed output</strong>
+                <button type="button" id="toggleside" class="btn btn-default btn-sm">hide PDF</button>
+                <button type="button" id="undo" class="btn btn-default btn-sm" disabled title="Undo">&#8630; Undo</button>
+                <button type="button" id="redo" class="btn btn-default btn-sm" disabled title="Redo">&#8631; Redo</button>
+                <span class="hint">click a block to jump to its page &middot; hover and click &times; to delete (images too) &mdash; deletions carry into the download</span>
+            </div>
+            <div id="parsed"></div>
+        </div>
+    </main>
+</div>
+
+<script src="../scripts/browser-polyfill.min.js"></script>
+<script src="../scripts/storage.js"></script>
+<script src="../scripts/jszip.min.js"></script>
+<script type="module" src="./pdf-converter.js"></script>
+</body>
+</html>

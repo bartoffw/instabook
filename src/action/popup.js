@@ -189,6 +189,9 @@ document.addEventListener('click', (event) => {
             reorderChapters();
         }
     }
+    else if (event.target.closest('#pdf-convert')) {
+        $('#pdf-file-input').trigger('click');
+    }
     else if (event.target.id === 'downloaded-from' || event.target.id === 'url-field') {
         currentPageData.hideDownloadedFrom = true;
         $('#downloaded-from').hide();
@@ -226,6 +229,16 @@ document.addEventListener('change', (event) => {
         Storage.storeGlobalValue(settingsKey, currentSettings);
     }
     $('#settings-enabled').css('display', (currentSettings.includeComments ?? false) || (currentSettings.shortenTitles ?? false) ? 'inline' : 'none');
+});
+
+document.addEventListener('change', (event) => {
+    if (event.target.id === 'pdf-file-input') {
+        const file = event.target.files[0];
+        event.target.value = '';   // allow re-picking the same filename later
+        if (file) {
+            handlePdfFileSelected(file);
+        }
+    }
 });
 
 document.addEventListener('keypress', (event) => {
@@ -601,6 +614,44 @@ async function handleEpubDownload(epubData) {
 
     } catch (error) {
         console.error('Error downloading EPUB in popup:', error);
+    }
+}
+
+/**
+ * Hands a user-picked PDF off to the full-tab converter page. chrome.storage.local
+ * is JSON-serialized (not structured-clone), so the ArrayBuffer is converted to a
+ * plain number array first - mirrors the same workaround already used for outgoing
+ * EPUB blobs (see offscreen.js's sendEpubToBackground()).
+ */
+async function handlePdfFileSelected(file) {
+    try {
+        await cleanupOldPdfConvData();
+        const buffer = Array.from(new Uint8Array(await file.arrayBuffer()));
+        const storageKey = `pdfconv_${Date.now()}`;
+        await browser.storage.local.set({
+            [storageKey]: { buffer: buffer, filename: file.name, timestamp: Date.now() }
+        });
+        await browser.tabs.create({
+            url: browser.runtime.getURL('action/pdf-converter.html') + '?key=' + encodeURIComponent(storageKey)
+        });
+        window.close();
+    } catch (error) {
+        unexpectedError('Error opening the PDF converter: ' + error);
+    }
+}
+
+async function cleanupOldPdfConvData() {
+    try {
+        const result = await browser.storage.local.get(null);
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        const keysToRemove = Object.entries(result)
+            .filter(([key, value]) => key.startsWith('pdfconv_') && value.timestamp && value.timestamp < fiveMinutesAgo)
+            .map(([key]) => key);
+        if (keysToRemove.length > 0) {
+            await browser.storage.local.remove(keysToRemove);
+        }
+    } catch (error) {
+        console.error('Error cleaning up old PDF conversion data:', error);
     }
 }
 
