@@ -1,0 +1,527 @@
+:root { --line: #d8d4cc; --dim: #6b6862; --accent: #7a4a2b; --bg: #faf8f5; }
+* { box-sizing: border-box; }
+/* Must beat #preview { display: grid }, which would otherwise override the
+   UA's [hidden] { display: none } and keep the pane visible on error. */
+[hidden] { display: none !important; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg);
+    color: #1e1c19;
+    overflow: hidden;
+}
+
+/* The header is a flex sibling of the scrolling #page-body, not part of its
+   scroll container, so it stays glued to the top of the window no matter how
+   far the previews are scrolled — position: sticky on its own would only
+   hold within whatever it happens to be scrolling inside of. */
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+#converter-header {
+    flex: 0 0 auto;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    z-index: 5;
+}
+#converter-header h1 {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 600;
+}
+#status {
+    color: var(--dim);
+    font-size: 12.5px;
+    flex: 1;
+}
+#header-actions {
+    display: flex;
+    align-items: center;
+}
+#convert-btn {
+    padding: 10px 22px;
+    font-size: 16px;
+}
+
+#page-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+
+#privacy-note {
+    margin: 12px 20px 0;
+    padding: 8px 12px;
+    border: 1px solid #cfe3d6;
+    border-radius: 6px;
+    background: #eef7f1;
+    color: #2f5d43;
+    text-align: center;
+    font-size: 1.2em;
+    line-height: 1.4;
+}
+
+#feedback-note {
+    margin: 10px 20px 0;
+    padding: 8px 12px;
+    border: 1px solid #ecd9b3;
+    border-radius: 6px;
+    background: #fbf3e2;
+    color: #6b5326;
+    font-size: 12.5px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+#feedback-note span {
+    flex: 1;
+    min-width: 240px;
+}
+#feedback-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+#error-content {
+    margin: 16px 20px;
+}
+
+#preview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 16px 20px 40px;
+}
+#preview.single {
+    grid-template-columns: 1fr;
+}
+#preview.single #pdfwrap {
+    display: none;
+}
+
+.pane {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    min-width: 0;
+}
+.panehead-group {
+    position: sticky;
+    top: 0;
+    background: #f4efe8;
+    border-radius: 6px 6px 0 0;
+    overflow: hidden;
+    z-index: 2;
+}
+.panehead-secondary {
+    font-size: 11px;
+}
+#para-gap-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 12px;
+    color: var(--dim);
+    white-space: nowrap;
+}
+#para-gap-factor {
+    width: 100px;
+}
+#para-gap-value {
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    min-width: 2.4em;
+}
+.panehead {
+    background: #f4efe8;
+    border-bottom: 1px solid var(--line);
+    padding: 6px 10px;
+    font-size: 11.5px;
+    color: var(--dim);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.panehead-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+}
+.panehead .hint {
+    font-size: 11px;
+    color: var(--dim);
+    margin: 0;
+}
+#composite-detect-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--dim);
+    white-space: nowrap;
+    cursor: pointer;
+}
+#composite-gap-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--dim);
+    white-space: nowrap;
+}
+#composite-gap-label.disabled {
+    opacity: .5;
+}
+#composite-gap-factor {
+    width: 80px;
+}
+#composite-gap-value {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    min-width: 3em;
+}
+#pdfpane {
+    padding: 10px;
+}
+.pdfpage {
+    position: relative;
+    margin: 0 auto 12px;
+    background: #fff;
+    width: 100%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+}
+.pdfpage canvas {
+    display: block;
+    width: 100%;
+}
+.pdfpage .pno {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    z-index: 1;
+}
+.pdfpage.current {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* ---------------- manual "flatten to image" region selection ---------------- */
+
+#select-region-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+#pdfpane.selecting .pdfpage {
+    cursor: crosshair;
+}
+.select-rect {
+    position: absolute;
+    border: 2px dashed var(--accent);
+    background: rgba(122, 74, 43, .15);
+    pointer-events: none;
+    z-index: 2;
+}
+.select-confirm {
+    position: absolute;
+    display: flex;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+    z-index: 3;
+    transform: translate(-100%, 4px);
+    white-space: nowrap;
+}
+
+#parsed {
+    padding: 14px 20px;
+}
+#parsed .blk {
+    cursor: pointer;
+    position: relative;
+}
+#parsed .blk:hover {
+    background: #fdf6ec;
+}
+#parsed .blk .del {
+    display: none;
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    z-index: 1;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: #fff;
+    cursor: pointer;
+}
+#parsed .blk:hover .del {
+    display: inline-block;
+}
+#parsed .blk.deleted {
+    cursor: default;
+    opacity: .55;
+    background: #f4efe8;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    margin: 2px 0;
+}
+#parsed .blk.deleted:hover {
+    background: #f4efe8;
+}
+#parsed .blk.deleted .del {
+    display: inline-block;
+    position: static;
+    cursor: pointer;
+}
+#parsed p {
+    text-indent: 1.2em;
+    margin: 0;
+    text-align: justify;
+}
+#parsed h1, #parsed h2, #parsed h3 {
+    margin: 1.1em 0 .3em;
+    line-height: 1.25;
+}
+#parsed p.ind {
+    text-indent: 0;
+    margin: .5em 0;
+    border-left: 2px solid #e6ded2;
+    padding-left: 6px;
+}
+#parsed figure {
+    margin: 1em auto;
+    text-align: center;
+}
+#parsed figure img {
+    max-width: 100%;
+    height: auto;
+    border: 1px dashed #cfc8bd;
+}
+#parsed figcaption {
+    font-size: 10.5px;
+    color: var(--dim);
+}
+#parsed table {
+    width: 100%;
+    margin: 1em 0;
+    border-collapse: collapse;
+    font-size: .9em;
+}
+#parsed th, #parsed td {
+    border: 1px solid var(--line);
+    padding: .3em .6em;
+    text-align: left;
+    vertical-align: top;
+}
+#parsed th {
+    background: #f4efe8;
+}
+#parsed table caption {
+    caption-side: top;
+    text-align: left;
+    font-size: .85em;
+    color: var(--dim);
+    margin-bottom: .4em;
+}
+#parsed ul, #parsed ol {
+    margin: .8em 0;
+    padding-left: 1.6em;
+}
+#parsed li {
+    margin: .25em 0;
+}
+#parsed figcaption.real-caption {
+    font-size: .95em;
+    font-style: italic;
+    color: #1e1c19;
+    margin-top: .3em;
+}
+
+/* Low-confidence blocks — heading/indent right at threshold, single-row
+   table, guessed image size, one-item list — get a dashed amber outline and
+   a hover badge explaining why, mirroring where the parser itself was least
+   sure of its own call. */
+#parsed .blk.flagged {
+    outline: 1px dashed #c9932e;
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+#parsed .flag {
+    display: inline-block;
+    position: absolute;
+    top: 2px;
+    left: -2px;
+    font-size: 12px;
+    color: #c9932e;
+    cursor: help;
+}
+
+/* ---------------- diagnostics overlay ---------------- */
+
+#diag-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 28, 25, .45);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+#diag-panel {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .3);
+    width: min(1100px, 100%);
+    height: min(780px, 100%);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#diag-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: #f4efe8;
+}
+#diag-head strong {
+    font-size: 14px;
+}
+#diag-summary-line {
+    flex: 1;
+    font-size: 12px;
+    color: var(--dim);
+}
+#diag-close {
+    line-height: 1;
+    font-size: 16px;
+    padding: 2px 9px;
+}
+
+#diag-tabs {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+.diag-tab {
+    border: 1px solid var(--line);
+    border-bottom: none;
+    background: #f4efe8;
+    color: var(--dim);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+}
+.diag-tab.active {
+    background: #fff;
+    color: #1e1c19;
+    font-weight: 600;
+}
+
+.diag-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#diag-controls {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--dim);
+}
+#diag-controls label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#diag-controls select {
+    font-size: 12px;
+}
+#diag-page-info {
+    margin-left: auto;
+    font-family: ui-monospace, monospace;
+}
+
+.diag-scroll {
+    flex: 1 1 auto;
+    overflow: auto;
+}
+
+#diag-table, #diag-pages-table, #diag-images-table, #diag-dropped-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+}
+#diag-table th, #diag-pages-table th, #diag-images-table th, #diag-dropped-table th {
+    position: sticky;
+    top: 0;
+    background: #f4efe8;
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--line);
+    z-index: 1;
+}
+#diag-table td, #diag-pages-table td, #diag-images-table td, #diag-dropped-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+}
+#diag-table tr:hover, #diag-pages-table tr:hover, #diag-images-table tr:hover, #diag-dropped-table tr:hover {
+    background: #fdf6ec;
+}
+#diag-table td:nth-child(1), #diag-table td:nth-child(2), #diag-table td:nth-child(3) {
+    font-family: ui-monospace, monospace;
+    white-space: nowrap;
+}
+#diag-table td.decision {
+    font-family: ui-monospace, monospace;
+    white-space: nowrap;
+}
+#diag-table tr[data-decision^="para"] td.decision { color: #2f5d43; }
+#diag-table tr[data-decision^="heading"] td.decision { color: #7a4a2b; font-weight: 600; }
+#diag-table tr[data-decision="dropped"] { opacity: .5; }
+#diag-table tr[data-decision="table-row"] td.decision { color: #2a5a8c; }
+#diag-table tr[data-decision="image"] td.decision { color: #8c2a5a; }
+
+#diag-images-table td:nth-child(2) {
+    text-align: center;
+}

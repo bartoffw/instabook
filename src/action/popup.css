@@ -50,6 +50,19 @@ body {
 .card-footer #extension-settings {
     margin-left: -25px;
 }
+.card-footer #pdf-convert-wrap {
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.card-footer #pdf-convert {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
 .card-footer #settings-enabled {
     padding: 0.15rem;
     top: 25%;
