@@ -16,6 +16,9 @@ You also get to preview the cover page of your Ebook before the epub file is gen
 The latest version also allows you to build a multi-chapter Ebook with each chapter being a snapshot of a different page.
 Read the *Creating an Ebook with chapters* section for details.
 
+Instabook can also convert a PDF file into an EPUB, entirely on your device. This feature is **experimental** —
+see the *Converting a PDF to EPUB* section for details.
+
 ## Installation
 
 To install Instabook, just download and install the latest version of the extension from your browser's extension page.
@@ -67,6 +70,30 @@ To start using this feature, follow these steps:
 
    ![Chapters header](/screenshots/chapters-header.png)
 
+### Converting a PDF to EPUB (experimental)
+
+Instabook can also turn a PDF file into an EPUB. The PDF is parsed and converted entirely on your device —
+nothing is uploaded anywhere.
+
+1. Click the Instabook icon in your browser's toolbar, then click the "PDF" button and pick a PDF file.
+2. The file opens in a full-tab review screen with the original PDF on the left and the parsed result on the right,
+   so you can check the conversion before downloading.
+   1. Click a parsed block to jump to its page in the original PDF, or hover it and click the &times; to remove it
+      (removed blocks can be brought back with Undo).
+   2. If paragraphs are being merged together or split apart incorrectly, adjust the "Paragraph factor" slider and
+      the preview will re-parse automatically.
+   3. Charts and diagrams made up of many small embedded images are automatically grouped into a single flattened
+      image where possible; the "Aggressiveness" slider controls how readily scattered image fragments get grouped
+      together. For a chart or diagram the automatic grouping doesn't handle well, drag a rectangle over it in the
+      original PDF pane and add it as one flattened image instead.
+   4. The "Diagnostics" button shows a per-line trace of how the parser interpreted the PDF, useful for
+      understanding why a specific line, image or table came out the way it did.
+3. Click "Convert" to generate and download the EPUB.
+
+This feature is still experimental and won't handle every PDF layout perfectly. If a specific PDF doesn't convert
+correctly, please report it on the [GitHub page](https://github.com/bartoffw/instabook/issues) — the review screen
+has a pre-filled link for this.
+
 ### Availability
 
 The extension is available for most of the modern browsers:
@@ -82,6 +109,7 @@ The extension is available for most of the modern browsers:
 - adding multiple language support for the extension
 - ~~adding config page~~ - implemented
 - customizing the title page in the Ebook (adding a cover image)
+- ~~PDF to EPUB conversion~~ - implemented, still experimental — improving conversion accuracy across more PDF layouts
 
 ## Configuration
 
