@@ -20,6 +20,11 @@ export async function buildEpub({ meta, blocks, images }, opts = {}) {
   const sizing = opts.imageSizing ?? 'percent';
   const paraSpacingFactor = opts.paraSpacingFactor ?? 1;
   const chapters = splitIntoChapters(blocks, opts.maxBlocksPerChapter ?? 400);
+  // Headings become in-document anchors (not file splits) so the nav can be
+  // a full h1/h2/h3 outline while the book stays one continuous read; images
+  // and tables get anchors too so the figures/tables list can jump to them.
+  const { headings, figures } = assignAnchors(chapters);
+  const hasLoi = figures.length > 0;
 
   const zip = new JSZip();
   // MUST be the first entry added and MUST be stored, not deflated — EPUB
@@ -40,8 +45,9 @@ export async function buildEpub({ meta, blocks, images }, opts = {}) {
     zip.file(`OEBPS/images/${id}.${ext(img.mime)}`, img.blob, { compression: 'STORE' });
   }
 
-  zip.file('OEBPS/nav.xhtml', renderNav(chapters, meta));
-  zip.file('OEBPS/content.opf', renderOpf(meta, chapters, images, used, uid));
+  if (hasLoi) zip.file('OEBPS/loi.xhtml', renderLoi(figures, meta));
+  zip.file('OEBPS/nav.xhtml', renderNav(headings, hasLoi, meta, chapters));
+  zip.file('OEBPS/content.opf', renderOpf(meta, chapters, images, used, uid, hasLoi));
 
   return zip.generateAsync({
     type: 'blob',
@@ -55,16 +61,16 @@ export async function buildEpub({ meta, blocks, images }, opts = {}) {
 /* ------------------------------------------------------------------ */
 
 function splitIntoChapters(blocks, maxBlocks) {
-  // h2/h3 are in-flow section headings, not chapter boundaries — splitting
-  // on them turned every one into a forced page/chapter turn in most
-  // reading systems. Only h1 does that now; a document with no h1 at all
-  // stays one continuous flow, chunked only by maxBlocks.
+  // The whole book is kept as a single logical chapter — headings no longer
+  // force a file break, only maxBlocks does, purely so one XHTML file can't
+  // grow pathologically large on a very long document. The nav's outline
+  // (built from every h1/h2/h3, see assignAnchors/renderNav) is what gives
+  // readers chapter-level navigation now, not file boundaries.
   const chapters = [];
   let cur = { title: null, blocks: [] };
 
   for (const b of blocks) {
-    const isBreak = b.type === 'h1' && cur.blocks.length;
-    if (isBreak || cur.blocks.length >= maxBlocks) {
+    if (cur.blocks.length >= maxBlocks) {
       chapters.push(cur);
       cur = { title: null, blocks: [] };
     }
@@ -74,6 +80,36 @@ function splitIntoChapters(blocks, maxBlocks) {
   if (cur.blocks.length) chapters.push(cur);
 
   return chapters.map((c, i) => ({ ...c, title: c.title || `Section ${i + 1}` }));
+}
+
+/**
+ * Walks the (already file-split) chapters in order and stamps an in-document
+ * anchor id onto every heading, image and table block, mutating them in
+ * place — renderBlock/renderTable pick these up to emit id="...". Returns
+ * the flat lists renderNav()/renderLoi() build their pages from.
+ */
+function assignAnchors(chapters) {
+  const headings = [];
+  const figures = [];
+  let hN = 0, imgN = 0, tblN = 0;
+
+  chapters.forEach((ch, ci) => {
+    const file = `ch${pad(ci)}.xhtml`;
+    for (const b of ch.blocks) {
+      if (b.type === 'h1' || b.type === 'h2' || b.type === 'h3') {
+        b.anchor = `h${hN++}`;
+        headings.push({ level: b.type, title: plain(b).trim() || '(untitled)', file, anchor: b.anchor });
+      } else if (b.type === 'img') {
+        b.anchor = `f${++imgN}`;
+        figures.push({ file, anchor: b.anchor, label: captionLabel(b, `Figure ${imgN}`), page: b.page });
+      } else if (b.type === 'table') {
+        b.anchor = `t${++tblN}`;
+        figures.push({ file, anchor: b.anchor, label: captionLabel(b, `Table ${tblN}`), page: b.page });
+      }
+    }
+  });
+
+  return { headings, figures };
 }
 
 /* ------------------------------------------------------------------ */
@@ -93,14 +129,21 @@ ${body}
 }
 
 function renderBlock(b, images, used, sizing, paraSpacingFactor) {
+  const idAttr = b.anchor ? ` id="${b.anchor}"` : '';
   if (b.type === 'img') {
     const img = images.get(b.id);
     if (!img) return '';
     used.add(b.id);
-    return `<figure class="img"><img src="images/${b.id}.${ext(img.mime)}" alt=""` +
-           `${imgAttrs(b, sizing)}/></figure>`;
+    const caption = b.caption ? `<figcaption>${b.caption.map(renderRun).join('')}</figcaption>` : '';
+    return `<figure class="img"${idAttr}><img src="images/${b.id}.${ext(img.mime)}" alt=""` +
+           `${imgAttrs(b, sizing)}/>${caption}</figure>`;
   }
-  if (b.type === 'table') return renderTable(b);
+  if (b.type === 'table') return renderTable(b, idAttr);
+  if (b.type === 'list') {
+    const tag = b.ordered ? 'ol' : 'ul';
+    const items = b.items.map((runs) => `<li>${runs.map(renderRun).join('')}</li>`).join('');
+    return items ? `<${tag}${idAttr}>${items}</${tag}>` : '';
+  }
   const inner = b.runs.map(renderRun).join('');
   if (!inner.trim()) return '';
   if (b.type === 'p' && b.indent) {
@@ -114,19 +157,21 @@ function renderBlock(b, images, used, sizing, paraSpacingFactor) {
     const em = paraMarginEm(b.gapRatio ?? 1, paraSpacingFactor);
     return `<p style="margin-top:${em}em">${inner}</p>`;
   }
-  return `<${b.type}>${inner}</${b.type}>`;
+  return `<${b.type}${idAttr}>${inner}</${b.type}>`;
 }
 
-function renderTable(b) {
+function renderTable(b, idAttr = '') {
   const cell = (tag) => (runs) => `<${tag}>${runs.map(renderRun).join('')}</${tag}>`;
   const row = (runs, tag) => `<tr>${runs.map(cell(tag)).join('')}</tr>`;
+  // <caption> must be the table's first child per the HTML content model.
+  const caption = b.caption ? `<caption>${b.caption.map(renderRun).join('')}</caption>` : '';
 
   if (b.header) {
     const [head, ...body] = b.rows;
-    return `<table><thead>${row(head, 'th')}</thead><tbody>` +
+    return `<table${idAttr}>${caption}<thead>${row(head, 'th')}</thead><tbody>` +
            body.map((r) => row(r, 'td')).join('') + `</tbody></table>`;
   }
-  return `<table><tbody>${b.rows.map((r) => row(r, 'td')).join('')}</tbody></table>`;
+  return `<table${idAttr}>${caption}<tbody>${b.rows.map((r) => row(r, 'td')).join('')}</tbody></table>`;
 }
 
 /**
@@ -158,33 +203,91 @@ function renderRun(r) {
   return t;
 }
 
-function renderNav(chapters, meta) {
-  const items = chapters
-    .map((c, i) => `<li><a href="ch${pad(i)}.xhtml">${esc(c.title)}</a></li>`)
-    .join('\n');
+const HEADING_RANK = { h1: 1, h2: 2, h3: 3 };
+
+/** Nests a flat, document-order heading list into an h1>h2>h3 tree. */
+function buildTocTree(headings) {
+  const root = { children: [] };
+  const stack = [{ level: 0, node: root }];
+
+  for (const h of headings) {
+    const level = HEADING_RANK[h.level];
+    while (stack.length > 1 && stack.at(-1).level >= level) stack.pop();
+    const node = { title: h.title, href: `${h.file}#${h.anchor}`, children: [] };
+    stack.at(-1).node.children.push(node);
+    stack.push({ level, node });
+  }
+  return root.children;
+}
+
+function renderNavItems(nodes) {
+  return nodes.map((n) =>
+    `<li><a href="${esc(n.href)}">${esc(n.title)}</a>${n.children.length ? renderNavList(n.children) : ''}</li>`
+  ).join('\n');
+}
+
+function renderNavList(nodes) {
+  return `<ol>\n${renderNavItems(nodes)}\n</ol>`;
+}
+
+function renderNav(headings, hasLoi, meta, chapters) {
+  // No headings at all (rare — a document with no detected structure) still
+  // needs one entry, or the toc nav's <ol> would be empty, which readers and
+  // epubcheck both treat as invalid.
+  const treeItems = headings.length
+    ? renderNavItems(buildTocTree(headings))
+    : `<li><a href="ch${pad(0)}.xhtml">${esc(meta.title || chapters[0]?.title || 'Start')}</a></li>`;
+  const loiItem = hasLoi ? `<li><a href="loi.xhtml">Figures &amp; Tables</a></li>` : '';
+
+  const landmarks = hasLoi
+    ? `\n<nav epub:type="landmarks" id="landmarks" hidden="">\n<ol><li><a epub:type="loi" href="loi.xhtml">Figures &amp; Tables</a></li></ol>\n</nav>`
+    : '';
+
   return `<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="${NS}" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${esc(meta.language)}">
 <head><meta charset="utf-8"/><title>Contents</title></head>
-<body><nav epub:type="toc" id="toc"><h1>Contents</h1><ol>
+<body>
+<nav epub:type="toc" id="toc"><h1>Contents</h1><ol>
+${treeItems}${loiItem}
+</ol></nav>${landmarks}
+</body></html>`;
+}
+
+function renderLoi(figures, meta) {
+  const items = figures
+    .map((f) => `<li><a href="${esc(f.file)}#${esc(f.anchor)}">${esc(f.label)}${f.page ? ` — page ${f.page}` : ''}</a></li>`)
+    .join('\n');
+  return `<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="${NS}" xml:lang="${esc(meta.language)}" lang="${esc(meta.language)}">
+<head><meta charset="utf-8"/><title>Figures &amp; Tables</title>
+<link rel="stylesheet" type="text/css" href="style.css"/></head>
+<body>
+<h1>Figures &amp; Tables</h1>
+<ol>
 ${items}
-</ol></nav></body></html>`;
+</ol>
+</body></html>`;
 }
 
 /* ------------------------------------------------------------------ */
 /* OPF                                                                 */
 /* ------------------------------------------------------------------ */
 
-function renderOpf(meta, chapters, images, used, uid) {
+function renderOpf(meta, chapters, images, used, uid, hasLoi) {
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
     '<item id="css" href="style.css" media-type="text/css"/>',
     ...chapters.map((_, i) =>
       `<item id="ch${pad(i)}" href="ch${pad(i)}.xhtml" media-type="application/xhtml+xml"/>`),
+    ...(hasLoi ? ['<item id="loi" href="loi.xhtml" media-type="application/xhtml+xml"/>'] : []),
     ...[...images].filter(([id]) => used.has(id)).map(([id, img]) =>
       `<item id="${id}" href="images/${id}.${ext(img.mime)}" media-type="${img.mime}"/>`),
   ].join('\n    ');
 
-  const spine = chapters.map((_, i) => `<itemref idref="ch${pad(i)}"/>`).join('\n    ');
+  const spine = [
+    ...chapters.map((_, i) => `<itemref idref="ch${pad(i)}"/>`),
+    ...(hasLoi ? ['<itemref idref="loi"/>'] : []),
+  ].join('\n    ');
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">
@@ -242,11 +345,25 @@ figure.img img { max-width: 100%; height: auto; }
 figure.img figcaption { font-size: 0.85em; text-align: center; }
 table { width: 100%; margin: 1em 0; border-collapse: collapse; font-size: 0.9em; }
 th, td { border: 1px solid; padding: 0.3em 0.6em; text-align: left; vertical-align: top; }
-th { font-weight: bold; }`;
+th { font-weight: bold; }
+table caption { font-size: 0.85em; margin-bottom: 0.4em; caption-side: top; }
+ul, ol { margin: 0.8em 0; padding-left: 1.6em; }
+li { margin: 0.3em 0; }
+h1 + ul, h1 + ol, h2 + ul, h2 + ol, h3 + ul, h3 + ol, figure + ul, figure + ol, table + ul, table + ol { margin-top: 0.4em; }`;
 
 const pad = (i) => String(i).padStart(4, '0');
 const ext = (mime) => (mime === 'image/png' ? 'png' : 'jpg');
 const plain = (b) => (b.runs || []).map((r) => r.text).join('').trim();
+
+// Prefers the block's own caption text for the figures/tables list, falling
+// back to the generic "Figure N" label when it has none; long captions are
+// clipped so the list stays scannable.
+function captionLabel(b, fallback) {
+  if (!b.caption) return fallback;
+  const t = plain({ runs: b.caption });
+  if (!t) return fallback;
+  return t.length > 90 ? t.slice(0, 89) + '…' : t;
+}
 
 function esc(s) {
   return String(s)

@@ -14,14 +14,44 @@
  *   | { type: 'h1'|'h2'|'h3'|'p', page: number, runs: Run[],
  *       gapRatio?: number }   // 'p' only — vertical gap before it, in
  *                             // multiples of the page's median line gap
- *   | { type: 'img', page: number, id: string, width: number, height: number }
- *   | { type: 'table', page: number, rows: Run[][][], header: boolean }
+ *   | { type: 'img', page: number, id: string, caption?: Run[],
+ *       composite?: true, mergedCount?: number }
+ *                             // composite/mergedCount mark an image that's
+ *                             // actually a flattened screenshot standing in
+ *                             // for that many originally-separate, tightly
+ *                             // clustered small images — see
+ *                             // flattenCompositeImages()
+ *   | { type: 'table', page: number, rows: Run[][][], header: boolean,
+ *       caption?: Run[] }
  *                             // rows[r][c] is cell (r, c)'s runs; empty when
  *                             // that row has nothing in that column
+ *   | { type: 'list', page: number, ordered: boolean, items: Run[][] }
+ *                             // items[i] is list item i's runs
+ *
+ * Every block above also carries a bounding box on its own page — x0, y0,
+ * width, height, all in PDF points, page-relative (origin bottom-left, same
+ * as the PDF's own coordinate space; y0 is the *top* edge, and larger y0
+ * means higher up the page, so the box spans y0 down to y0 - height). For
+ * text blocks (h1/h2/h3/p/list) this is the tight box around every line
+ * that ended up in the block, not a per-glyph measurement — close enough
+ * for overlap testing, not for typesetting. It exists so a caller (the
+ * review UI's manual "flatten to image" tool) can place a new block among
+ * its page's existing ones and tell which ones an arbitrary rectangle
+ * overlaps — it is not used by extractDocument() itself.
+ *
+ * Every block above may also carry `confidence: 'low'` plus a human-readable
+ * `confidenceReason` when the classification that produced it was borderline
+ * (a heading right at the size threshold, a blockquote right at the indent
+ * threshold, a single-row table, an image whose on-page size had to be
+ * guessed, a list with only one detected item) — a hint for the review UI to
+ * point the user at, not a hard signal.
  *
  * Run = { text: string, bold: boolean, italic: boolean }
  *
- * Assumes a born-digital, predominantly single-column PDF.
+ * Assumes a born-digital PDF. Per-page column detection (see detectColumns)
+ * handles single- and 2-column layouts, reading the left column fully
+ * before the right one; 3+ column layouts aren't detected and fall back to
+ * being read as one wide column.
  */
 
 import * as pdfjsLib from './pdf.min.mjs';
@@ -108,6 +138,77 @@ const DEFAULTS = {
   minRunChars: 2,
   // Nuclear option: discard all bold/italic and emit plain paragraphs.
   dropInlineFormatting: false,
+
+  // --- multi-column reading order ------------------------------------
+  // Detect a 2-column layout per page (academic papers, magazines) and
+  // read the whole left column before the right one, instead of the raw
+  // left-to-right stream order that garbles interleaved columns.
+  multiColumn: true,
+  // Minimum number of text items on a page before column detection even
+  // runs — too few items to say anything meaningful about a gutter.
+  minColumnItems: 40,
+  // Minimum gutter width, in multiples of the page's own median glyph
+  // size, to count as a real column gap rather than ordinary word/sentence
+  // spacing or a ragged paragraph edge.
+  columnGapEm: 1.6,
+  // Share of the page's total characters allowed to cross the candidate
+  // gutter before it's rejected — tolerates a handful of full-width
+  // titles/rules crossing an otherwise real column boundary.
+  columnGutterToleranceFrac: 0.02,
+  // Each side of a candidate gutter must hold at least this share of the
+  // page's characters, or a stray marginal note could look like a column.
+  minColumnContentFrac: 0.15,
+
+  // --- lists -----------------------------------------------------------
+  // Recognise a leading bullet/number marker on a new paragraph's first
+  // line and emit a real <ul>/<ol> instead of a plain paragraph.
+  detectLists: true,
+
+  // --- captions ----------------------------------------------------------
+  // Fold a short "Figure N: ..." / "Table N: ..." paragraph immediately
+  // before or after an image/table into that block's caption, instead of
+  // leaving it as an unrelated paragraph next to it.
+  detectCaptions: true,
+  // A candidate caption longer than this many characters is treated as an
+  // ordinary paragraph that just happens to start with "Figure"/"Table" —
+  // real captions are normally a sentence or two.
+  maxCaptionChars: 220,
+
+  // --- composite image detection ----------------------------------------
+  // Charts/diagrams built from many small embedded images (bar segments,
+  // icons, sprite pieces) otherwise survive as that many disconnected <img>
+  // blocks with no visual relationship in the EPUB. When a page has a tight
+  // cluster of them, render just that cluster's combined area as one flat
+  // screenshot instead — same idea as the review UI's manual region-capture
+  // tool, just automatic. Deliberately mild: it only ever acts on clusters
+  // of *already-extracted small images*, never on text or on vector
+  // line-art directly, so the failure mode is "a chart still comes out as
+  // pieces" rather than "a caption got swallowed into a screenshot."
+  detectCompositeImages: true,
+  // Fewer than this many images in a cluster is left alone — two adjacent
+  // but unrelated images (e.g. two photos placed side by side) is a common,
+  // entirely legitimate layout and shouldn't get fused. Only enforced at the
+  // shipped default gap; past that, the user has explicitly turned up
+  // aggressiveness, so a plain adjacent pair is allowed to merge too — see
+  // flattenCompositeImages().
+  compositeMinImages: 3,
+  // Images within this many PDF points of each other's box are considered
+  // part of the same cluster. Exposed in the review UI as a "grouping
+  // aggressiveness" slider — raise it when a chart's fragments are spaced
+  // out enough that they're being left as separate images; lower it if
+  // unrelated images that merely happen to sit near each other are getting
+  // fused together.
+  compositeClusterGapPt: 20,
+  // Margin added around a cluster's combined box before rendering, so thin
+  // connecting strokes (axis lines, borders) just outside the images' own
+  // boxes aren't cut off at the edge. The union of the *images'* own boxes
+  // is otherwise all the crop rectangle is built from — axis lines, tick
+  // labels, legends and borders are usually drawn as vector graphics or
+  // text, not raster images, so they sit outside that union entirely and
+  // this margin is what keeps them in frame. flattenCompositeImages() scales
+  // this up further at higher compositeClusterGapPt, since a wider gap
+  // tolerance implies the surrounding decoration is likely spaced out too.
+  compositeMarginPt: 4,
 };
 
 const IDENTITY = [1, 0, 0, 1, 0, 0];
@@ -141,12 +242,17 @@ export async function extractDocument(data, userOpts = {}) {
 
   for (const p of pages) {
     for (const l of p.lines) {
+      if (l.kind === 'img') continue;
       l.dropped = isRunningText(l, p, drop, opt);
       if (l.dropped) dropped.push({ page: p.number, text: l.text });
     }
     const before = blocks.length;
-    const stats = { page: p.number, lines: p.lines.length, images: p.images.length };
-    blocks.push(...buildBlocks(p.lines, p.images, bodySize, p.number, opt, trace, stats, p.width));
+    const stats = {
+      page: p.number,
+      lines: p.lines.filter((l) => l.kind !== 'img').length,
+      images: p.lines.filter((l) => l.kind === 'img').length,
+    };
+    blocks.push(...buildBlocks(p.lines, bodySize, p.number, opt, trace, stats, p.width));
     stats.blocks = blocks.length - before;
     pageStats.push(stats);
   }
@@ -154,6 +260,8 @@ export async function extractDocument(data, userOpts = {}) {
   const merge = { hyphenJoins: countHyphenJoins(trace), pageMerges: 0, headingMerges: 0 };
   let merged = mergeAcrossPages(blocks, merge);
   merged = mergeHeadings(merged, opt, merge);
+  merged = mergeLists(merged, opt, merge);
+  merged = associateCaptions(merged, opt, merge);
   const tidy = tidyBlocks(merged, opt);
   stripInternal(merged);
 
@@ -207,9 +315,13 @@ function summarise(blocks, images, imageLog, trace, merge, bodySize) {
     longParagraphs: paraLens.filter((n) => n > 2500).length,  // under-splitting signal
     imagesKept: images.size,
     imageOps: imageLog.length,
+    compositesFormed: blocks.filter((b) => b.composite).length,
     hyphenJoins: merge.hyphenJoins,
     pageBoundaryMerges: merge.pageMerges,
     headingMerges: merge.headingMerges || 0,
+    listsFound: byType.list || 0,
+    captionsFound: merge.captionsFound || 0,
+    flagged: blocks.filter((b) => b.confidence === 'low').length,
   };
 }
 
@@ -217,6 +329,7 @@ function sizeHistogram(pages) {
   const hist = new Map();
   for (const p of pages) {
     for (const l of p.lines) {
+      if (l.kind === 'img') continue;
       const k = Math.round(l.size * 2) / 2;
       const e = hist.get(k) || { size: k, chars: 0, lines: 0, sample: l.text };
       e.chars += l.text.length;
@@ -257,7 +370,16 @@ async function readPage(page, number, imageStore, imageLog, opt) {
 
   // Images first: getOperatorList() forces the worker to resolve fonts into
   // commonObjs, which is what makes bold/italic detection work below.
-  const images = await readImages(page, number, imageStore, imageLog, opt);
+  let images = await readImages(page, number, imageStore, imageLog, opt);
+  if (opt.detectCompositeImages) {
+    images = await flattenCompositeImages(page, number, images, imageStore, imageLog, opt);
+  }
+  // Composite figures grown by growRegionToContent() may have pulled in
+  // real text (axis labels, captions) as pixels inside the screenshot —
+  // drop the matching text items below so they don't also appear as a
+  // separate, redundant block right next to the figure.
+  const claimBoxes = images.filter((im) => im.claimBox).map((im) => im.claimBox);
+  const insideClaim = (x, y) => claimBoxes.some((b) => x >= b.x0 && x <= b.x1 && y >= b.yBottom && y <= b.yTop);
 
   const content = await page.getTextContent({ disableNormalization: false });
   const items = [];
@@ -273,6 +395,7 @@ async function readPage(page, number, imageStore, imageLog, opt) {
     const t = it.transform;
     const size = Math.hypot(t[2], t[3]) || it.height || 0;
     if (size === 0) continue;
+    if (claimBoxes.length && insideClaim(t[4], t[5])) continue;
 
     const style = describeFont(page, it.fontName, content.styles);
     items.push({
@@ -286,8 +409,12 @@ async function readPage(page, number, imageStore, imageLog, opt) {
     });
   }
 
-  const lines = groupIntoLines(items, opt);
-  return { number, height, width, lines, images };
+  // Column detection runs on the raw items, before any line-clustering —
+  // two columns sharing a baseline would otherwise get fused into one
+  // garbled row before we ever got the chance to tell them apart.
+  const cols = detectColumns(items, opt);
+  const entries = groupIntoLines(items, images, opt, cols);
+  return { number, height, width, lines: entries };
 }
 
 /**
@@ -314,10 +441,81 @@ function describeFont(page, fontName, styles) {
   };
 }
 
-/** Cluster text items into visual lines by baseline, then sort left-to-right. */
-function groupIntoLines(items, opt) {
+/* ------------------------------------------------------------------ */
+/* multi-column reading order                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Looks for a persistent vertical gutter splitting the page's text into two
+ * side-by-side columns (academic papers, magazines, newsletters). Detection
+ * runs on raw item spans, not lines — a coincidental shared baseline between
+ * the two columns would otherwise fuse them into one row before there's any
+ * chance to tell them apart (PDF generators lay out each column's text
+ * separately, so an individual item's own span essentially never straddles
+ * a real gutter, unlike a *line* built by naively clustering same-baseline
+ * items from both columns together).
+ *
+ * A candidate gutter must be wide (>= columnGapEm of the page's own type
+ * size — well past ordinary word/sentence spacing), must have real content
+ * on both sides (>= minColumnContentFrac of the page's characters each),
+ * and only a small share of characters (columnGutterToleranceFrac) may
+ * cross it — a handful of full-width titles or rules crossing through
+ * don't disqualify an otherwise real column gutter.
+ *
+ * Returns null for a single-column (or undetectable) page.
+ */
+function detectColumns(items, opt) {
+  if (!opt.multiColumn || items.length < opt.minColumnItems) return null;
+
+  const size = median(items.map((i) => i.size)) || 10;
+  const minGutter = size * opt.columnGapEm;
+
+  const left = Math.min(...items.map((i) => i.x));
+  const right = Math.max(...items.map((i) => i.x + i.w));
+  const contentWidth = right - left;
+  if (contentWidth < minGutter * 4) return null;
+
+  const totalChars = items.reduce((s, i) => s + i.text.length, 0);
+  if (!totalChars) return null;
+
+  const spans = items.map((i) => [i.x, i.x + i.w, i.text.length]).sort((a, b) => a[0] - b[0]);
+
+  const scanFrom = left + contentWidth * 0.2;
+  const scanTo = right - contentWidth * 0.2 - minGutter;
+  const step = Math.max(2, minGutter / 6);
+
+  let best = null;
+  for (let gx0 = scanFrom; gx0 <= scanTo; gx0 += step) {
+    const gx1 = gx0 + minGutter;
+    let intruding = 0, leftChars = 0, rightChars = 0;
+    for (const [x0, x1, len] of spans) {
+      if (x1 <= gx0) leftChars += len;
+      else if (x0 >= gx1) rightChars += len;
+      else intruding += len;
+    }
+    if (intruding / totalChars > opt.columnGutterToleranceFrac) continue;
+    const leftFrac = leftChars / totalChars, rightFrac = rightChars / totalChars;
+    if (leftFrac < opt.minColumnContentFrac || rightFrac < opt.minColumnContentFrac) continue;
+
+    const balance = Math.min(leftFrac, rightFrac);
+    if (!best || balance > best.balance) best = { gx0, gx1, balance };
+  }
+
+  return best ? { x0: best.gx0, x1: best.gx1 } : null;
+}
+
+/** Which side of the gutter a span sits on ('span' = crosses it). */
+function classifyColumn(x0, x1, cols) {
+  if (!cols) return 'L';
+  if (x1 <= cols.x0) return 'L';
+  if (x0 >= cols.x1) return 'R';
+  return 'span';
+}
+
+/** Cluster one column's items into visual rows by baseline. */
+function clusterRows(items) {
   const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
-  const lines = [];
+  const rows = [];
   let cur = null;
 
   for (const it of sorted) {
@@ -327,11 +525,68 @@ function groupIntoLines(items, opt) {
       cur.y = (cur.y * (cur.items.length - 1) + it.y) / cur.items.length;
     } else {
       cur = { y: it.y, items: [it] };
-      lines.push(cur);
+      rows.push(cur);
     }
   }
+  return rows;
+}
 
-  return lines.map((l) => finishLine(l, opt));
+/**
+ * Interleaves left-column, right-column and full-width rows (text or image
+ * markers, anything with a `.y`) back into one reading-order sequence: every
+ * row sitting above a given full-width row is read left column top-to-bottom
+ * then right column top-to-bottom, the full-width row is read, and so on
+ * down the page. Whatever remains below the last full-width row (or the
+ * whole page, if there wasn't one) is flushed the same way at the end.
+ */
+function mergeColumnRows(leftRows, rightRows, spanRows) {
+  const byY = (a, b) => b.y - a.y;
+  leftRows.sort(byY); rightRows.sort(byY); spanRows.sort(byY);
+
+  const out = [];
+  let li = 0, ri = 0;
+  for (const s of spanRows) {
+    while (li < leftRows.length && leftRows[li].y >= s.y) out.push(leftRows[li++]);
+    while (ri < rightRows.length && rightRows[ri].y >= s.y) out.push(rightRows[ri++]);
+    out.push(s);
+  }
+  while (li < leftRows.length) out.push(leftRows[li++]);
+  while (ri < rightRows.length) out.push(rightRows[ri++]);
+  return out;
+}
+
+/**
+ * Clusters raw text items into visual lines and, when `cols` says the page
+ * is multi-column, reorders them (and the page's images) into left-column-
+ * then-right-column reading order. Returns one flat, already-ordered array
+ * mixing finished line objects (`kind: 'text'`) and image markers
+ * (`kind: 'img'`) — buildBlocks walks it directly with no further y-sorting.
+ */
+function groupIntoLines(items, images, opt, cols) {
+  const imgRow = (img) => ({ y: img.y, kind: 'img', img, col: classifyColumn(img.x, img.x + (img.dispW || 0), cols) });
+
+  if (!cols) {
+    const rows = clusterRows(items).map((r) => finishLine({ ...r, col: 'L' }, opt));
+    const imgs = images.map(imgRow);
+    return [...rows, ...imgs].sort((a, b) => b.y - a.y);
+  }
+
+  const left = [], right = [], span = [];
+  for (const it of items) {
+    const cls = classifyColumn(it.x, it.x + it.w, cols);
+    (cls === 'L' ? left : cls === 'R' ? right : span).push(it);
+  }
+
+  const leftRows = clusterRows(left).map((r) => finishLine({ ...r, col: 'L' }, opt));
+  const rightRows = clusterRows(right).map((r) => finishLine({ ...r, col: 'R' }, opt));
+  const spanRows = clusterRows(span).map((r) => finishLine({ ...r, col: 'span' }, opt));
+
+  for (const img of images) {
+    const row = imgRow(img);
+    (row.col === 'L' ? leftRows : row.col === 'R' ? rightRows : spanRows).push(row);
+  }
+
+  return mergeColumnRows(leftRows, rightRows, spanRows);
 }
 
 function finishLine(line, opt) {
@@ -350,6 +605,8 @@ function finishLine(line, opt) {
   const text = runs.map((r) => r.text).join('');
   const tabular = cells.length - 1 >= opt.tableGaps;
   return {
+    kind: 'text',
+    col: line.col,
     y: line.y,
     x0: items[0].x,
     x1: items.at(-1).x + items.at(-1).w,
@@ -458,6 +715,7 @@ async function readImages(page, pageNo, store, log, opt) {
         inline: typeof a0 === 'string' ? null : a0,
         ctm: ctm.slice(),
         y: ctm[5],
+        x: ctm[4],
       });
     }
   }
@@ -480,7 +738,7 @@ async function readImages(page, pageNo, store, log, opt) {
         const w = usable ? sx : known.width;
         const ht = usable ? sy : known.height;
         out.push({
-          id, y: h.y, natW: known.width, natH: known.height,
+          id, y: h.y, x: h.x, natW: known.width, natH: known.height,
           dispW: round2(w), dispH: round2(ht), estimated: !usable,
         });
         entry.kept = true;
@@ -528,7 +786,7 @@ async function readImages(page, pageNo, store, log, opt) {
       store.set(id, encoded);
       if (cacheKey) seen.set(cacheKey, id);
       out.push({
-        id, y: h.y, natW: encoded.width, natH: encoded.height,
+        id, y: h.y, x: h.x, natW: encoded.width, natH: encoded.height,
         dispW: round2(w), dispH: round2(ht), estimated: !usable,
       });
       entry.kept = true;
@@ -536,6 +794,286 @@ async function readImages(page, pageNo, store, log, opt) {
     } catch (e) {
       entry.reason = `error: ${e.message}`;
       log.push(entry);
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* composite image detection                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Greedy proximity clustering: two images join the same cluster when their
+ * boxes are within `gapPt` of each other (already-overlapping counts too).
+ * O(n^2) box comparisons, fine at per-page image counts.
+ */
+function clusterImageBoxes(images, gapPt) {
+  const boxes = images.map((im) => ({
+    im, x0: im.x, x1: im.x + im.dispW, yTop: im.y, yBottom: im.y - im.dispH,
+  }));
+  const parent = boxes.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  const near = (a, b) =>
+    a.x0 - gapPt < b.x1 && a.x1 + gapPt > b.x0 &&
+    a.yBottom - gapPt < b.yTop && a.yTop + gapPt > b.yBottom;
+
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (near(boxes[i], boxes[j])) union(i, j);
+    }
+  }
+
+  const groups = new Map();
+  boxes.forEach((box, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(box);
+  });
+  return [...groups.values()];
+}
+
+/**
+ * Renders just one rectangle of the page — the same idea as the review UI's
+ * manual region-capture tool (render the whole page at a resolution scaled
+ * to the target size, then crop), just triggered automatically instead of
+ * by a user drag. PNG, not JPEG: these are exactly the sharp-line/text
+ * regions JPEG artifacting would blur.
+ */
+async function renderPageRegion(page, x0, yBottom, x1, yTop) {
+  const widthPt = Math.max(1, x1 - x0);
+
+  const targetPx = 1400;
+  const renderScale = Math.min(4, Math.max(1.5, targetPx / widthPt));
+  const vp = page.getViewport({ scale: renderScale });
+
+  const full = new OffscreenCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
+  await page.render({ canvasContext: full.getContext('2d'), viewport: vp }).promise;
+
+  // convertToViewportPoint (not a plain x/pageWidth fraction) because it
+  // accounts for the page's own crop box origin and rotation — a PDF whose
+  // CropBox is narrower than its MediaBox (common in web-page-to-PDF
+  // exports, which often trim side margins) has a nonzero horizontal
+  // origin that a naive fraction silently ignores, shifting/cropping the
+  // capture along just that axis.
+  const [cx0, cyTop] = vp.convertToViewportPoint(x0, yTop);
+  const [cx1, cyBottom] = vp.convertToViewportPoint(x1, yBottom);
+
+  const sx = Math.round(Math.min(cx0, cx1)), sy = Math.round(Math.min(cyTop, cyBottom));
+  const sw = Math.max(1, Math.round(Math.abs(cx1 - cx0)));
+  const sh = Math.max(1, Math.round(Math.abs(cyBottom - cyTop)));
+
+  const crop = new OffscreenCanvas(sw, sh);
+  crop.getContext('2d').drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  const blob = await crop.convertToBlob({ type: 'image/png' });
+  return { blob, mime: 'image/png', width: sw, height: sh };
+}
+
+/**
+ * Renders a generous area around a raster-image cluster's box, then trims
+ * it back down to the actual visual content by scanning rendered pixels
+ * outward from the known box in all four directions, treating near-white as
+ * background. A run of background short enough to plausibly be normal
+ * letter/axis spacing doesn't stop the growth — it bridges through and
+ * keeps looking — so a chart's axis lines, tick labels, curve, legend, or a
+ * photo's decorative frame/border all get pulled in too, even though none
+ * of them are raster images the clustering step above ever sees. This is
+ * why it works on pixels instead of trying to parse PDF path/text geometry:
+ * it doesn't need to know what kind of object drew the ink, only that it's
+ * there. The bridging tolerance and the outer search radius both scale with
+ * compositeClusterGapPt, so the same "aggressiveness" slider that controls
+ * raster-fragment clustering also controls how far this is willing to
+ * reach — and the search radius is a hard cap either way, so a very high
+ * tolerance still can't run away into unrelated content far down the page.
+ */
+async function growRegionToContent(page, x0, yBottom, x1, yTop, opt) {
+  const pageViewport = page.getViewport({ scale: 1 });
+  const pageWidth = pageViewport.width;
+  const pageHeight = pageViewport.height;
+
+  const searchPt = Math.max(80, opt.compositeClusterGapPt * 4);
+  const sx0 = Math.max(0, x0 - searchPt);
+  const sx1 = Math.min(pageWidth, x1 + searchPt);
+  const syTop = Math.min(pageHeight, yTop + searchPt);
+  const syBottom = Math.max(0, yBottom - searchPt);
+
+  const widthPt = Math.max(1, sx1 - sx0);
+  const targetPx = 1800;
+  const renderScale = Math.min(4, Math.max(1.5, targetPx / widthPt));
+  const vp = page.getViewport({ scale: renderScale });
+
+  const full = new OffscreenCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
+  const ctx2d = full.getContext('2d', { willReadFrequently: true });
+  await page.render({ canvasContext: ctx2d, viewport: vp }).promise;
+
+  const [rx0, ryTop] = vp.convertToViewportPoint(sx0, syTop);
+  const [rx1, ryBottom] = vp.convertToViewportPoint(sx1, syBottom);
+  const [bx0, byTop] = vp.convertToViewportPoint(x0, yTop);
+  const [bx1, byBottom] = vp.convertToViewportPoint(x1, yBottom);
+
+  const left = Math.max(0, Math.round(Math.min(rx0, rx1)));
+  const right = Math.min(full.width, Math.round(Math.max(rx0, rx1)));
+  const top = Math.max(0, Math.round(Math.min(ryTop, ryBottom)));
+  const bottom = Math.min(full.height, Math.round(Math.max(ryTop, ryBottom)));
+  const regionW = right - left, regionH = bottom - top;
+  if (regionW < 2 || regionH < 2) return renderPageRegion(page, x0, yBottom, x1, yTop);
+
+  const data = ctx2d.getImageData(left, top, regionW, regionH).data;
+  // Near-white counts as background; anything else (ink, fills, photos) doesn't.
+  const isBackground = (px, py) => {
+    const i = (py * regionW + px) * 4;
+    const a = data[i + 3];
+    return a < 8 || (data[i] > 246 && data[i + 1] > 246 && data[i + 2] > 246);
+  };
+  const rowHasInk = (py, xFrom, xTo) => {
+    const from = Math.max(0, xFrom), to = Math.min(regionW, xTo);
+    for (let px = from; px < to; px++) if (!isBackground(px, py)) return true;
+    return false;
+  };
+  const colHasInk = (px, yFrom, yTo) => {
+    const from = Math.max(0, yFrom), to = Math.min(regionH, yTo);
+    for (let py = from; py < to; py++) if (!isBackground(px, py)) return true;
+    return false;
+  };
+
+  let bl = Math.round(Math.min(bx0, bx1)) - left, br = Math.round(Math.max(bx0, bx1)) - left;
+  let bt = Math.round(Math.min(byTop, byBottom)) - top, bb = Math.round(Math.max(byTop, byBottom)) - top;
+  bl = Math.max(0, Math.min(bl, regionW)); br = Math.max(0, Math.min(br, regionW));
+  bt = Math.max(0, Math.min(bt, regionH)); bb = Math.max(0, Math.min(bb, regionH));
+
+  const tolerancePx = Math.max(4, Math.round((opt.compositeClusterGapPt / 2) * renderScale));
+  // Walks outward from `start` in steps of `dir` (-1 or +1), extending
+  // `edge` to the last position where `test` found ink, and giving up once
+  // a run of `tolerancePx` consecutive blank positions is crossed without
+  // finding more.
+  const growDir = (test, start, dir, limit) => {
+    let edge = start, blankRun = 0;
+    for (let p = start + dir; dir > 0 ? p < limit : p >= limit; p += dir) {
+      if (test(p)) {
+        blankRun++;
+        if (blankRun > tolerancePx) break;
+      } else {
+        edge = p;
+        blankRun = 0;
+      }
+    }
+    return edge;
+  };
+
+  bt = growDir((py) => !rowHasInk(py, bl, br), bt, -1, 0);
+  bb = growDir((py) => !rowHasInk(py, bl, br), bb, 1, regionH);
+  bl = growDir((px) => !colHasInk(px, bt, bb), bl, -1, 0);
+  br = growDir((px) => !colHasInk(px, bt, bb), br, 1, regionW);
+  // Second pass: the vertical range widened above may expose ink the first
+  // horizontal scan missed, and vice versa.
+  bt = growDir((py) => !rowHasInk(py, bl, br), bt, -1, 0);
+  bb = growDir((py) => !rowHasInk(py, bl, br), bb, 1, regionH);
+
+  const padPx = Math.max(2, Math.round(opt.compositeMarginPt * renderScale));
+  const cropLeft = Math.max(0, bl - padPx), cropTop = Math.max(0, bt - padPx);
+  const cropRight = Math.min(regionW, br + padPx), cropBottom = Math.min(regionH, bb + padPx);
+  const sw = Math.max(1, cropRight - cropLeft), sh = Math.max(1, cropBottom - cropTop);
+
+  const crop = new OffscreenCanvas(sw, sh);
+  crop.getContext('2d').drawImage(full, left + cropLeft, top + cropTop, sw, sh, 0, 0, sw, sh);
+  const blob = await crop.convertToBlob({ type: 'image/png' });
+
+  // Report the grown box back in PDF-point space too (via the same
+  // viewport's inverse transform, so it stays correct under rotation), so
+  // the caller can record accurate placement/size and exclude any text that
+  // landed inside it.
+  const [gx0, gyTop] = vp.convertToPdfPoint(left + cropLeft, top + cropTop);
+  const [gx1, gyBottom] = vp.convertToPdfPoint(left + cropRight, top + cropBottom);
+  return {
+    blob, mime: 'image/png', width: sw, height: sh,
+    x0: Math.min(gx0, gx1), x1: Math.max(gx0, gx1),
+    yTop: Math.max(gyTop, gyBottom), yBottom: Math.min(gyTop, gyBottom),
+  };
+}
+
+/**
+ * Replaces tightly-clustered groups of small extracted images (>= compositeMinImages,
+ * within compositeClusterGapPt of each other) with one flattened screenshot of
+ * their combined area. Images not in a qualifying cluster pass through
+ * untouched — this only ever acts on image-to-image proximity, never on
+ * text, so the worst case is a chart that still comes out as pieces, not a
+ * paragraph accidentally swallowed into a screenshot.
+ */
+async function flattenCompositeImages(page, pageNo, images, store, log, opt) {
+  // Past the shipped default gap, the user has explicitly turned up
+  // aggressiveness via the review UI's slider — relax the minimum cluster
+  // size to match, so a plain adjacent pair merges too, not just 3+-piece
+  // clusters.
+  const minImages = opt.compositeClusterGapPt > DEFAULTS.compositeClusterGapPt
+    ? Math.min(2, opt.compositeMinImages)
+    : opt.compositeMinImages;
+  if (images.length < minImages) return images;
+
+  // `estimated` images fell back to their raw intrinsic pixel size because
+  // the CTM had no real scale to read (see readImages) — their x/y/dispW/
+  // dispH don't reliably describe where they actually sit on the page, so
+  // clustering them in would corrupt the cluster's bounding box (and can
+  // drag a real cluster's crop toward a near-blank region). Left untouched,
+  // never merged, same as a too-small cluster.
+  const clusterable = images.filter((im) => !im.estimated);
+  const unclusterable = images.filter((im) => im.estimated);
+  if (clusterable.length < minImages) return images;
+
+  const pageViewport = page.getViewport({ scale: 1 });
+  const pageWidth = pageViewport.width;
+  const pageHeight = pageViewport.height;
+  const clusters = clusterImageBoxes(clusterable, opt.compositeClusterGapPt);
+  const out = [...unclusterable];
+  let n = 0;
+
+  for (const cluster of clusters) {
+    if (cluster.length < minImages) {
+      out.push(...cluster.map((c) => c.im));
+      continue;
+    }
+
+    // A small starting box — clamped to the page — around just the raster
+    // fragments themselves; growRegionToContent() does the real work of
+    // extending it out to whatever surrounding ink (axis lines, labels,
+    // curves, a photo's border) actually belongs with it.
+    const margin = opt.compositeMarginPt;
+    const x0 = Math.max(0, Math.min(...cluster.map((c) => c.x0)) - margin);
+    const x1 = Math.min(pageWidth, Math.max(...cluster.map((c) => c.x1)) + margin);
+    const yTop = Math.min(pageHeight, Math.max(...cluster.map((c) => c.yTop)) + margin);
+    const yBottom = Math.max(0, Math.min(...cluster.map((c) => c.yBottom)) - margin);
+
+    try {
+      const shot = await growRegionToContent(page, x0, yBottom, x1, yTop, opt);
+      // pageNo is part of the id because `store` is one Map shared across
+      // every page in the document — without it, page 2's first composite
+      // and page 7's first composite would both be "img_composite_1" and
+      // the later page's write would silently clobber the earlier page's
+      // entry in the shared store.
+      const id = `img_composite_p${pageNo}_${++n}`;
+      store.set(id, { blob: shot.blob, mime: shot.mime, width: shot.width, height: shot.height });
+      const gx0 = shot.x0 ?? x0, gx1 = shot.x1 ?? x1;
+      const gyTop = shot.yTop ?? yTop, gyBottom = shot.yBottom ?? yBottom;
+      out.push({
+        id, x: gx0, y: gyTop, dispW: gx1 - gx0, dispH: gyTop - gyBottom,
+        natW: shot.width, natH: shot.height, estimated: false,
+        composite: true, mergedCount: cluster.length,
+        // Consulted by readPage() to drop text lines that fell inside this
+        // box — they're now baked into the screenshot's pixels, so keeping
+        // them as separate blocks would show them twice.
+        claimBox: { x0: gx0, x1: gx1, yTop: gyTop, yBottom: gyBottom },
+      });
+      log.push({
+        page: pageNo, objId: '(composite)', kept: true,
+        reason: `merged ${cluster.length} clustered images into one flattened figure`,
+        display: `${Math.round(gx1 - gx0)}x${Math.round(gyTop - gyBottom)}pt`,
+      });
+    } catch (e) {
+      // Rendering failed for this cluster specifically — fall back to the
+      // original separate images rather than losing them.
+      out.push(...cluster.map((c) => c.im));
+      log.push({ page: pageNo, objId: '(composite)', kept: false, reason: `error: ${e.message}` });
     }
   }
   return out;
@@ -725,9 +1263,97 @@ function mergeHeadings(blocks, opt, st = {}) {
 
     if (joinable) {
       if (concatRuns(prev.runs, b.runs)) st.headingDehyphenated = (st.headingDehyphenated || 0) + 1;
+      // Extend the bounding box down and, if the wrapped line is wider on
+      // either side, sideways too — a centred two-line title is often wider
+      // on its second line than its first.
+      const x1 = Math.max(prev.x0 + prev.width, b.x0 + b.width);
+      const yBottom = Math.min(prev.y0 - prev.height, b.y0 - b.height);
+      prev.x0 = Math.min(prev.x0, b.x0);
+      prev.width = round2(x1 - prev.x0);
+      prev.height = round2(prev.y0 - yBottom);
       prev._y = b._y;
       st.headingMerges = (st.headingMerges || 0) + 1;
       continue;
+    }
+    out.push(b);
+  }
+  return out;
+}
+
+/**
+ * Folds consecutive marker-led paragraphs (see matchListMarker/stripListMarker
+ * in buildBlocks) into a single { type: 'list' } block. Runs unconditionally
+ * over every list-marked paragraph, even a lone one with no neighbours — its
+ * marker was already stripped from the text, so it must become a one-item
+ * list rather than an ordinary paragraph silently missing its bullet.
+ */
+function mergeLists(blocks, opt, st = {}) {
+  if (!opt.detectLists) return blocks;
+  const out = [];
+
+  for (const b of blocks) {
+    if (b.type !== 'p' || !b.list) { out.push(b); continue; }
+
+    const prev = last(out);
+    if (prev?.type === 'list' && prev.ordered === (b.list === 'ordered')) {
+      prev.items.push(b.runs);
+      const x1 = Math.max(prev.x0 + prev.width, b.x0 + b.width);
+      const yBottom = Math.min(prev.y0 - prev.height, b.y0 - b.height);
+      prev.x0 = Math.min(prev.x0, b.x0);
+      prev.width = round2(x1 - prev.x0);
+      prev.height = round2(prev.y0 - yBottom);
+      st.listMerges = (st.listMerges || 0) + 1;
+    } else {
+      out.push({
+        type: 'list', page: b.page,
+        x0: b.x0, y0: b.y0, width: b.width, height: b.height,
+        ordered: b.list === 'ordered', items: [b.runs],
+      });
+    }
+  }
+
+  // A "list" of one item is the weakest possible signal — the marker match
+  // could just as easily have been an ordinary sentence starting "1) ...".
+  for (const b of out) {
+    if (b.type === 'list' && b.items.length === 1) {
+      b.confidence = 'low';
+      b.confidenceReason = 'only one item detected — this might not actually be a list';
+    }
+  }
+  return out;
+}
+
+const CAPTION_LEAD = /^(figure|fig\.?|table)\s*\.?\s*\d*\s*[:.\-–—]?\s*/i;
+
+function isCaptionCandidate(b, opt) {
+  if (!b || b.type !== 'p') return false;
+  const t = text(b).trim();
+  if (!t || t.length > opt.maxCaptionChars) return false;
+  return CAPTION_LEAD.test(t);
+}
+
+/**
+ * Folds a short "Figure N: ..." / "Table N: ..." paragraph into the
+ * image/table it's describing. The paragraph immediately *after* the figure
+ * is checked first (the common convention), falling back to the one right
+ * before it (e.g. a table introduced by its own caption line above it).
+ */
+function associateCaptions(blocks, opt, st = {}) {
+  if (!opt.detectCaptions) return blocks;
+  const out = [];
+
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.type !== 'img' && b.type !== 'table') { out.push(b); continue; }
+
+    const after = blocks[i + 1];
+    if (isCaptionCandidate(after, opt)) {
+      b.caption = after.runs;
+      i++;   // consume it — never pushed as its own paragraph
+      st.captionsFound = (st.captionsFound || 0) + 1;
+    } else if (isCaptionCandidate(out.at(-1), opt)) {
+      b.caption = out.pop().runs;
+      st.captionsFound = (st.captionsFound || 0) + 1;
     }
     out.push(b);
   }
@@ -786,6 +1412,15 @@ function tidyBlocks(blocks, opt) {
   for (const b of blocks) {
     if (b.type === 'table') {
       b.rows = b.rows.map((row) => row.map(tidy));
+      if (b.caption) b.caption = tidy(b.caption);
+      continue;
+    }
+    if (b.type === 'list') {
+      b.items = b.items.map(tidy);
+      continue;
+    }
+    if (b.type === 'img') {
+      if (b.caption) b.caption = tidy(b.caption);
       continue;
     }
     if (!b.runs) continue;
@@ -903,6 +1538,7 @@ function findRepeatedRunningText(pages, opt) {
   for (const p of pages) {
     const band = p.height * opt.marginBand;
     for (const l of p.lines) {
+      if (l.kind === 'img') continue;
       if (l.y > band && l.y < p.height - band) continue;
       const key = normalise(l.text);
       if (!key) continue;
@@ -937,6 +1573,7 @@ function modalFontSize(pages) {
   const hist = new Map();
   for (const p of pages) {
     for (const l of p.lines) {
+      if (l.kind === 'img') continue;
       const k = Math.round(l.size * 2) / 2;
       hist.set(k, (hist.get(k) || 0) + l.text.length);
     }
@@ -958,30 +1595,47 @@ function pageLeftEdge(lines) {
   return common.length ? Math.min(...common) : Math.min(...lines.map((l) => l.x0));
 }
 
-function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {}, pageWidth = 0) {
+function buildBlocks(entries, bodySize, pageNo, opt, trace = [], stats = {}, pageWidth = 0) {
   const blocks = [];
-  const kept = lines.filter((l) => !l.dropped && l.text);
+  const textKept = entries.filter((e) => e.kind === 'text' && !e.dropped && e.text);
 
-  // Margins and leading are measured per page — a document with varying
-  // leading would otherwise fall apart under one global threshold.
-  // The page's left edge is the leftmost x0 that recurs often enough to be a
-  // margin rather than an outlier. A median would drift rightwards on pages
-  // dominated by an indented block.
-  const leftMargin = pageLeftEdge(kept);
-  const gaps = [];
-  for (let i = 1; i < kept.length; i++) gaps.push(kept[i - 1].y - kept[i].y);
-  const lineGap = median(gaps.filter((g) => g > 0)) || bodySize * 1.2;
-
-  stats.leftMargin = round2(leftMargin);
-  stats.lineGap = round2(lineGap);
-
+  // Margins and leading are measured per page, per column — a multi-column
+  // page's right column starts at a completely different x than the left
+  // one, and averaging them together would break indent/blockquote math for
+  // both. Single-column pages have exactly one bucket ('L'), so this is a
+  // no-op there — identical to the old page-wide computation.
+  const colNames = [...new Set(textKept.map((l) => l.col))];
+  const marginByCol = new Map(colNames.map((c) => [c, pageLeftEdge(textKept.filter((l) => l.col === c))]));
+  const widthByCol = new Map(colNames.map((c) => {
+    const ls = textKept.filter((l) => l.col === c);
+    const w = ls.length ? Math.max(...ls.map((l) => l.x1)) - Math.min(...ls.map((l) => l.x0)) : pageWidth * 0.8;
+    return [c, w];
+  }));
+  const fallbackMargin = pageLeftEdge(textKept);
+  const fallbackWidth = textKept.length
+    ? Math.max(...textKept.map((l) => l.x1)) - Math.min(...textKept.map((l) => l.x0))
+    : pageWidth * 0.8;
+  const marginFor = (col) => marginByCol.get(col) ?? fallbackMargin;
   // Width of the text column, used to express image widths as a proportion
   // of the measure rather than as absolute points — EPUB is reflowable, so
   // "this figure filled 60% of the column" survives any screen size.
-  const contentWidth = kept.length
-    ? Math.max(...kept.map((l) => l.x1)) - Math.min(...kept.map((l) => l.x0))
-    : pageWidth * 0.8;
-  stats.contentWidth = round2(contentWidth);
+  const widthFor = (col) => widthByCol.get(col) ?? fallbackWidth;
+
+  // Gaps are only measured between consecutive lines in the *same* column —
+  // at a column transition, y jumps back up the page, and that's not a real
+  // vertical gap.
+  const gaps = [];
+  for (let i = 1; i < textKept.length; i++) {
+    if (textKept[i - 1].col !== textKept[i].col) continue;
+    const g = textKept[i - 1].y - textKept[i].y;
+    if (g > 0) gaps.push(g);
+  }
+  const lineGap = median(gaps) || bodySize * 1.2;
+
+  stats.leftMargin = round2(fallbackMargin);
+  stats.lineGap = round2(lineGap);
+  stats.contentWidth = round2(fallbackWidth);
+  stats.columns = colNames.length || 1;
 
   let para = null;
   const flush = () => {
@@ -989,6 +1643,7 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     // The paragraph's left edge is its body lines, not its first line — that
     // way a classic first-line indent resolves to an indent of zero, while a
     // block whose every line is inset keeps its offset.
+    const leftMargin = marginFor(para._col);
     const em = (para._bodyX - leftMargin) / bodySize;
     // A single line's offset is ambiguous — it could be a genuine quote or
     // just a typographic first-line indent with nothing yet to compare it
@@ -1000,7 +1655,19 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     const threshold = para._lines > 1 ? opt.indentEm : opt.minBlockIndentEm;
     if (opt.blockIndent && em >= threshold && em <= opt.maxBlockIndentEm) {
       para.indent = Math.round(em * 10) / 10;
+      // Close to either edge of the accepted range, this could as easily be
+      // an ordinary paragraph (just under threshold) or a caption/aside that
+      // overshot the ceiling — worth a second look either way.
+      if (em - threshold < 0.3 || opt.maxBlockIndentEm - em < 0.3) {
+        para.confidence = 'low';
+        para.confidenceReason = `indent of ${em.toFixed(1)}em is right at the blockquote threshold`;
+      }
     }
+    // _x1/_yBottom tracked the running extent as lines were appended (see
+    // the main loop below); turn that into the public width/height box now
+    // that the paragraph is complete. Stripped by stripInternal otherwise.
+    para.width = round2(para._x1 - para.x0);
+    para.height = round2(para.y0 - para._yBottom);
     blocks.push(para);
     para = null;
   };
@@ -1014,13 +1681,19 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     table = null;
   };
 
-  // Images are placed by vertical position, interleaved with the text flow.
-  const pending = [...images].sort((a, b) => b.y - a.y);
-  const emitImagesAbove = (y) => {
-    while (pending.length && pending[0].y >= y) {
-      const im = pending.shift();
+  let prevKept = null;
+
+  // entries already carries text lines and images in final reading order —
+  // left column top-to-bottom, then right column top-to-bottom, with any
+  // full-width rows or images interleaved at the point they actually break
+  // the columns (see groupIntoLines/mergeColumnRows) — so this loop just
+  // walks it once, with no further y-based lookahead needed.
+  for (const e of entries) {
+    if (e.kind === 'img') {
       flush();
       flushTable();
+      const im = e.img;
+      const contentWidth = widthFor(e.col);
       // width/height are the on-page display size in PDF points; widthPct is
       // that as a share of the text column, which is what the EPUB uses.
       const pct = im.estimated || !(contentWidth > 0)
@@ -1028,21 +1701,25 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
         : Math.max(5, Math.min(100, Math.round((im.dispW / contentWidth) * 100)));
       blocks.push({
         type: 'img', page: pageNo, id: im.id,
+        x0: round2(im.x), y0: round2(im.y),
         width: Math.round(im.dispW), height: Math.round(im.dispH),
         naturalWidth: im.natW, naturalHeight: im.natH,
         widthPct: pct,
+        ...(im.composite ? { composite: true, mergedCount: im.mergedCount } : {}),
+        ...(im.estimated ? {
+          confidence: 'low',
+          confidenceReason: "on-page size couldn't be read from the PDF (identity transform) — using the image's raw pixel size as a guess",
+        } : {}),
       });
       trace.push({
         page: pageNo, y: round2(im.y), decision: 'image', reason: im.id,
         text: `[${Math.round(im.dispW)}x${Math.round(im.dispH)}pt` +
               ` · ${im.natW}x${im.natH}px${pct ? ` · ${pct}%` : ''}]`,
       });
+      continue;
     }
-  };
 
-  let prevKept = null;
-
-  for (const l of lines) {
+    let l = e;
     const rec = {
       page: pageNo,
       y: round2(l.y),
@@ -1054,6 +1731,7 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
       text: l.text.slice(0, 160),
       decision: '',
       reason: '',
+      col: l.col,
     };
 
     if (l.dropped) {
@@ -1064,9 +1742,9 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     }
     if (!l.text) continue;
 
-    emitImagesAbove(l.y);
-
-    const gap = prevKept ? prevKept.y - l.y : 0;
+    const leftMargin = marginFor(l.col);
+    const sameCol = prevKept && prevKept.col === l.col;
+    const gap = sameCol ? prevKept.y - l.y : 0;
     rec.gap = round2(gap);
     rec.gapRatio = round2(gap / lineGap);
     rec.indentEm = round2((l.x0 - leftMargin) / bodySize);
@@ -1076,9 +1754,12 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     if (heading) {
       flush();
       flushTable();
+      const conf = headingConfidence(l, bodySize, heading, opt);
       blocks.push({
         type: heading, page: pageNo, runs: l.runs,
+        x0: round2(l.x0), y0: round2(l.y), width: round2(l.x1 - l.x0), height: round2(l.size),
         _size: l.size, _y: l.y, _lineGap: lineGap,
+        ...(conf.low ? { confidence: 'low', confidenceReason: conf.reason } : {}),
       });
       rec.decision = `heading:${heading}`;
       rec.reason = l.size / bodySize >= opt.h3
@@ -1101,13 +1782,14 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     }
     flushTable();
 
-    // Four independent break signals — record which one actually fired.
+    // Five independent break signals — record which one actually fired.
     // Indent and outdent are measured against the current paragraph's own
     // left edge, so entering or leaving an indented block always splits.
     const tol = bodySize * opt.indentEm;
     const ref = para ? para._bodyX : leftMargin;
     let reason = '';
     if (!para) reason = 'first line';
+    else if (para._col !== l.col) reason = 'column change';
     else if (prevKept?.tabular) reason = 'follows table row';
     else if (gap > lineGap * opt.paraGapFactor) reason = `gap ${rec.gapRatio}x lineGap`;
     else if (l.x0 > ref + tol) reason = `indent +${round2((l.x0 - ref) / bodySize)}em`;
@@ -1126,12 +1808,24 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
       // How far this paragraph sits from what precedes it, in multiples of
       // the page's median line gap — carried through to the EPUB so its
       // rendered spacing can reflect the source layout instead of a flat
-      // constant. With no real previous line to measure against (page top),
-      // there's nothing to measure, so assume an ordinary single-line gap.
-      const gapRatio = prevKept ? rec.gapRatio : 1;
-      para = { type: 'p', page: pageNo, runs: [], size: l.size, _bodyX: l.x0, _lines: 0, gapRatio };
+      // constant. With no real previous line to measure against (page top,
+      // or a column change), there's nothing to measure, so assume an
+      // ordinary single-line gap.
+      const gapRatio = sameCol ? rec.gapRatio : 1;
+      para = {
+        type: 'p', page: pageNo, runs: [], size: l.size,
+        x0: round2(l.x0), y0: round2(l.y), _x1: l.x1, _yBottom: l.y - l.size,
+        _bodyX: l.x0, _lines: 0, _col: l.col, gapRatio,
+      };
       rec.decision = 'para:new';
       rec.reason = reason;
+
+      const marker = opt.detectLists ? matchListMarker(l.text) : null;
+      if (marker) {
+        para.list = marker.kind;
+        rec.reason += ` · list:${marker.kind}`;
+        l = stripListMarker(l, marker.length);
+      }
     } else {
       rec.decision = 'para:continue';
     }
@@ -1140,6 +1834,12 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
     para._lines++;
     // From the second line on, the leftmost body line defines the edge.
     if (para._lines > 1) para._bodyX = Math.min(para._bodyX, l.x0);
+    // Bounding box grows to cover every line, not just the body/first one —
+    // this is for overlap testing (see the Block doc comment), where a
+    // block's full visual extent matters more than its text-flow margin.
+    para.x0 = Math.min(para.x0, l.x0);
+    para._x1 = Math.max(para._x1, l.x1);
+    para._yBottom = l.y - l.size;
     rec.paraIndentEm = round2((para._bodyX - leftMargin) / bodySize);
     trace.push(rec);
     prevKept = l;
@@ -1147,7 +1847,6 @@ function buildBlocks(lines, images, bodySize, pageNo, opt, trace = [], stats = {
 
   flush();
   flushTable();
-  emitImagesAbove(-Infinity);   // anything below the last line of text
   return blocks.map(({ size, ...b }) => b);
 }
 
@@ -1174,11 +1873,24 @@ function buildTableBlock(table) {
     return row;
   });
 
+  const first = table.rows[0], lastRow = table.rows.at(-1);
+  const tblX0 = round2(Math.min(...table.rows.map((r) => r.x0)));
+  const tblX1 = round2(Math.max(...table.rows.map((r) => r.x1)));
+  const tblY0 = round2(first?.y ?? 0);
+  const tblYBottom = (lastRow?.y ?? 0) - (lastRow?.size ?? 0);
+
   return {
     type: 'table', page: table.page, rows,
+    x0: tblX0, y0: tblY0, width: round2(tblX1 - tblX0), height: round2(tblY0 - tblYBottom),
     // A header styled distinctly from its data (all-bold) is common enough
     // in born-digital tables to be worth rendering as <th>.
     header: table.rows[0]?.allBold || false,
+    // A single row is the weakest possible table signal — it could just as
+    // easily be one line with unusually wide word spacing.
+    ...(table.rows.length === 1 ? {
+      confidence: 'low',
+      confidenceReason: 'only one row detected — this might be wide word spacing rather than a real table',
+    } : {}),
   };
 }
 
@@ -1216,6 +1928,57 @@ function headingLevel(line, bodySize, opt) {
   return null;
 }
 
+/**
+ * Judges how solid a heading call was: the size-based path is only as
+ * confident as its margin above the level it matched, and the all-bold
+ * same-size fallback (headingLevel's last case, no size signal at all) is
+ * always worth a second look.
+ */
+function headingConfidence(line, bodySize, heading, opt) {
+  const ratio = line.size / bodySize;
+  if (ratio < opt.h3) {
+    return { low: true, reason: 'same size as body text — flagged only because the whole line is bold' };
+  }
+  const threshold = { h1: opt.h1, h2: opt.h2, h3: opt.h3 }[heading];
+  const margin = ratio - threshold;
+  if (margin < 0.08) {
+    return { low: true, reason: `font size is only ${ratio.toFixed(2)}x body, just above the ${heading} threshold (${threshold}x)` };
+  }
+  return { low: false };
+}
+
+/* ------------------------------------------------------------------ */
+/* list markers                                                        */
+/* ------------------------------------------------------------------ */
+
+// Bullet glyphs plus the two ASCII characters commonly used as bullets by
+// tools that typeset lists with a plain marker (Pandoc, LaTeX itemize with
+// \textbullet substitutes, etc.) — deliberately excludes en/em dash, which
+// are far more likely to be dialogue punctuation than a list marker.
+// Ordered markers are digits only ("1.", "1)", "(1)") — letter/roman-numeral
+// markers ("a.", "i.") are skipped to avoid mistaking an initial or a
+// sentence starting with a single capitalised letter for a list.
+const LIST_MARKER = /^(?:([•◦▪‣●○∙·]|[-*])|(\(?\d{1,3}[.)]))\s+/;
+
+function matchListMarker(text) {
+  const m = LIST_MARKER.exec(text);
+  if (!m) return null;
+  return { kind: m[2] ? 'ordered' : 'bullet', length: m[0].length };
+}
+
+/** Removes the first `n` characters of a line's marker, across runs if needed. */
+function stripListMarker(line, n) {
+  const out = [];
+  let remaining = n;
+  for (const r of line.runs) {
+    if (remaining <= 0) { out.push(r); continue; }
+    if (r.text.length <= remaining) { remaining -= r.text.length; continue; }
+    out.push({ ...r, text: r.text.slice(remaining) });
+    remaining = 0;
+  }
+  return { ...line, runs: out, text: line.text.slice(n) };
+}
+
 /** Join a line onto a paragraph, undoing hyphenation at line breaks. */
 /** Join a line onto a paragraph, undoing hyphenation at the line break. */
 function appendLineToParagraph(para, line) {
@@ -1229,6 +1992,7 @@ function mergeAcrossPages(blocks, merge = {}) {
     const prev = last(out);
     if (
       b.type === 'p' && prev?.type === 'p' && prev.page !== b.page &&
+      !b.list &&   // a genuine new list item never continues the block before it
       (prev.indent || 0) === (b.indent || 0) &&
       !/[.!?:;»”"']\s*$/.test(text(prev)) &&
       /^[a-zà-ÿ,;)]/.test(text(b))

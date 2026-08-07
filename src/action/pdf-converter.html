@@ -10,13 +10,8 @@
 <header id="converter-header">
     <h1>🔒 PDF &rarr; EPUB</h1>
     <span id="status">Loading&hellip;</span>
-    <label id="para-gap-label" title="Controls how big a vertical gap between lines has to be before it's treated as a new paragraph instead of a continuation. Lower it if the preview is merging separate paragraphs together; raise it if it's splitting single paragraphs apart. Depends on how the source PDF was laid out.">
-        Paragraph factor
-        <input id="para-gap-factor" type="range" min="0.2" max="2.5" step="0.05" value="0.5">
-        <span id="para-gap-value">0.50</span>
-    </label>
     <div id="header-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="convert-btn" disabled>
+        <button type="button" class="btn btn-primary" id="convert-btn" disabled>
             Convert
             <span id="convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
         </button>
@@ -25,9 +20,16 @@
 
 <div id="page-body">
     <div id="privacy-note">
-        100% local &amp; private &mdash; your PDF is parsed and converted entirely on this device.
+        <strong>100% local &amp; private</strong> &mdash; your PDF is parsed and converted entirely on this device.
         Nothing is uploaded or sent anywhere, so it's a fast, efficient way to get an EPUB from a PDF
         without your file ever leaving your browser.
+    </div>
+
+    <div id="feedback-note">
+        <span>🧪 This PDF&nbsp;&rarr;&nbsp;EPUB converter is still <strong>experimental</strong>. If a specific PDF doesn't come out
+        right, please report it &mdash; since everything runs locally, Instabook can't attach your file for you, but
+        the report is pre-filled and you can drag the PDF into it once you're on GitHub.</span>
+        <a id="feedback-link" class="btn btn-warning btn-sm" href="https://github.com/bartoffw/instabook/issues/new?labels=bug" target="_blank" rel="noopener">Report an issue on GitHub</a>
     </div>
 
     <div class="alert alert-danger" id="error-content" hidden>
@@ -36,23 +38,129 @@
 
     <main id="preview">
         <div class="pane" id="pdfwrap">
-            <div class="panehead">
-                <strong>Original PDF</strong>
-                <span id="pdfinfo"></span>
+            <div class="panehead-group">
+                <div class="panehead">
+                    <strong>Original PDF</strong>
+                    <span id="pdfinfo"></span>
+                    <span class="hint">drag a rectangle over a chart/diagram to add it as one flattened image, instead of relying on automatic extraction</span>
+                    <label id="composite-detect-label" title="Clusters of small extracted images (bar segments, icons, sprite pieces that make up one chart) get merged into a single flattened screenshot. Turn off to see the raw, unmerged extraction.">
+                        <input type="checkbox" id="composite-detect" checked>
+                        Group scattered image fragments
+                    </label>
+                    <label id="composite-gap-label" title="How far apart (in PDF points) separate image fragments can be and still get merged into one flattened figure. Raise it if scattered chart pieces are being left ungrouped; lower it if unrelated images placed near each other are getting fused.">
+                        Aggressiveness
+                        <input id="composite-gap-factor" type="range" min="4" max="72" step="2" value="20">
+                        <span id="composite-gap-value">20pt</span>
+                    </label>
+                    <div class="panehead-actions">
+                        <button type="button" id="select-region-btn" class="btn btn-secondary btn-sm" disabled>Select image region</button>
+                    </div>
+                </div>
             </div>
             <div id="pdfpane"></div>
         </div>
         <div class="pane" id="parsedwrap">
-            <div class="panehead">
-                <strong>Parsed output</strong>
-                <button type="button" id="toggleside" class="btn btn-default btn-sm">hide PDF</button>
-                <button type="button" id="undo" class="btn btn-default btn-sm" disabled title="Undo">&#8630; Undo</button>
-                <button type="button" id="redo" class="btn btn-default btn-sm" disabled title="Redo">&#8631; Redo</button>
-                <span class="hint">click a block to jump to its page &middot; hover and click &times; to delete (images too) &mdash; deletions carry into the download</span>
+            <div class="panehead-group">
+                <div class="panehead">
+                    <strong>Parsed output</strong>
+                    <span class="hint">click a block to jump to its page &middot; hover and click &times; to delete (images too) &mdash; deletions carry into the download</span>
+                    <div class="panehead-actions">
+                        <button type="button" id="toggleside" class="btn btn-default btn-sm">hide PDF</button>
+                        <button type="button" id="undo" class="btn btn-default btn-sm" disabled title="Undo">&#8630; Undo</button>
+                        <button type="button" id="redo" class="btn btn-default btn-sm" disabled title="Redo">&#8631; Redo</button>
+                    </div>
+                </div>
+                <div class="panehead panehead-secondary">
+                    <label id="para-gap-label" title="Controls how big a vertical gap between lines has to be before it's treated as a new paragraph instead of a continuation. Lower it if the preview is merging separate paragraphs together; raise it if it's splitting single paragraphs apart. Depends on how the source PDF was laid out.">
+                        Paragraph factor
+                        <input id="para-gap-factor" type="range" min="0.2" max="2.5" step="0.05" value="1.5">
+                        <span id="para-gap-value">1.50</span>
+                    </label>
+                    <div class="panehead-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="diag-btn" disabled title="See what the parser decided for each line, page by page">
+                            Diagnostics
+                        </button>
+                    </div>
+                </div>
             </div>
             <div id="parsed"></div>
         </div>
     </main>
+</div>
+
+<div id="diag-overlay" hidden>
+    <div id="diag-panel">
+        <div id="diag-head">
+            <strong>Diagnostics</strong>
+            <span id="diag-summary-line"></span>
+            <button type="button" id="diag-close" class="btn btn-default btn-sm" title="Close">&times;</button>
+        </div>
+        <div id="diag-tabs">
+            <button type="button" class="diag-tab active" data-tab="trace">Per-line trace</button>
+            <button type="button" class="diag-tab" data-tab="pages">Pages</button>
+            <button type="button" class="diag-tab" data-tab="images">Images</button>
+            <button type="button" class="diag-tab" data-tab="dropped">Dropped text</button>
+        </div>
+
+        <div id="diag-trace" class="diag-view">
+            <div id="diag-controls">
+                <label>Page
+                    <select id="diag-page"></select>
+                </label>
+                <label>Filter
+                    <select id="diag-filter">
+                        <option value="">All decisions</option>
+                    </select>
+                </label>
+                <span id="diag-page-info" class="hint"></span>
+            </div>
+            <div class="diag-scroll">
+                <table id="diag-table">
+                    <thead>
+                        <tr>
+                            <th>y</th><th>x0</th><th>size</th><th>col</th>
+                            <th>decision</th><th>reason</th><th>text</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diag-rows"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="diag-pages" class="diag-view" hidden>
+            <div class="diag-scroll">
+                <table id="diag-pages-table">
+                    <thead>
+                        <tr>
+                            <th>page</th><th>columns</th><th>lines</th><th>images</th><th>blocks</th>
+                            <th>left margin</th><th>line gap</th><th>content width</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diag-pages-rows"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="diag-images" class="diag-view" hidden>
+            <div class="diag-scroll">
+                <table id="diag-images-table">
+                    <thead>
+                        <tr><th>page</th><th>kept</th><th>size</th><th>reason</th></tr>
+                    </thead>
+                    <tbody id="diag-images-rows"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="diag-dropped" class="diag-view" hidden>
+            <div class="diag-scroll">
+                <table id="diag-dropped-table">
+                    <thead><tr><th>page</th><th>text</th></tr></thead>
+                    <tbody id="diag-dropped-rows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="../scripts/browser-polyfill.min.js"></script>
