@@ -13,11 +13,30 @@
     </div>-->
     <div class="card-body" id="standard-card-body">
         <div id="book-preview">
-            <div id="bg-image"></div>
+            <div id="single-cover-carousel" class="carousel slide">
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#single-cover-carousel" data-bs-slide-to="0" class="indicator-button active" aria-current="true" aria-label="Slide 1"></button>
+                </div>
+                <div class="carousel-inner">
+                    <div class="carousel-item active">
+                        <div class="cover-image d-block"></div>
+                    </div>
+                </div>
+                <button class="carousel-control carousel-control-prev" type="button" data-bs-target="#single-cover-carousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control carousel-control-next" type="button" data-bs-target="#single-cover-carousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
             <div id="text-section">
                 <div id="edit-buttons">
                     <label for="edit-title" id="edit-title-btn" class="edit-btn" title="Change the title">&#9998;</label>
                     <label id="revert-title-btn" class="edit-btn" title="Revert to original title">&#8630;</label>
+                    <label for="cover-file-input" id="upload-cover-btn" class="edit-btn" title="Use your own cover image">&#128247;</label>
+                    <label id="revert-cover-btn" class="edit-btn" title="Remove the uploaded image and go back to the ones found on the page">&#10006;</label>
                 </div>
                 <h1 id="page-title"></h1>
                 <textarea id="edit-title"></textarea>
@@ -156,7 +175,7 @@
         </div>
         <div class="position-absolute top-50 start-50 translate-middle" id="extension-version">
             <a href="https://instabook.site/" target="_blank">
-                <small>Instabook v1.3</small>
+                <small>Instabook v1.4</small>
             </a>
         </div>
         <div class="position-absolute top-50 start-100 translate-middle" id="extension-settings">
@@ -170,11 +189,13 @@
     </div>
 </div>
 <input type="file" id="pdf-file-input" accept="application/pdf" style="display:none">
+<input type="file" id="cover-file-input" accept="image/*" style="display:none">
 <script src="../scripts/browser-polyfill.min.js"></script>
 <script src="../scripts/jquery.min.js"></script>
 <script src="../scripts/bootstrap.bundle.min.js"></script>
 <script src="../scripts/storage.js"></script>
 <script src="../scripts/md5.js"></script>
+<script src="../scripts/titles.js"></script>
 <script src="./popup.js"></script>
 </body>
 </html>

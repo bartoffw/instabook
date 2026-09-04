@@ -134,7 +134,7 @@ body {
     position: relative;
     margin-bottom: 0.5em;
 }
-#bg-image, #text-section,
+#text-section,
 #chapters-text-section {
     position: absolute;
     top: 0;
@@ -142,7 +142,6 @@ body {
     right: 0;
     bottom: 0;
 }
-#bg-image,
 .cover-image {
     background-position: bottom;
     background-repeat: no-repeat;
@@ -151,25 +150,41 @@ body {
 #cover-carousel,
 #cover-carousel .carousel-inner,
 #cover-carousel .carousel-item,
-#cover-carousel .cover-image {
+#cover-carousel .cover-image,
+#single-cover-carousel,
+#single-cover-carousel .carousel-inner,
+#single-cover-carousel .carousel-item,
+#single-cover-carousel .cover-image {
     width: 100%;
     height: 100%;
+}
+.carousel-indicators {
+    flex-wrap: wrap;
 }
 .carousel-indicators .indicator-button {
     border: 1px solid #888;
 }
 #cover-carousel .carousel-control-prev,
-#cover-carousel .carousel-control-next {
+#cover-carousel .carousel-control-next,
+#single-cover-carousel .carousel-control-prev,
+#single-cover-carousel .carousel-control-next {
     background-color: #ccc;
 }
 .carousel-indicators, .carousel-control {
     display: none;
 }
-#chapters-book-preview:hover .carousel-indicators {
+#chapters-book-preview:hover .carousel-indicators,
+#book-preview:hover .carousel-indicators {
     display: flex;
 }
-#chapters-book-preview:hover .carousel-control {
+#chapters-book-preview:hover .carousel-control,
+#book-preview:hover .carousel-control {
     display: block;
+}
+/* a single cover leaves nothing to pick from */
+#book-preview.single-cover:hover .carousel-indicators,
+#book-preview.single-cover:hover .carousel-control {
+    display: none;
 }
 h1, h2, h3 {
     margin: 0;
@@ -205,6 +220,7 @@ h2, h3 {
     font-weight: bold;
 }
 #page-title, #revert-title-btn,
+#upload-cover-btn, #revert-cover-btn,
 #chapters-page-title, #chapters-revert-title-btn,
 #downloaded-from, #chapters-downloaded-from {
     cursor: pointer;
@@ -219,6 +235,10 @@ h2, h3 {
     padding: 0 0.3em;
     font-size: 0.8em;
     background-color: rgba(255, 255, 255, 0.5);
+}
+/* shown only once an image has been uploaded for this page */
+#revert-cover-btn {
+    display: none;
 }
 #page-title:hover,
 #chapters-page-title:hover {

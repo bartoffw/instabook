@@ -41,6 +41,15 @@ class Epub {
     #bookId;
     #bookLanguage = 'en';
     #bookReadTime = null;
+    #defaultCoverUrl = '';
+
+    /**
+     * Scripts that don't separate words with spaces (CJK, Thai) - their reading
+     * speed is measured in characters per minute instead of words per minute.
+     */
+    static noSpacingScript = /[\u3001-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff01-\uff9f\u0e00-\u0e7f]/g;
+    static charsPerMinute = 400;
+    static minCoverImageSize = 100;
 
     #allowedImgExtensions = ['png', 'jpg', 'gif', 'webp', 'bmp', 'tif', 'wbmp', 'jng', 'svg', 'heic'];
     #titleKey = 'customTitle';
@@ -80,13 +89,15 @@ class Epub {
             if (optionsKeys.includes('sourceUrl')) {
                 this.#singleCover.sourceUrls.push(options.sourceUrl);
             }
-            if (optionsKeys.includes('defaultCoverUrl')) {
+            if (optionsKeys.includes('defaultCoverUrl') && options.defaultCoverUrl) {
+                this.#defaultCoverUrl = options.defaultCoverUrl;
                 this.#singleCover.coverImages.push(options.defaultCoverUrl);
                 this.#singleCover.selectedCover = 0;
             }
-            if (optionsKeys.includes('coverImage')) {
+            // the image picked in the popup (or uploaded by the user) wins over the built-in cover
+            if (optionsKeys.includes('coverImage') && options.coverImage) {
                 this.#singleCover.coverImages.push(options.coverImage);
-                this.#singleCover.selectedCover = 1;
+                this.#singleCover.selectedCover = this.#singleCover.coverImages.length - 1;
             }
             this.#dividerUrl = optionsKeys.includes('dividerUrl') ? options.dividerUrl : '';
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
@@ -103,6 +114,9 @@ class Epub {
                 (new DOMParser()).parseFromString(this.#singleChapter.html, 'text/html'),
                 this.#singleChapter.iframes
             );
+            // Readability strips the document while parsing, so the images of the whole
+            // page have to be gathered beforehand - they are the extra cover candidates
+            this.#singleChapter.pageImages = Epub.collectPageImages(this.#singleChapter.docClone);
             this.#singleChapter.readability =
                 new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments });
             this.#singleChapter.parsedContent = this.#singleChapter.readability.parse();
@@ -116,6 +130,8 @@ class Epub {
             this.#hideDownloadedFrom = optionsKeys.includes('hideDownloadedFrom') ? options.hideDownloadedFrom : false;
 
             if (this.#cover.coverImages.length > 0) {
+                // in the chapters mode the built-in cover always sits at the first position
+                this.#defaultCoverUrl = this.#cover.coverImages[0];
                 this.#cover.coverImage = this.#cover.selectedCover in this.#cover.coverImages ?
                     this.#cover.coverImages[this.#cover.selectedCover] :
                     this.#cover.coverImages[0];
@@ -139,12 +155,28 @@ class Epub {
         const details = this.chapterDetails;
         return {
             cover: details.coverUrl,
+            covers: details.coverUrls,
+            pageCovers: details.pageCoverUrls,
             image: Epub.getAbsoluteUrl(details.coverUrl, details.currentUrl),
             content: details.parsedContent.content,
-            readTime: this.estimateReadingTime(details.content),
+            readTime: this.estimateReadingTime(details.plainContent),
             author: Epub.stripHtml(details.parsedContent.byline)
             //images: imgUrls
         };
+    }
+
+    /**
+     * The name a chapter goes by in the generated file. The shortened name is only
+     * used when the setting asks for it, when there is one, and when the user hasn't
+     * given the chapter a name of their own.
+     *
+     * @param chapter
+     * @returns {string}
+     */
+    chapterTitle(chapter) {
+        return this.#shortenTitles && !chapter.titleEdited &&
+            typeof chapter.cleanTitle === 'string' && chapter.cleanTitle !== '' ?
+                chapter.cleanTitle : chapter.title;
     }
 
     prepareContent(parsedContent, chapter, addTitle = false) {
@@ -153,19 +185,14 @@ class Epub {
         );
         parsedContent.content = '<?xml version="1.0" encoding="UTF-8" ?>\n' +
             '<!DOCTYPE html>\n' +
-            '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + parsedContent.lang + '" lang="' + parsedContent.lang + '" >\n' +
+            '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + Epub.escapeXml(parsedContent.lang) +
+                '" lang="' + Epub.escapeXml(parsedContent.lang) + '" >\n' +
             '<head>\n' +
             '  <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
-            '  <title>' + Epub.stripHtml(
-                chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
-                    chapter.cleanTitle : chapter.title
-            ) + '</title>\n' +
+            '  <title>' + Epub.xmlText(this.chapterTitle(chapter)) + '</title>\n' +
             '</head>\n' +
             '<body>\n' +
-            (addTitle ? '  <h2 class="chapter-title">' + Epub.stripHtml(
-                chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
-                    chapter.cleanTitle : chapter.title
-            ) + '</h2>\n' : '') +
+            (addTitle ? '  <h2 class="chapter-title">' + Epub.xmlText(this.chapterTitle(chapter)) + '</h2>\n' : '') +
             parsedContent.content + '\n' +
             '</body>\n' +
             '</html>';
@@ -208,8 +235,12 @@ class Epub {
 
         // handle images
         if (this.coverImage) {
+            // the built-in cover and the image uploaded by the user are already usable as they are,
+            // anything coming from the page has to be resolved against it and fetched via the proxy
+            const coverUrl = this.coverImage === this.#defaultCoverUrl ?
+                this.coverImage : Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.jpg', imageContentPromise(Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl), true), { binary: true });
+            zip.file('OEBPS/images/cover.jpg', imageContentPromise(coverUrl, true), { binary: true });
             if (this.#hasChapters) {
                 this.#cover.coverPath = 'images/cover.jpg';
             } else {
@@ -417,6 +448,38 @@ class Epub {
         return div.textContent || div.innerText || '';
     }
 
+    /**
+     * Escapes the text so that it can be put into the generated files. Those are
+     * XML, not HTML, and a reader refuses to open the whole book over a single
+     * ampersand of a page title, so everything coming from a page goes through here.
+     *
+     * @param content
+     * @returns {string}
+     */
+    static escapeXml(content) {
+        if (content === null || typeof content === 'undefined') {
+            return '';
+        }
+        return String(content)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Turns a piece of text of unknown origin - a page title or an author name -
+     * into something that can be dropped into the generated files: the markup is
+     * taken out first, then whatever is left of it is escaped.
+     *
+     * @param content
+     * @returns {string}
+     */
+    static xmlText(content) {
+        return Epub.escapeXml(Epub.stripHtml(content));
+    }
+
     getContainerXml() {
         return '<?xml version="1.0"?>\n' +
             '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n' +
@@ -453,15 +516,15 @@ class Epub {
             (this.coverImage ?
             '   <meta name="cover" content="cover_img" />\n' : '') +
             '   <dc:type>Web page</dc:type>\n' +
-            '   <dc:title>' + this.bookTitle + '</dc:title>' +
+            '   <dc:title>' + Epub.escapeXml(this.bookTitle) + '</dc:title>' +
             (this.author.length > 0 ?
-            '   <dc:creator>' + this.author + '</dc:creator>\n' : '') +
-            '   <dc:description>Read time: ' + this.bookReadTime + '</dc:description>\n' +
+            '   <dc:creator>' + Epub.escapeXml(this.author) + '</dc:creator>\n' : '') +
+            '   <dc:description>Read time: ' + Epub.escapeXml(this.bookReadTime) + '</dc:description>\n' +
             '   <dc:identifier id="book-id">' + this.#bookId + '</dc:identifier>\n' +
             '   <dc:publisher>Instabook (https://instabook.site)</dc:publisher>\n' +
             '   <meta property="dcterms:modified">2024-10-15T23:46:34Z</meta>\n' + // FIXME - modified date
-            '   <dc:language>' + this.bookLanguage + '</dc:language>\n' +
-            '   <dc:source>' + this.coverSourceUrls.join(', ') + '</dc:source>\n' +
+            '   <dc:language>' + Epub.escapeXml(this.bookLanguage) + '</dc:language>\n' +
+            '   <dc:source>' + Epub.escapeXml(this.coverSourceUrls.join(', ')) + '</dc:source>\n' +
             '</metadata>\n' +
             '<manifest>\n' +
             '   <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml" />\n' +
@@ -502,10 +565,7 @@ class Epub {
                 chapters +=
                     '   <navPoint class="text" id="navPoint-' + (index + 1) + '" playOrder="' + (index + 2) + '">\n' +
                     '       <navLabel>\n' +
-                    '           <text>' + (
-                                    chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
-                                        chapter.cleanTitle : chapter.title
-                                ) + '</text>\n' +
+                    '           <text>' + Epub.xmlText(this.chapterTitle(chapter)) + '</text>\n' +
                     '       </navLabel>\n' +
                     '       <content src="pages/chapter' + index + '.xhtml"></content>\n' +
                     '   </navPoint>\n';
@@ -522,7 +582,7 @@ class Epub {
         }
 
         return '<?xml version="1.0" encoding="UTF-8" ?>\n' +
-            '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="' + this.bookLanguage + '">\n' +
+            '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="' + Epub.escapeXml(this.bookLanguage) + '">\n' +
             '<head>\n' +
             '   <meta name="dtb:uid" content="' + this.#bookId + '"/>\n' +
             '   <meta name="dtb:depth" content="1"/>\n' +
@@ -530,10 +590,10 @@ class Epub {
             '   <meta name="dtb:maxPageNumber" content="0"/>\n' +
             '</head>\n' +
             '<docTitle>\n' +
-            '   <text>' + this.bookTitle + '</text>\n' +
+            '   <text>' + Epub.escapeXml(this.bookTitle) + '</text>\n' +
             '</docTitle>\n' +
             '<docAuthor>\n' +
-            '   <text>' + this.author + '</text>\n' +
+            '   <text>' + Epub.escapeXml(this.author) + '</text>\n' +
             '</docAuthor>\n' +
             '<navMap>\n' +
             '   <navPoint class="cover" id="navPoint-titlepage" playOrder="1">\n' +
@@ -559,10 +619,8 @@ class Epub {
             for (const chapterKey of chaptersKeys) {
                 const chapter = this.#chapters[chapterKey];
                 chapters.push(
-                    '           <li><a href="pages/chapter' + index + '.xhtml">' + Epub.stripHtml(
-                    chapter.shortenTitles && typeof chapter.cleanTitle !== 'undefined' && chapter.cleanTitle !== '' ?
-                            chapter.cleanTitle : chapter.title
-                    ) + '</a></li>\n'
+                    '           <li><a href="pages/chapter' + index + '.xhtml">' +
+                        Epub.xmlText(this.chapterTitle(chapter)) + '</a></li>\n'
                 );
                 index++;
             }
@@ -571,7 +629,7 @@ class Epub {
                 '           <li><a href="pages/cover.xhtml">Cover Page</a></li>\n'
             );
             chapters.push(
-                '           <li><a href="pages/content.xhtml">' + Epub.stripHtml(this.#singleChapter.title) + '</a></li>\n'
+                '           <li><a href="pages/content.xhtml">' + Epub.xmlText(this.#singleChapter.title) + '</a></li>\n'
             );
         }
 
@@ -595,9 +653,10 @@ class Epub {
     getCover() {
         return '<?xml version="1.0" encoding="UTF-8" ?>\n' +
             '<!DOCTYPE html>\n' +
-            '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + this.bookLanguage + '" lang="' + this.bookLanguage + '" >\n' +
+            '<html xmlns="http://www.w3.org/1999/xhtml"  xml:lang="' + Epub.escapeXml(this.bookLanguage) +
+                '" lang="' + Epub.escapeXml(this.bookLanguage) + '" >\n' +
             '<head>\n' +
-            '   <title>' + this.bookTitle + '</title>\n' +
+            '   <title>' + Epub.escapeXml(this.bookTitle) + '</title>\n' +
             '   <link rel="stylesheet" href="../styles/ebook.css" type="text/css" />\n' +
             '</head>\n' +
             '<body>\n' +
@@ -649,7 +708,7 @@ class Epub {
     }
 
     estimateReadingTime(plainText, wpm = 200, inMinutes = true) {
-        const totalWords = plainText.trim().split(/\s+/).length;
+        const totalWords = Epub.countWords(plainText, wpm);
         const totalMinutes = Math.floor(totalWords / wpm);
         if (inMinutes) {
             return totalMinutes;
@@ -663,92 +722,142 @@ class Epub {
     }
 
     /**
+     * Counts the words of the text, expressed in the units the reading speed uses.
+     * Japanese, Chinese and Thai don't put spaces between the words, so splitting
+     * on whitespace counts a whole article as a single word - those scripts are
+     * counted per character instead and converted to a word equivalent, so that
+     * articles mixing several languages still add up correctly.
+     *
+     * @param plainText
+     * @param wpm words per minute of the space separated part of the text
+     * @param cpm characters per minute of the part written without spacing
+     * @returns {number}
+     */
+    static countWords(plainText, wpm = 200, cpm = Epub.charsPerMinute) {
+        const text = typeof plainText === 'string' ? plainText.trim() : '';
+        if (text.length === 0) {
+            return 0;
+        }
+        const charCount = (text.match(Epub.noSpacingScript) || []).length,
+            wordCount = text.replace(Epub.noSpacingScript, ' ')
+                .split(/\s+/).filter((word) => word.length > 0).length;
+        return wordCount + charCount * (wpm / cpm);
+    }
+
+    /**
      * Prepares the cover image for the epub
      * @param imageUrl
      * @returns {Promise<unknown>}
      */
     prepareCoverImage(imageUrl) {
         const that = this;
-        // from: https://pqina.nl/blog/cropping-images-to-an-aspect-ratio-with-javascript/
         return new Promise((resolve) => {
-            const aspectRatio = 0.75; // 4:3 ratio in portrait mode
-            const coverHeight = 568;
-            const coverWidth = 426;
-
             const inputImage = new Image();
+            let usedFallback = false;
             inputImage.crossOrigin = 'anonymous';
             inputImage.onerror = () => {
-                if (that.#hasChapters) {
-                    that.#cover.coverImage = that.#cover.coverImages[0];
-                } else {
-                    that.#singleCover.coverImage = that.#singleCover.coverImages[0];
+                // the picked image could not be fetched - fall back to the built-in cover,
+                // but only once, so an unreachable fallback doesn't loop forever
+                if (usedFallback || that.#defaultCoverUrl.length === 0 || imageUrl === that.#defaultCoverUrl) {
+                    console.error('Could not load the cover image:', imageUrl);
+                    that.renderCoverImage(null).then(resolve);
+                    return;
                 }
-                imageUrl = that.coverImage;
-                inputImage.src = that.coverImage;
+                usedFallback = true;
+                if (that.#hasChapters) {
+                    that.#cover.coverImage = that.#defaultCoverUrl;
+                } else {
+                    that.#singleCover.coverImage = that.#defaultCoverUrl;
+                }
+                imageUrl = that.#defaultCoverUrl;
+                inputImage.src = imageUrl;
             };
             inputImage.onload = () => {
-                // let's store the width and height of our image
-                const inputWidth = inputImage.naturalWidth;
-                const inputHeight = inputImage.naturalHeight;
-
-                // get the aspect ratio of the input image
-                const inputImageAspectRatio = inputWidth / inputHeight;
-
-                let croppedWidth = inputWidth;
-                let croppedHeight = inputHeight;
-                // if it's bigger than our target aspect ratio
-                if (inputImageAspectRatio > aspectRatio) {
-                    croppedWidth = inputHeight * aspectRatio;
-                } else if (inputImageAspectRatio < aspectRatio) {
-                    croppedHeight = inputWidth / aspectRatio;
-                }
-                const inputX = (inputWidth - croppedWidth) * 0.5;
-                const inputY = (inputHeight - croppedHeight) * 0.5;
-
-                // create a canvas that will present the output image
-                const outputImage = document.createElement('canvas');
-
-                // set it to the same size as the cover image
-                outputImage.width = coverWidth;
-                outputImage.height = coverHeight;
-
-                // draw our image at position 0, 0 on the canvas
-                const ctx = outputImage.getContext('2d');
-                ctx.drawImage(inputImage,
-                    inputX, inputY, croppedWidth, croppedHeight,
-                    0, 0, coverWidth, coverHeight);
-
-                // add text on the image
-                let currentPosY = 0;
-                currentPosY = that.drawTitle(
-                    ctx, that.bookTitle, 20, 'small-caps bold', 30, coverWidth,
-                    coverHeight * 0.05, 'rgba(255, 255, 255, 0.6)'
-                );
-                if (this.author.length > 0) {
-                    currentPosY = that.drawTitle(
-                        ctx, this.author, 13, 'bold', 23, coverWidth,
-                        currentPosY, 'rgba(255, 255, 255, 0.6)'
-                    );
-                }
-                currentPosY = that.drawTitle(
-                    ctx, 'Read time: ' + that.bookReadTime, 12, '', 22, coverWidth,
-                    currentPosY, 'rgba(255, 255, 255, 0.6)'
-                );
-                if (!this.#hideDownloadedFrom) {
-                    that.drawTitle(
-                        ctx, 'Downloaded from ' + that.sourceDomain, 12, '', 22, coverWidth,
-                        currentPosY, 'rgba(255, 255, 255, 0.6)'
-                    );
-                }
-
-                // https://stackoverflow.com/questions/57403688/how-can-i-implement-word-wrap-and-carriage-returns-in-canvas-filltext
-                // https://stackoverflow.com/questions/49614129/wrap-text-within-rect-without-overflowing-it-fiddle-canvas-html5
-
-                outputImage.toBlob((blob) => {
-                    resolve(blob);
-                }, 'image/jpeg', 0.85);
+                that.renderCoverImage(inputImage).then(resolve);
             };
             inputImage.src = imageUrl;
+        });
+    }
+
+    /**
+     * Crops the image to the cover proportions and draws the book details on top of it.
+     * A missing image results in a plain cover holding just the details.
+     *
+     * @param inputImage
+     * @returns {Promise<Blob>}
+     */
+    renderCoverImage(inputImage) {
+        // from: https://pqina.nl/blog/cropping-images-to-an-aspect-ratio-with-javascript/
+        const aspectRatio = 0.75; // 4:3 ratio in portrait mode
+        const coverHeight = 568;
+        const coverWidth = 426;
+
+        // create a canvas that will present the output image
+        const outputImage = document.createElement('canvas');
+
+        // set it to the same size as the cover image
+        outputImage.width = coverWidth;
+        outputImage.height = coverHeight;
+
+        const ctx = outputImage.getContext('2d');
+        if (inputImage === null) {
+            ctx.fillStyle = '#e8e2d5';
+            ctx.fillRect(0, 0, coverWidth, coverHeight);
+        } else {
+            // let's store the width and height of our image
+            const inputWidth = inputImage.naturalWidth;
+            const inputHeight = inputImage.naturalHeight;
+
+            // get the aspect ratio of the input image
+            const inputImageAspectRatio = inputWidth / inputHeight;
+
+            let croppedWidth = inputWidth;
+            let croppedHeight = inputHeight;
+            // if it's bigger than our target aspect ratio
+            if (inputImageAspectRatio > aspectRatio) {
+                croppedWidth = inputHeight * aspectRatio;
+            } else if (inputImageAspectRatio < aspectRatio) {
+                croppedHeight = inputWidth / aspectRatio;
+            }
+            const inputX = (inputWidth - croppedWidth) * 0.5;
+            const inputY = (inputHeight - croppedHeight) * 0.5;
+
+            // draw our image at position 0, 0 on the canvas
+            ctx.drawImage(inputImage,
+                inputX, inputY, croppedWidth, croppedHeight,
+                0, 0, coverWidth, coverHeight);
+        }
+
+        // add text on the image
+        let currentPosY = 0;
+        currentPosY = this.drawTitle(
+            ctx, this.bookTitle, 20, 'small-caps bold', 30, coverWidth,
+            coverHeight * 0.05, 'rgba(255, 255, 255, 0.6)'
+        );
+        if (this.author.length > 0) {
+            currentPosY = this.drawTitle(
+                ctx, this.author, 13, 'bold', 23, coverWidth,
+                currentPosY, 'rgba(255, 255, 255, 0.6)'
+            );
+        }
+        currentPosY = this.drawTitle(
+            ctx, 'Read time: ' + this.bookReadTime, 12, '', 22, coverWidth,
+            currentPosY, 'rgba(255, 255, 255, 0.6)'
+        );
+        if (!this.#hideDownloadedFrom) {
+            this.drawTitle(
+                ctx, 'Downloaded from ' + this.sourceDomain, 12, '', 22, coverWidth,
+                currentPosY, 'rgba(255, 255, 255, 0.6)'
+            );
+        }
+
+        // https://stackoverflow.com/questions/57403688/how-can-i-implement-word-wrap-and-carriage-returns-in-canvas-filltext
+        // https://stackoverflow.com/questions/49614129/wrap-text-within-rect-without-overflowing-it-fiddle-canvas-html5
+
+        return new Promise((resolve) => {
+            outputImage.toBlob((blob) => {
+                resolve(blob);
+            }, 'image/jpeg', 0.85);
         });
     }
 
@@ -906,20 +1015,41 @@ class Epub {
 
     get chapterDetails() {
         const chapter = this.firstChapter;
-        let content, cleanContent, currentUrl, coverUrl;
+        const content = chapter.parsedContent.content,
+            cleanContent = Epub.cleanupContent(content),
+            currentUrl = chapter.currentUrl;
 
-        content = chapter.parsedContent.content;
-        cleanContent = Epub.cleanupContent(content);
+        // every image of the article is a cover candidate, the article image (og:image)
+        // comes first, the remaining ones follow the order they appear in the article
+        let coverUrls = [];
         const ogImg = $(chapter.docClone).find('meta[property="og:image"]:eq(0)');
-        const img = $(cleanContent).find('img:eq(0)');
-        coverUrl = ogImg.length > 0 ? ogImg.attr('content') : (img.length > 0 ? img.attr('src') : '');
-        //img = $(parsedContent).find('img:eq(0)');
-        currentUrl = chapter.currentUrl;
+        if (ogImg.length > 0 && typeof ogImg.attr('content') !== 'undefined' && ogImg.attr('content').trim().length > 0) {
+            coverUrls.push(ogImg.attr('content').trim());
+        }
+        $('<div />', { html: cleanContent }).find('img').each(function () {
+            const src = $(this).attr('src');
+            if (typeof src !== 'undefined' && src.trim().length > 0 && !coverUrls.includes(src.trim())) {
+                coverUrls.push(src.trim());
+            }
+        });
+
+        // images living outside the extracted article (a lead photo above the text is
+        // a common one) are offered as well, after all the images of the article itself
+        let pageCoverUrls = [];
+        for (const url of Array.isArray(chapter.pageImages) ? chapter.pageImages : []) {
+            if (!coverUrls.includes(url) && !pageCoverUrls.includes(url)) {
+                pageCoverUrls.push(url);
+            }
+        }
 
         return {
-            coverUrl: coverUrl,
+            coverUrl: coverUrls.length > 0 ? coverUrls[0] : '',
+            coverUrls: coverUrls,
+            pageCoverUrls: pageCoverUrls,
             currentUrl: currentUrl,
             content: content,
+            plainContent: typeof chapter.parsedContent.textContent === 'string' ?
+                chapter.parsedContent.textContent : Epub.stripHtml(content),
             parsedContent: chapter.parsedContent
         };
     }
@@ -976,6 +1106,42 @@ class Epub {
         return inputStr;
     }
 
+    /**
+     * Collects the images of the whole page, so that a cover can also be picked from
+     * outside the article extracted by Readability. The page furniture (logos, icons
+     * and banners of the header, the menu and the footer) is left out, and so are the
+     * images the markup itself declares as too small to make a decent cover.
+     *
+     * @param doc document to search, before Readability gets to strip it
+     * @returns {string[]}
+     */
+    static collectPageImages(doc) {
+        let urls = [];
+        $(doc).find('img').each(function () {
+            const src = $(this).attr('src');
+            if (typeof src === 'undefined' || src.trim().length === 0 || urls.includes(src.trim())) {
+                return;
+            }
+            if ($(this).closest('footer, nav, aside, [role="navigation"], [role="contentinfo"]').length > 0) {
+                return;
+            }
+            // a header is only skipped when it belongs to the page rather than to the
+            // article itself, as that is exactly where a lead photo often sits
+            const header = $(this).closest('header, [role="banner"]');
+            if (header.length > 0 && header.closest('article, main, [role="main"]').length === 0) {
+                return;
+            }
+            const width = parseInt($(this).attr('width'), 10),
+                height = parseInt($(this).attr('height'), 10);
+            if ((!isNaN(width) && width < Epub.minCoverImageSize) ||
+                (!isNaN(height) && height < Epub.minCoverImageSize)) {
+                return;
+            }
+            urls.push(src.trim());
+        });
+        return urls;
+    }
+
     static biggestImage(image, currentUrl) {
         let url, srcSet = $(image).attr('srcset');
         if (typeof srcSet !== 'undefined') {
@@ -1030,7 +1196,7 @@ class Epub {
             if (timeInMinutes > 0) {
                 result += (result.length > 0 ? ' ' : '') + timeInMinutes + (timeInMinutes === 1 ? ' minute' : ' minutes');
             }
-            return result;
+            return result.length > 0 ? result : 'less than a minute';
         }
     }
 

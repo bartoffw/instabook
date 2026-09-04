@@ -4,6 +4,9 @@
 
     let imageList = {};
 
+    // more than that turns the cover carousel into an unusable strip of dots
+    const maxCoverCandidates = 12;
+
     console.log('Welcome to Instabook!');
 
 browser.runtime.onMessage.addListener(request => {
@@ -74,6 +77,11 @@ browser.runtime.onMessage.addListener(request => {
             includeComments: request.includeComments
         });
         let parsedInfo = epub.check();
+        // only images big enough to make a decent cover are offered in the popup
+        parsedInfo.covers = filterCoverCandidates(parsedInfo.covers, parsedInfo.pageCovers, getCurrentUrl());
+        delete parsedInfo.pageCovers;
+        parsedInfo.cover = parsedInfo.covers.length > 0 ? parsedInfo.covers[0] : '';
+        parsedInfo.image = Epub.getAbsoluteUrl(parsedInfo.cover, getCurrentUrl());
         // try finding embedded iframes
         parsedInfo.iframes = [];
         $(document.documentElement.outerHTML).find('iframe').each(function () {
@@ -87,6 +95,59 @@ browser.runtime.onMessage.addListener(request => {
         })*/
     }
 });
+
+/**
+ * Drops the cover candidates that are too small to be used as a cover image.
+ * Sizes are taken from the live document, as the images of the parsed article
+ * are never loaded and therefore report no dimensions at all.
+ *
+ * Candidates coming from the article are kept even when nothing in the document
+ * matches them (the og:image usually) - the popup verifies those while loading
+ * them into the carousel. The ones found elsewhere on the page are only added
+ * when they really are big enough, so that no page furniture sneaks in.
+ *
+ * @param covers list of image urls found in the article
+ * @param pageCovers list of image urls found outside of the article
+ * @param currentUrl
+ * @returns {string[]}
+ */
+function filterCoverCandidates(covers, pageCovers, currentUrl) {
+    let sizes = {};
+    $('img').each(function () {
+        if (this.naturalWidth > 0 && this.naturalHeight > 0) {
+            const size = { width: this.naturalWidth, height: this.naturalHeight };
+            for (const url of [ Epub.getAbsoluteUrl(this.src, currentUrl, false), Epub.biggestImage(this, currentUrl) ]) {
+                if (url && !(url in sizes)) {
+                    sizes[url] = size;
+                }
+            }
+        }
+    });
+
+    let filtered = [];
+    const addCandidates = (candidates, keepUnknownSize) => {
+        if (!Array.isArray(candidates)) {
+            return;
+        }
+        for (const cover of candidates) {
+            if (filtered.length >= maxCoverCandidates) {
+                return;
+            }
+            const url = Epub.getAbsoluteUrl(cover, currentUrl, false);
+            if (!url || filtered.includes(url)) {
+                continue;
+            }
+            const size = sizes[url];
+            if (typeof size === 'undefined' ? keepUnknownSize :
+                (size.width >= Epub.minCoverImageSize && size.height >= Epub.minCoverImageSize)) {
+                filtered.push(url);
+            }
+        }
+    };
+    addCandidates(covers, true);
+    addCandidates(pageCovers, false);
+    return filtered;
+}
 
 /**
  * Get page data required to generate the complete epub file

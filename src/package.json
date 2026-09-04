@@ -1,12 +1,13 @@
 {
   "name": "Instabook",
   "private": true,
-  "version": "1.3",
+  "version": "1.4",
   "type": "module",
   "config": {
 
   },
   "scripts": {
+    "test": "node tests/titles.test.cjs && node tests/epub-xml.test.cjs",
     "clean:firefox": "rm -rf dist/firefox/*",
     "clean:chrome": "rm -rf dist/chrome/*",
     "clean": "npm run clean:firefox && npm run clean:chrome",

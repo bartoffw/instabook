@@ -8,12 +8,25 @@ let pageUrl = '',
     currentSettings = {},
     isChapterMode = false,
     coverCarousel = null,
-    carouselElement = {};
+    carouselElement = {},
+    /** single article mode cover images **/
+    foundCoverImages = [],
+    coverImages = [],
+    selectedCoverImage = 0,
+    customCoverImage = null,
+    singleCoverCarousel = null;
 
 const titleKey = 'customTitle',
+    coverImageKey = 'selectedCoverImage',
+    customCoverKey = 'customCoverImage',
     chaptersKey = 'instabookChapters',
     coverKey = 'instabookCover',
     settingsKey = 'instabookSettings',
+    minCoverImageSize = 100,
+    // uploaded covers are downscaled before they are stored and sent over
+    maxCoverImageSize = 1600,
+    maxCoverFileSize = 20 * 1024 * 1024,
+    coverCheckTimeout = 4000,
     defaultSettings = {
         includeComments: false,
         shortenTitles: false
@@ -140,6 +153,12 @@ document.addEventListener('click', (event) => {
         Storage.deleteValue(pageUrl, titleKey);
         displayTitle(pageTitle, false);
     }
+    else if (event.target.id === 'revert-cover-btn') {
+        customCoverImage = null;
+        Storage.deleteValue(pageUrl, customCoverKey);
+        Storage.deleteValue(pageUrl, coverImageKey);
+        refreshCoverImages();
+    }
     else if (event.target.id === 'chapters-page-title') {
         $('#chapters-edit-title').val($('#chapters-page-title').text());
         $('#chapters-edit-title').css('height', ($('#chapters-page-title').height() + 25) + 'px');
@@ -237,6 +256,13 @@ document.addEventListener('change', (event) => {
         event.target.value = '';   // allow re-picking the same filename later
         if (file) {
             handlePdfFileSelected(file);
+        }
+    }
+    else if (event.target.id === 'cover-file-input') {
+        const file = event.target.files[0];
+        event.target.value = '';   // allow re-picking the same filename later
+        if (file) {
+            handleCoverFileSelected(file);
         }
     }
 });
@@ -496,56 +522,20 @@ function loadSettings() {
     });
 }
 
+/**
+ * Works out the shortened name of every chapter, used when the "Shorten repeatable
+ * titles" setting is on. A chapter whose name the user has edited keeps it, and a
+ * chapter with nothing to shorten keeps no shortened name at all, so that one left
+ * over from an earlier set of chapters is never shown.
+ */
 function cleanupChapters() {
-    const chapterKeys = Object.keys(currentChapters);
-    if (chapterKeys.length <= 1) {
-        return;
-    }
-    if (!doCleanupChapters(chapterKeys, true)) {
-        doCleanupChapters(chapterKeys, false);
-    }
-}
-
-function doCleanupChapters(chapterKeys, fromBeginning = true) {
-    let firstCommonStart = '', lastCommonStart = '',
-        firstTitle = getTitleCorePart(currentChapters[chapterKeys[0]].title, fromBeginning);
-    for (let i = 1; i < chapterKeys.length; i++) {
-        const current = getCommonPart(
-            firstTitle, getTitleCorePart(currentChapters[chapterKeys[i]].title, fromBeginning), fromBeginning
-        )
-        if (current.length > firstCommonStart.length) {
-            firstCommonStart = current;
-        }
-    }
-    if (chapterKeys.length > 2) {
-        const lastTitle = getTitleCorePart(currentChapters[chapterKeys[chapterKeys.length - 1]].title, fromBeginning);
-        for (let i = chapterKeys.length - 2; i >= 0; i--) {
-            const current = getCommonPart(
-                lastTitle, getTitleCorePart(currentChapters[chapterKeys[i]].title, fromBeginning), fromBeginning
-            )
-            if (current.length > lastCommonStart.length) {
-                lastCommonStart = current;
-            }
-        }
-    }
-    if (firstCommonStart.length > 10 || lastCommonStart.length > 10) {
-        const toRemove = firstCommonStart.length > lastCommonStart.length ?
-            firstCommonStart : lastCommonStart;
-        // console.log(firstCommonStart, lastCommonStart, toRemove, fromBeginning);
-        for (const chapterKey of chapterKeys) {
-            const title = currentChapters[chapterKey].title;
-            if (fromBeginning) {
-                currentChapters[chapterKey].cleanTitle = title.indexOf(toRemove) === 0 ?
-                    title.substring(toRemove.length).trim() : title;
-            } else {
-                const lastIndex = title.lastIndexOf(toRemove);
-                currentChapters[chapterKey].cleanTitle = lastIndex === title.length - toRemove.length ?
-                    title.substring(0, lastIndex).trim() : title;
-            }
-        }
-        return true;
-    }
-    return false;
+    const chapterKeys = Object.keys(currentChapters),
+        shortened = Titles.shortenTitles(chapterKeys.map((key) => currentChapters[key].title));
+    chapterKeys.forEach((key, index) => {
+        const chapter = currentChapters[key],
+            cleanTitle = typeof shortened[index] === 'string' ? shortened[index] : '';
+        chapter.cleanTitle = chapter.titleEdited || cleanTitle === chapter.title ? '' : cleanTitle;
+    });
 }
 
 function refreshChaptersButtons() {
@@ -662,7 +652,7 @@ function reportExecuteScriptError(error) {
 function getErrorText(error) {
     return 'Could not generate the ebook. ' +
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&' +
-        'title=' + encodeURIComponent('[1.3] Error on ' + pageUrl) + '&' +
+        'title=' + encodeURIComponent('[1.4] Error on ' + pageUrl) + '&' +
         'body=' + encodeURIComponent(error) + '" target="_blank">on GitHub using this link</a>.';
 }
 
@@ -727,7 +717,7 @@ function refreshCoverCarousel() {
             }
             $indicatorElement.attr('data-bs-slide-to', i);
             $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
-            $imageElement.find('.cover-image').css('background-image', 'url(' + coverImage + ')');
+            $imageElement.find('.cover-image').css('background-image', 'url("' + coverImage + '")');
         });
         if (coverCarousel === null) {
             coverCarousel = new bootstrap.Carousel(document.querySelector('#cover-carousel'));
@@ -749,7 +739,7 @@ function addCoverCarouselItem(coverImage) {
     $indicatorElement.removeClass('active');
     $indicatorElement.removeAttr('aria-current');
     $imageElement.removeClass('active');
-    $imageElement.find('.cover-image').css('background-image', 'url(' + coverImage + ')');
+    $imageElement.find('.cover-image').css('background-image', 'url("' + coverImage + '")');
 
     $carouselIndicators.append($indicatorElement);
     $('#cover-carousel .carousel-inner').append($imageElement);
@@ -793,25 +783,187 @@ function doDeleteCarouselItem() {
     carouselElement = {};
 }
 
-function addPhotoPreview(photoUrl) {
-    // TODO: carousel for the book mode
-    if (photoUrl.length > 0) {
-        $('<img/>').attr('src', photoUrl).on('load', () => {
-            $(this).remove();
-            $('#bg-image').css('background-image', 'url(' + photoUrl + ')');
-        }).on('error', () => {
-            if (response.image.length > 0) {
-                $('<img/>').attr('src', response.image).on('load', () => {
-                    $(this).remove();
-                    $('#bg-image').css('background-image', 'url(' + response.image + ')');
-                })
-            } else {
-                $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
+/**
+ * Builds the cover carousel of the single article mode out of the images found in
+ * the article, or out of the image uploaded by the user when there is one for this page.
+ *
+ * @param covers list of image urls found in the article, the default one first
+ */
+async function setupCoverImages(covers) {
+    foundCoverImages = Array.isArray(covers) ?
+        covers.filter((url) => typeof url === 'string' && url.length > 0) : [];
+    customCoverImage = await Storage.getStoredValue(pageUrl, customCoverKey) ?? null;
+    const storedCover = await Storage.getStoredValue(pageUrl, coverImageKey);
+    refreshCoverImages(typeof storedCover === 'string' ? storedCover : null);
+    if (customCoverImage === null) {
+        verifyCoverImages();
+    }
+}
+
+/**
+ * Rebuilds the list of the covers to choose from and selects one of them.
+ *
+ * @param selectedUrl the cover to select, the first one when it is not on the list
+ */
+function refreshCoverImages(selectedUrl = null) {
+    // an uploaded image replaces everything found on the page, otherwise the built-in
+    // cover closes the list so that there is always something to fall back to
+    coverImages = customCoverImage !== null ?
+        [ customCoverImage ] : foundCoverImages.concat([ bookCoverUrl ]);
+    const selectedIdx = selectedUrl === null ? -1 : coverImages.indexOf(selectedUrl);
+    selectedCoverImage = selectedIdx >= 0 ? selectedIdx : 0;
+    refreshSingleCoverCarousel();
+    applySelectedCoverImage(false);
+}
+
+function refreshSingleCoverCarousel() {
+    $('#single-cover-carousel .indicator-button').slice(1).remove();
+    $('#single-cover-carousel .carousel-item').slice(1).remove();
+    // the carousel may have been left on a slide that is gone now
+    $('#single-cover-carousel .indicator-button').first().addClass('active').attr('aria-current', 'true');
+    $('#single-cover-carousel .carousel-item').first().addClass('active');
+    coverImages.forEach((coverImage, i) => {
+        let $indicatorElement = $('#single-cover-carousel .indicator-button').first(),
+            $imageElement = $('#single-cover-carousel .carousel-item').first();
+        if (i > 0) {
+            $indicatorElement = $indicatorElement.clone();
+            $imageElement = $imageElement.clone();
+            $indicatorElement.removeClass('active');
+            $indicatorElement.removeAttr('aria-current');
+            $imageElement.removeClass('active');
+            $('#single-cover-carousel .carousel-indicators').append($indicatorElement);
+            $('#single-cover-carousel .carousel-inner').append($imageElement);
+        }
+        $indicatorElement.attr('data-bs-slide-to', i);
+        $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
+        $imageElement.find('.cover-image').css('background-image', 'url("' + coverImage + '")');
+    });
+    if (singleCoverCarousel === null) {
+        singleCoverCarousel = new bootstrap.Carousel(document.querySelector('#single-cover-carousel'));
+        document.getElementById('single-cover-carousel').addEventListener('slide.bs.carousel', function (event) {
+            if (event.to !== null) {
+                selectedCoverImage = event.to;
+                applySelectedCoverImage();
             }
         });
-    } else {
-        $('#bg-image').css('background-image', 'url(' + bookCoverUrl + ')');
     }
+    singleCoverCarousel.to(selectedCoverImage);
+    $('#book-preview').toggleClass('single-cover', coverImages.length <= 1);
+    updateCoverButtons();
+}
+
+/**
+ * Passes the selected cover on to the epub data and remembers it for this page.
+ */
+function applySelectedCoverImage(store = true) {
+    const coverImage = selectedCoverImage in coverImages ? coverImages[selectedCoverImage] : '';
+    if (currentPageData !== null) {
+        currentPageData.coverImage = coverImage;
+    }
+    if (store && pageUrl.length > 0) {
+        Storage.storeValue(pageUrl, coverImageKey, coverImage);
+    }
+}
+
+function updateCoverButtons() {
+    if (customCoverImage === null) {
+        $('#upload-cover-btn').show();
+        $('#revert-cover-btn').hide();
+    } else {
+        $('#upload-cover-btn').hide();
+        $('#revert-cover-btn').show();
+    }
+}
+
+/**
+ * Article images are measured on the page itself, but some of them cannot be loaded
+ * again here (hotlinking protection) and the ones taken from the meta tags were never
+ * measured at all - those are dropped once the carousel is already up.
+ */
+function verifyCoverImages() {
+    const covers = foundCoverImages.slice();
+    if (covers.length === 0) {
+        return;
+    }
+    Promise.all(covers.map((coverUrl) => new Promise((resolve) => {
+        const image = new Image();
+        const finish = (isUsable) => {
+            clearTimeout(timeout);
+            resolve(isUsable ? coverUrl : null);
+        };
+        // a slow image is given the benefit of the doubt, the epub falls back on its own
+        const timeout = setTimeout(() => finish(true), coverCheckTimeout);
+        image.onload = () => finish(
+            image.naturalWidth >= minCoverImageSize && image.naturalHeight >= minCoverImageSize
+        );
+        image.onerror = () => finish(false);
+        image.src = coverUrl;
+    }))).then((results) => {
+        const usableCovers = results.filter((coverUrl) => coverUrl !== null);
+        // the upload may have replaced the whole list in the meantime
+        if (customCoverImage !== null || usableCovers.length === covers.length) {
+            return;
+        }
+        const selectedUrl = selectedCoverImage in coverImages ? coverImages[selectedCoverImage] : null;
+        foundCoverImages = usableCovers;
+        refreshCoverImages(selectedUrl);
+    });
+}
+
+/**
+ * Stores the image chosen by the user as the only cover of this page.
+ */
+async function handleCoverFileSelected(file) {
+    try {
+        if (!file.type.startsWith('image/')) {
+            throw new Error('this is not an image file');
+        }
+        if (file.size > maxCoverFileSize) {
+            throw new Error('the file is bigger than ' + Math.round(maxCoverFileSize / 1024 / 1024) + ' MB');
+        }
+        customCoverImage = await readCoverImageFile(file);
+        Storage.storeValue(pageUrl, customCoverKey, customCoverImage);
+        Storage.deleteValue(pageUrl, coverImageKey);
+        refreshCoverImages();
+        $('#error-content').hide();
+    } catch (error) {
+        console.error('Error on reading the cover image:', error);
+        $('#error-content').html('Could not use this image - ' + error.message + '.').slideDown();
+    }
+}
+
+/**
+ * Reads the uploaded image as a data url, downscaling it first when it is
+ * larger than what a cover needs.
+ *
+ * @param file
+ * @returns {Promise<string>}
+ */
+function readCoverImageFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('the file could not be read'));
+        reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => reject(new Error('this image format is not supported'));
+            image.onload = () => {
+                const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+                // vector images have no size of their own, they are kept as they are
+                if (largestSide === 0 || largestSide <= maxCoverImageSize) {
+                    resolve(reader.result);
+                    return;
+                }
+                const scale = maxCoverImageSize / largestSide,
+                    canvas = document.createElement('canvas');
+                canvas.width = Math.round(image.naturalWidth * scale);
+                canvas.height = Math.round(image.naturalHeight * scale);
+                canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.9));
+            };
+            image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 function setAdditionalData(responseData, url) {
@@ -834,41 +986,6 @@ function setAdditionalData(responseData, url) {
     // Storage.storeGlobalValue(chaptersKey, currentChapters);
 }
 
-function getCommonPart(first, second, fromBeginning = true) {
-    if (first === null || second === null || typeof first === 'undefined' || typeof second === 'undefined') {
-        return '';
-    }
-    const maxLen = Math.min(first.length, second.length);
-    let max = 0;
-    if (fromBeginning) {
-        for (let i = 0; i < maxLen; i++) {
-            if (first[i] === second[i]) {
-                max++;
-            } else {
-                break;
-            }
-        }
-        return first.substring(0, max);
-    } else {
-        for (let i = maxLen - 1; i >= 0; i--) {
-            if (first[i] === second[i]) {
-                max = i;
-            } else {
-                break;
-            }
-        }
-        return first.substring(max);
-    }
-}
-
-function getTitleCorePart(title, fromBeginning = true) {
-    const idx = title.lastIndexOf('-');
-    if (idx > 10) {
-        return fromBeginning ? title.substring(0, idx + 1).trim() : title.substring(idx - 1).trim();
-    }
-    return title;
-}
-
 function formatTime(timeInMinutes, asObject = false) {
     const hours = Math.floor(timeInMinutes / 60);
     timeInMinutes -= hours * 60;
@@ -879,7 +996,7 @@ function formatTime(timeInMinutes, asObject = false) {
         if (timeInMinutes > 0) {
             result += (result.length > 0 ? ' ' : '') + timeInMinutes + (timeInMinutes === 1 ? ' minute' : ' minutes');
         }
-        return result;
+        return result.length > 0 ? result : 'less than a minute';
     }
 }
 
@@ -931,7 +1048,7 @@ function getCurrentPageData() {
                                 }
                                 $('#time-field').html(formatTime(response.readTime));
 
-                                addPhotoPreview(response.cover);
+                                setupCoverImages(response.covers);
 
                                 $('#convert-btn').prop('disabled', false);
                                 $('#chapters-convert-btn').prop('disabled', false);
