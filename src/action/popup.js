@@ -81,7 +81,7 @@ document.addEventListener('click', (event) => {
         btnLoading();
 
         /** Send the Get message to the content script to get the page content and meta info **/
-        browser.tabs.query({currentWindow: true, active: true})
+        queryActiveTab()
             .then((tabs) => {
                 sendMessageToTabWithRetry(tabs[0].id, { type: 'get' })
                     .then(response => {
@@ -111,7 +111,7 @@ document.addEventListener('click', (event) => {
         $('#error-content').hide();
 
         /** Send the Get message to the content script to get the page content and meta info **/
-        browser.tabs.query({currentWindow: true, active: true})
+        queryActiveTab()
             .then((tabs) => {
                 sendMessageToTabWithRetry(tabs[0].id, { type: 'get' })
                     .then(response => {
@@ -556,8 +556,33 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
+/**
+ * The background answers a conversion request with an error rather than
+ * throwing, and nothing used to read that answer - so a failed conversion left
+ * the button spinning with no explanation. That matters most on Android, where
+ * the background is the likeliest thing to be torn down mid-run.
+ */
 async function sendRuntimeMessage(data) {
-    await browser.runtime.sendMessage(data);
+    try {
+        const response = await browser.runtime.sendMessage(data);
+        if (response && response.error) {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        btnLoading(false);
+        chaptersBtnLoading(false);
+        conversionError(error.message || String(error));
+    }
+}
+
+/**
+ * Unlike unexpectedError, this leaves the preview and the buttons in place: a
+ * conversion that failed once is worth retrying, and hiding the controls would
+ * make the popup a dead end until it is reopened.
+ */
+function conversionError(error) {
+    $('#error-content').addClass('alert').html(getErrorText(error)).show();
+    console.error(error);
 }
 
 async function handleEpubDownload(epubData) {
@@ -586,25 +611,90 @@ async function handleEpubDownload(epubData) {
         // Create download URL
         const url = URL.createObjectURL(blob);
 
-        // Create download link and trigger download
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = epubData.filename;
-        link.style.display = 'none';
-
-        // Add to document, click, and remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Clean up the blob URL
-        setTimeout(() => {
-            URL.revokeObjectURL(url);
-        }, 1000);
+        const savedByApi = await saveThroughDownloadsApi(url, epubData.filename);
+        if (!savedByApi) {
+            saveThroughLink(url, epubData.filename);
+            // Clean up the blob URL
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 1000);
+        }
 
     } catch (error) {
         console.error('Error downloading EPUB in popup:', error);
     }
+}
+
+/**
+ * The anchor click below is what desktop has always used and it stays there.
+ * It is not dependable on Firefox for Android, where the popup is a full-screen
+ * overlay that tears down around the click, so mobile hands the blob to the
+ * downloads API instead and lets the browser own the transfer.
+ *
+ * Returns false when the API route is unavailable, so the caller can fall back.
+ */
+async function saveThroughDownloadsApi(url, filename) {
+    const isAndroid = typeof window.isAndroidPlatform === 'function' && window.isAndroidPlatform();
+    if (!isAndroid || typeof browser.downloads === 'undefined') {
+        return false;
+    }
+    // path characters are already stripped when the name is built, but the API
+    // is stricter than an anchor about control characters and leading dots
+    const safeName = filename
+        .replace(/[\x00-\x1f\x7f]/g, '')
+        .replace(/^[.\s]+/, '')
+        .trim() || 'instabook.epub';
+    try {
+        const downloadId = await browser.downloads.download({
+            url: url,
+            filename: safeName,
+            saveAs: false
+        });
+        revokeWhenDownloadSettles(downloadId, url);
+        return true;
+    } catch (error) {
+        console.error('Downloads API refused the EPUB, falling back to a link:', error);
+        return false;
+    }
+}
+
+function saveThroughLink(url, filename) {
+    // Create download link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+
+    // Add to document, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * Revoking the blob URL while the download is still reading from it truncates
+ * the file, so it is held until the transfer leaves the in_progress state.
+ * The timeout is the backstop for a popup that is dismissed before that.
+ */
+function revokeWhenDownloadSettles(downloadId, url) {
+    let released = false;
+    const release = () => {
+        if (released) {
+            return;
+        }
+        released = true;
+        if (browser.downloads.onChanged.hasListener(onChanged)) {
+            browser.downloads.onChanged.removeListener(onChanged);
+        }
+        URL.revokeObjectURL(url);
+    };
+    function onChanged(delta) {
+        if (delta.id === downloadId && delta.state && delta.state.current !== 'in_progress') {
+            release();
+        }
+    }
+    browser.downloads.onChanged.addListener(onChanged);
+    setTimeout(release, 60000);
 }
 
 /**
@@ -643,6 +733,16 @@ async function cleanupOldPdfConvData() {
     } catch (error) {
         console.error('Error cleaning up old PDF conversion data:', error);
     }
+}
+
+/**
+ * Firefox for Android has no windows API - there is only ever one window - so
+ * currentWindow is dropped there. It has to stay on desktop, where without it
+ * the query comes back with the active tab of every open window.
+ */
+function queryActiveTab() {
+    const isAndroid = typeof window.isAndroidPlatform === 'function' && window.isAndroidPlatform();
+    return browser.tabs.query(isAndroid ? {active: true} : {currentWindow: true, active: true});
 }
 
 function reportExecuteScriptError(error) {
@@ -865,14 +965,15 @@ function applySelectedCoverImage(store = true) {
     }
 }
 
+/**
+ * Toggled with a class rather than jQuery show/hide: on touch these buttons are
+ * grown into flex tap targets, and an inline display written by show() would
+ * override that.
+ */
 function updateCoverButtons() {
-    if (customCoverImage === null) {
-        $('#upload-cover-btn').show();
-        $('#revert-cover-btn').hide();
-    } else {
-        $('#upload-cover-btn').hide();
-        $('#revert-cover-btn').show();
-    }
+    const hasCustomCover = customCoverImage !== null;
+    $('#upload-cover-btn').toggleClass('d-none', hasCustomCover);
+    $('#revert-cover-btn').toggleClass('d-none', !hasCustomCover);
 }
 
 /**
@@ -1004,12 +1105,11 @@ function formatTime(timeInMinutes, asObject = false) {
  * Getting the cover image and read time from the content script
  */
 function getCurrentPageData() {
-    browser.tabs
-        .query({currentWindow: true, active: true})
+    queryActiveTab()
         .then((tabs) => {
             pageUrl = sanitizeUrl(tabs[0].url);
             pageTitle = tabs[0].title;
-            browser.tabs.query({currentWindow: true, active: true})
+            queryActiveTab()
                 .then((tabs) => {
                     sendMessageToTabWithRetry(tabs[0].id, {
                             type: 'preview',

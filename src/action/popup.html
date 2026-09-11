@@ -2,6 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- flags the platform and engine on <html> before the first paint; size and
+         pointer adaptation is handled by the media queries in popup.css -->
+    <script src="../scripts/platform.js"></script>
     <link href="../styles/bootstrap.min.css" rel="stylesheet">
     <link href="./popup.css" rel="stylesheet">
 </head>
@@ -36,7 +40,7 @@
                     <label for="edit-title" id="edit-title-btn" class="edit-btn" title="Change the title">&#9998;</label>
                     <label id="revert-title-btn" class="edit-btn" title="Revert to original title">&#8630;</label>
                     <label for="cover-file-input" id="upload-cover-btn" class="edit-btn" title="Use your own cover image">&#128247;</label>
-                    <label id="revert-cover-btn" class="edit-btn" title="Remove the uploaded image and go back to the ones found on the page">&#10006;</label>
+                    <label id="revert-cover-btn" class="edit-btn d-none" title="Remove the uploaded image and go back to the ones found on the page">&#10006;</label>
                 </div>
                 <h1 id="page-title"></h1>
                 <textarea id="edit-title"></textarea>

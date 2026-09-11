@@ -129,7 +129,25 @@ async function notifyPopup(type, data) {
     }
 }
 
+/**
+ * The whole conversion runs in the offscreen document, because a service worker
+ * has no DOM and Readability needs one. Chromium lists the offscreen API as
+ * available on Android, but extension support there is new enough that it is
+ * worth failing with something the user can read rather than leaving the popup
+ * spinning on a missing API.
+ */
+function assertOffscreenSupport() {
+    if (typeof chrome.offscreen === 'undefined' ||
+        typeof chrome.offscreen.createDocument !== 'function') {
+        throw new Error(
+            'This browser does not support offscreen documents, which Instabook needs ' +
+            'to build the ebook. Please report this along with your browser version.'
+        );
+    }
+}
+
 async function sendMessageToOffscreenDocument(type, data) {
+    assertOffscreenSupport();
     // Create an offscreen document if one doesn't exist yet
     if (!(await hasDocument())) {
         try {
@@ -171,9 +189,17 @@ async function hasDocument() {
     // return false;
 
     const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
-    const existingContexts = await chrome.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT'],
-        documentUrls: [offscreenUrl]
-    });
-    return existingContexts.length > 0;
+    try {
+        const existingContexts = await chrome.runtime.getContexts({
+            contextTypes: ['OFFSCREEN_DOCUMENT'],
+            documentUrls: [offscreenUrl]
+        });
+        return existingContexts.length > 0;
+    } catch (error) {
+        // Reporting "no document" just means createDocument is attempted, and
+        // that already tolerates one existing - better than failing the whole
+        // conversion because this lookup is missing or behaves differently
+        console.warn('Could not look up offscreen contexts:', error);
+        return false;
+    }
 }

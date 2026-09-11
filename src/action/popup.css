@@ -79,6 +79,13 @@ body {
 .offcanvas #no-chapters {
     font-size: 0.8em;
 }
+/* Bootstrap gives the panel a flat 400px, which is wider than the anchored
+   popup itself - the overflow hangs off the left edge where it cannot be
+   reached. Capping it to the viewport keeps it usable in a narrow popup,
+   on desktop and on Chromium for Android alike. */
+.offcanvas {
+    max-width: 100vw;
+}
 .offcanvas-body {
     padding-top: 0;
     overflow-x: hidden;
@@ -236,10 +243,6 @@ h2, h3 {
     font-size: 0.8em;
     background-color: rgba(255, 255, 255, 0.5);
 }
-/* shown only once an image has been uploaded for this page */
-#revert-cover-btn {
-    display: none;
-}
 #page-title:hover,
 #chapters-page-title:hover {
     color: #55658e;
@@ -349,4 +352,209 @@ span.move-item .move-down:before {
 .chapters-divider span {
     background: #fff;
     padding: 0 10px;
+}
+/* ==================================================================== */
+/* Adaptation                                                           */
+/*                                                                      */
+/* Two independent axes, deliberately not tied to each other or to the  */
+/* operating system:                                                    */
+/*                                                                      */
+/*   pointer  - whether the controls need to be tappable. A tablet with */
+/*              a mouse keeps the desktop hover behaviour; a laptop     */
+/*              with a touchscreen gets the larger targets.             */
+/*   width    - how much room the layout actually has.                  */
+/*                                                                      */
+/* The one thing that does depend on the browser is the popup width.    */
+/* Firefox for Android draws the action popup as a full-screen overlay  */
+/* rather than an anchored panel, so the fixed desktop width has to be  */
+/* released there for the width queries to have anything to measure.    */
+/* Chromium for Android (Vivaldi) keeps the anchored panel and keeps    */
+/* the fixed width with it, so it is not marked. That is all the        */
+/* popup-fullscreen class does - it decides nothing about how the       */
+/* space is then used.                                                  */
+/* ==================================================================== */
+
+/* -------------------------------------------------------------------- */
+/* Axis 1: no hover-capable pointer                                      */
+/*                                                                       */
+/* Every control that is only revealed on hover is unreachable with a    */
+/* finger, so it is shown permanently and grown to a comfortable tap     */
+/* size. Screen width plays no part in this.                             */
+/* -------------------------------------------------------------------- */
+@media (hover: none), (pointer: coarse) {
+    /* cover picker: indicators and arrows, unless there is only one cover */
+    #book-preview .carousel-indicators,
+    #chapters-book-preview .carousel-indicators {
+        display: flex;
+    }
+    #book-preview .carousel-control,
+    #chapters-book-preview .carousel-control {
+        display: block;
+    }
+    #book-preview.single-cover .carousel-indicators,
+    #book-preview.single-cover .carousel-control {
+        display: none;
+    }
+    .carousel-indicators .indicator-button {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        margin: 0.25rem;
+    }
+
+    /* title and cover editing buttons sitting on top of the cover */
+    #edit-buttons,
+    #chapters-edit-buttons {
+        visibility: visible;
+    }
+    .edit-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        margin: 0 0.1rem;
+        font-size: 1.1em;
+        border-radius: 0.25rem;
+        background-color: rgba(255, 255, 255, 0.75);
+    }
+
+    /* chapter rows: the number is dropped for good so it cannot collide
+       with the reorder arrows, which are no longer hover-gated */
+    .offcanvas-body #chapters-list .chapter-item {
+        height: auto;
+        min-height: 3rem;
+    }
+    .offcanvas-body #chapters-list .chapter-item:before {
+        display: none;
+    }
+    .offcanvas-body #chapters-list .chapter-item .move-item {
+        visibility: visible;
+    }
+    .offcanvas-body #chapters-list .chapter-item .delete-chapter {
+        display: block;
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+    span.move-item {
+        width: 1.5rem;
+        height: 2.75rem;
+        margin-top: 0;
+        margin-right: 0.5rem;
+        padding: 0;
+    }
+    span.move-item .move-up,
+    span.move-item .move-down {
+        left: 0;
+        width: 1.5rem;
+        height: 1.25rem;
+        font-size: 0.9em;
+        text-align: center;
+    }
+
+    /* the footer icons are the only way into settings and the PDF converter,
+       and the footer has to grow with them or they overflow it */
+    .card-footer {
+        height: auto;
+        min-height: 3.5rem;
+    }
+    .card-footer #pdf-convert,
+    .card-footer #open-settings {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+    .action-btn,
+    #chapter-group .btn {
+        min-height: 2.75rem;
+    }
+}
+
+/* -------------------------------------------------------------------- */
+/* Releasing the fixed popup width                                       */
+/*                                                                       */
+/* Only meaningful where the popup is a full-screen overlay, which is     */
+/* Firefox for Android alone. Everywhere else - desktop, and Chromium    */
+/* for Android - the body width is what sizes the anchored popup, so it  */
+/* stays pinned.                                                         */
+/* -------------------------------------------------------------------- */
+html.popup-fullscreen,
+html.popup-fullscreen body {
+    width: 100%;
+    max-width: 100%;
+}
+html.popup-fullscreen #popup-content {
+    max-width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+html.popup-fullscreen #standard-card-body {
+    flex: 1 1 auto;
+}
+
+/* -------------------------------------------------------------------- */
+/* Axis 2a: narrow - a phone, or a small window                          */
+/*                                                                       */
+/* The column fills the screen. The cover keeps its 3:4 proportions but  */
+/* is no longer pinned to 250x333, and the panel text comes up from the  */
+/* 0.8em the cramped desktop popup uses to something readable at arm's   */
+/* length.                                                               */
+/* -------------------------------------------------------------------- */
+@media (max-width: 479.98px) {
+    /* edge to edge, with the footer held at the bottom of the screen */
+    html.popup-fullscreen #popup-content {
+        min-height: 100vh;
+        border: 0 none;
+        border-radius: 0;
+    }
+    html.popup-fullscreen #book-preview,
+    html.popup-fullscreen #chapters-book-preview {
+        width: 100%;
+        max-width: 20rem;
+        height: auto;
+        aspect-ratio: 250 / 333;
+        margin: 0 auto 1rem;
+    }
+    html.popup-fullscreen .offcanvas.offcanvas-end {
+        width: 100%;
+        max-width: 100%;
+    }
+    html.popup-fullscreen .offcanvas #chapters-controls,
+    html.popup-fullscreen .offcanvas #no-chapters,
+    html.popup-fullscreen #offcanvasSettings {
+        font-size: 1rem;
+    }
+    html.popup-fullscreen .offcanvas-header .offcanvas-title {
+        font-size: 1rem;
+    }
+}
+
+/* -------------------------------------------------------------------- */
+/* Axis 2b: wide - a tablet, or a phone held sideways                    */
+/*                                                                       */
+/* There is enough room to go back to the desktop shape, so the card is  */
+/* held to a readable column and centred rather than stretched across    */
+/* the screen. The slide-out panel is pulled in to sit over that column  */
+/* instead of against the far edge of the display - via `right` rather   */
+/* than a transform, which Bootstrap needs for the slide animation.      */
+/* -------------------------------------------------------------------- */
+@media (min-width: 480px) {
+    /* hugs its content and keeps the card border, so it reads as a panel
+       sitting on the screen rather than a page that happens to be short */
+    html.popup-fullscreen #popup-content {
+        max-width: 22rem;
+        margin: 1rem auto;
+    }
+    /* the cover keeps its desktop 250x333, so it needs centring in the
+       slightly wider column */
+    html.popup-fullscreen #book-preview,
+    html.popup-fullscreen #chapters-book-preview {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    html.popup-fullscreen .offcanvas.offcanvas-end {
+        width: 22rem;
+        max-width: 100%;
+        right: max(0px, calc(50% - 11rem));
+    }
 }
