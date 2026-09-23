@@ -22,6 +22,8 @@ const titleKey = 'customTitle',
     chaptersKey = 'instabookChapters',
     coverKey = 'instabookCover',
     settingsKey = 'instabookSettings',
+    imageModeKey = 'imageMode',
+    chaptersImageModeKey = 'chaptersImageMode',
     minCoverImageSize = 100,
     // uploaded covers are downscaled before they are stored and sent over
     maxCoverImageSize = 1600,
@@ -29,7 +31,12 @@ const titleKey = 'customTitle',
     coverCheckTimeout = 4000,
     defaultSettings = {
         includeComments: false,
-        shortenTitles: false
+        shortenTitles: false,
+        // 'color', 'grayscale' or 'mono' - see eink.js
+        imageMode: EinkProcessor.modeColor,
+        // the same, for the book made of chapters - set on its own, as a collection
+        // is often read somewhere else than a single article
+        chaptersImageMode: EinkProcessor.modeColor
     },
     defaultCoverData = {
         title: '',
@@ -95,6 +102,7 @@ document.addEventListener('click', (event) => {
                         }
                         responseData.includeComments = currentSettings.includeComments ?? false;
                         responseData.shortenTitles = currentSettings.shortenTitles ?? false;
+                        responseData.imageMode = currentImageMode();
                         sendRuntimeMessage(responseData);
                     })
                     .catch(error => {
@@ -140,8 +148,15 @@ document.addEventListener('click', (event) => {
             chapters: currentChapters,
             dividerUrl: bookDividerUrl,
             includeComments: currentSettings.includeComments ?? false,
-            shortenTitles: currentSettings.shortenTitles ?? false
+            shortenTitles: currentSettings.shortenTitles ?? false,
+            imageMode: currentImageMode(chaptersImageModeKey)
         });
+    }
+    else if (event.target.closest('.image-mode-menu [data-image-mode]')) {
+        selectImageMode(
+            event.target.closest('[data-image-mode]').getAttribute('data-image-mode'),
+            event.target.closest('.image-mode-menu').getAttribute('data-setting')
+        );
     }
     else if (event.target.id === 'page-title') {
         $('#edit-title').val($('#page-title').text());
@@ -241,11 +256,11 @@ document.addEventListener('click', (event) => {
 document.addEventListener('change', (event) => {
     if (event.target.id === 'shorten-titles') {
         currentSettings.shortenTitles = event.target.checked;
-        Storage.storeGlobalValue(settingsKey, currentSettings);
+        saveSettings();
     }
     if (event.target.id === 'include-comments') {
         currentSettings.includeComments = event.target.checked;
-        Storage.storeGlobalValue(settingsKey, currentSettings);
+        saveSettings();
     }
     $('#settings-enabled').css('display', (currentSettings.includeComments ?? false) || (currentSettings.shortenTitles ?? false) ? 'inline' : 'none');
 });
@@ -460,7 +475,6 @@ function loadChapters() {
 }
 
 function refreshUI() {
-    loadSettings();
     getCurrentPageData();
 
     $('#chapters-list').find('li:not(.chapter-template)').remove();
@@ -513,13 +527,156 @@ function refreshUI() {
     }
 }
 
-function loadSettings() {
-    Storage.getStoredGlobalValue(settingsKey, defaultSettings).then((storedSettings) => {
-        currentSettings = storedSettings;
-        $('#include-comments').prop('checked', currentSettings.includeComments ?? false);
-        $('#shorten-titles').prop('checked', currentSettings.shortenTitles ?? false);
-        $('#settings-enabled').css('display', (currentSettings.includeComments ?? false) || (currentSettings.shortenTitles ?? false) ? 'inline' : 'none');
+/**
+ * Loaded once, before anything else in the popup gets to read or write the settings -
+ * a change saved while they were still loading would otherwise be stored without the
+ * rest of them, or be replaced by the stale copy once it arrived.
+ *
+ * @returns {Promise<void>}
+ */
+async function loadSettings() {
+    let storedSettings = {};
+    try {
+        storedSettings = await Storage.getStoredGlobalValue(settingsKey, {}) ?? {};
+    } catch (error) {
+        console.error('Could not load the settings:', error);
+    }
+    // settings stored by an older version lack whatever was added since
+    currentSettings = Object.assign({}, defaultSettings, storedSettings);
+    // chapters used to follow the single article mode, and keep doing so until set apart
+    if (!(chaptersImageModeKey in storedSettings) && imageModeKey in storedSettings) {
+        currentSettings[chaptersImageModeKey] = storedSettings[imageModeKey];
+    }
+    currentSettings[imageModeKey] = currentImageMode(imageModeKey);
+    currentSettings[chaptersImageModeKey] = currentImageMode(chaptersImageModeKey);
+    $('#include-comments').prop('checked', currentSettings.includeComments ?? false);
+    $('#shorten-titles').prop('checked', currentSettings.shortenTitles ?? false);
+    $('#settings-enabled').css('display', (currentSettings.includeComments ?? false) || (currentSettings.shortenTitles ?? false) ? 'inline' : 'none');
+    refreshImageMode();
+}
+
+function saveSettings() {
+    Storage.storeGlobalValue(settingsKey, currentSettings);
+}
+
+/**
+ * How the images are prepared: in full colour, or rewritten for an e-ink screen.
+ * The choice is remembered across pages, as it describes the device the books are
+ * read on rather than the article being downloaded. The single article and the
+ * book of chapters each have a mode of their own.
+ *
+ * @param settingName imageModeKey or chaptersImageModeKey
+ * @returns {string}
+ */
+function currentImageMode(settingName = imageModeKey) {
+    return EinkProcessor.normalizeMode(currentSettings[settingName]);
+}
+
+function selectImageMode(mode, settingName) {
+    if (settingName !== imageModeKey && settingName !== chaptersImageModeKey) {
+        return;
+    }
+    const newMode = EinkProcessor.normalizeMode(mode);
+    if (newMode === currentImageMode(settingName)) {
+        return;
+    }
+    currentSettings[settingName] = newMode;
+    saveSettings();
+    refreshImageMode();
+}
+
+/**
+ * Marks the chosen options and redraws the covers with them, so that the picture
+ * in the popup is what the book is going to look like.
+ */
+function refreshImageMode() {
+    $('.image-mode-menu').each(function () {
+        const $menu = $(this),
+            $selected = $menu.find('[data-image-mode="' + currentImageMode($menu.attr('data-setting')) + '"]');
+        $menu.find('[data-image-mode]').removeClass('active').removeAttr('aria-current');
+        $selected.addClass('active').attr('aria-current', 'true');
+        $menu.siblings('.dropdown-toggle').attr('title', 'Images: ' + $selected.contents().first().text().trim());
     });
+    refreshCoverPreviews();
+}
+
+/**
+ * The cover of the chapters book is previewed in its own mode.
+ *
+ * @param $coverImage the element holding the cover as its background
+ * @returns {string}
+ */
+function coverImageMode($coverImage) {
+    return currentImageMode($coverImage.closest('#cover-carousel').length > 0 ? chaptersImageModeKey : imageModeKey);
+}
+
+/**
+ * Puts a cover into the carousel as it was found. Every slide is filled this way
+ * and only the one on screen is redrawn afterwards, so that picking a mode does
+ * not set a dozen images processing at once.
+ *
+ * @param $coverImage the element holding the cover as its background
+ * @param coverUrl
+ */
+function setCoverImageUrl($coverImage, coverUrl) {
+    if (typeof coverUrl !== 'string' || coverUrl.length === 0) {
+        return;
+    }
+    $coverImage.attr('data-cover-url', coverUrl);
+    $coverImage.css('background-image', 'url("' + coverUrl + '")');
+}
+
+/**
+ * Shows a cover image, redrawing it first when an e-ink mode is on. The untouched
+ * image goes up immediately and is replaced once the processed one is ready, so
+ * that switching modes never leaves an empty cover behind.
+ *
+ * @param $coverImage the element holding the cover as its background
+ * @param coverUrl
+ */
+function setCoverImage($coverImage, coverUrl) {
+    if (typeof coverUrl !== 'string' || coverUrl.length === 0) {
+        return;
+    }
+    const mode = coverImageMode($coverImage);
+    $coverImage.attr('data-cover-url', coverUrl);
+    if (!EinkProcessor.isEnabled(mode)) {
+        $coverImage.css('background-image', 'url("' + coverUrl + '")');
+        return;
+    }
+    const processed = EinkImages.cachedDataUrl(coverUrl, mode);
+    if (processed !== null) {
+        $coverImage.css('background-image', 'url("' + processed + '")');
+        return;
+    }
+    $coverImage.css('background-image', 'url("' + coverUrl + '")');
+    EinkImages.toDataUrl(coverUrl, mode)
+        .then((dataUrl) => {
+            // the mode or the slide may well have moved on while this was running
+            if (coverImageMode($coverImage) === mode && $coverImage.attr('data-cover-url') === coverUrl) {
+                $coverImage.css('background-image', 'url("' + dataUrl + '")');
+            }
+        })
+        .catch((error) => {
+            // nothing to report to the user - the cover of the book is built from the
+            // image itself, the preview just stays in colour
+            console.warn('Could not preview the cover for an e-ink screen:', coverUrl, error);
+        });
+}
+
+/**
+ * Only the covers actually on screen are redrawn - the rest are done as they are
+ * slid into view, so that changing the mode does not process a dozen images at once.
+ */
+function refreshCoverPreviews() {
+    $('.carousel-item.active .cover-image[data-cover-url]').each(function () {
+        setCoverImage($(this), $(this).attr('data-cover-url'));
+    });
+}
+
+function refreshCarouselPreview(carouselId, slideIndex) {
+    const $coverImage = $('#' + carouselId + ' .carousel-item').eq(slideIndex).find('.cover-image');
+    setCoverImage($coverImage, $coverImage.attr('data-cover-url'));
 }
 
 /**
@@ -758,13 +915,13 @@ function getErrorText(error) {
 
 function unexpectedError(error) {
     $('#error-content').html(getErrorText(error)).show();
-    $('#book-preview, #convert-btn, #chapter-group').hide();
+    $('#book-preview, #button-content, #chapter-group').hide();
     console.error(error);
 }
 
 function showInfo(info) {
     $('#error-content').removeClass('alert').html(info).show();
-    $('#book-preview, #convert-btn, #chapter-group').hide();
+    $('#book-preview, #button-content, #chapter-group').hide();
 }
 
 function btnLoading(isLoading = true) {
@@ -817,7 +974,7 @@ function refreshCoverCarousel() {
             }
             $indicatorElement.attr('data-bs-slide-to', i);
             $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
-            $imageElement.find('.cover-image').css('background-image', 'url("' + coverImage + '")');
+            setCoverImageUrl($imageElement.find('.cover-image'), coverImage);
         });
         if (coverCarousel === null) {
             coverCarousel = new bootstrap.Carousel(document.querySelector('#cover-carousel'));
@@ -825,10 +982,12 @@ function refreshCoverCarousel() {
                 if (event.to !== null) {
                     currentCover.selectedCover = event.to;
                     Storage.storeGlobalValue(coverKey, currentCover);
+                    refreshCarouselPreview('cover-carousel', event.to);
                 }
             });
         }
         coverCarousel.to(currentCover.selectedCover);
+        refreshCarouselPreview('cover-carousel', currentCover.selectedCover);
     }
 }
 
@@ -839,7 +998,7 @@ function addCoverCarouselItem(coverImage) {
     $indicatorElement.removeClass('active');
     $indicatorElement.removeAttr('aria-current');
     $imageElement.removeClass('active');
-    $imageElement.find('.cover-image').css('background-image', 'url("' + coverImage + '")');
+    setCoverImageUrl($imageElement.find('.cover-image'), coverImage);
 
     $carouselIndicators.append($indicatorElement);
     $('#cover-carousel .carousel-inner').append($imageElement);
@@ -936,7 +1095,7 @@ function refreshSingleCoverCarousel() {
         }
         $indicatorElement.attr('data-bs-slide-to', i);
         $indicatorElement.attr('aria-label', 'Slide ' + (i + 1));
-        $imageElement.find('.cover-image').css('background-image', 'url("' + coverImage + '")');
+        setCoverImageUrl($imageElement.find('.cover-image'), coverImage);
     });
     if (singleCoverCarousel === null) {
         singleCoverCarousel = new bootstrap.Carousel(document.querySelector('#single-cover-carousel'));
@@ -944,10 +1103,12 @@ function refreshSingleCoverCarousel() {
             if (event.to !== null) {
                 selectedCoverImage = event.to;
                 applySelectedCoverImage();
+                refreshCarouselPreview('single-cover-carousel', event.to);
             }
         });
     }
     singleCoverCarousel.to(selectedCoverImage);
+    refreshCarouselPreview('single-cover-carousel', selectedCoverImage);
     $('#book-preview').toggleClass('single-cover', coverImages.length <= 1);
     updateCoverButtons();
 }
@@ -1220,4 +1381,4 @@ async function sendMessageToTabWithRetry(tabId, message) {
     }
 }
 
-loadChapters();
+loadSettings().then(loadChapters);

@@ -8,6 +8,8 @@ class Epub {
     #keepComments = false;
     #shortenTitles = false;
     #hideDownloadedFrom = false;
+    /** see eink.js - 'color' leaves every image exactly as it was found */
+    #imageMode = 'color';
 
     static mimeTypes = {
         'png': 'png',
@@ -50,6 +52,25 @@ class Epub {
     static noSpacingScript = /[\u3001-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff01-\uff9f\u0e00-\u0e7f]/g;
     static charsPerMinute = 400;
     static minCoverImageSize = 100;
+
+    /**
+     * Readability only retries with its filters relaxed when the article it came back
+     * with is shorter than this, and it then keeps the longest of the attempts.
+     *
+     * A threshold of any ordinary size is no use against a page builder. Elementor,
+     * Divi and the like wrap every single paragraph in its own stack of divs, and
+     * Readability only credits a paragraph to its parent and its grandparent - so the
+     * score is spread across hundreds of private wrappers and no container ever adds
+     * up to the article. What wins instead is some small box that happens to sit in
+     * one container: a few thousand characters out of eighty thousand, comfortably
+     * over any sane threshold, so the retry never fired and the book came out cut off
+     * after the first table.
+     *
+     * Asking for more characters than a page can hold makes all four passes run every
+     * time and lets the fullest one win. It costs a little time on every page, and on
+     * a well built page the extra passes tend to add no more than a heading or two.
+     */
+    static articleCharThreshold = Number.MAX_SAFE_INTEGER;
 
     #allowedImgExtensions = ['png', 'jpg', 'gif', 'webp', 'bmp', 'tif', 'wbmp', 'jng', 'svg', 'heic'];
     #titleKey = 'customTitle';
@@ -103,6 +124,7 @@ class Epub {
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
             this.#shortenTitles = optionsKeys.includes('shortenTitles') ? options.shortenTitles : false;
             this.#hideDownloadedFrom = optionsKeys.includes('hideDownloadedFrom') ? options.hideDownloadedFrom : false;
+            this.#imageMode = Epub.normalizeImageMode(options.imageMode);
 
             if (this.#singleCover.coverImages.length > 0) {
                 this.#singleCover.coverImage = this.#singleCover.selectedCover in this.#singleCover.coverImages ?
@@ -118,7 +140,7 @@ class Epub {
             // page have to be gathered beforehand - they are the extra cover candidates
             this.#singleChapter.pageImages = Epub.collectPageImages(this.#singleChapter.docClone);
             this.#singleChapter.readability =
-                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments });
+                new Readability(this.#singleChapter.docClone, { charThreshold: (optionsKeys.includes('threshold') ? options.threshold : Epub.articleCharThreshold), keepComments: this.#keepComments });
             this.#singleChapter.parsedContent = this.#singleChapter.readability.parse();
         } else if (optionsKeys.includes('chapters')) {
             this.#hasChapters = true;
@@ -128,6 +150,7 @@ class Epub {
             this.#keepComments = optionsKeys.includes('includeComments') ? options.includeComments : false;
             this.#shortenTitles = optionsKeys.includes('shortenTitles') ? options.shortenTitles : false;
             this.#hideDownloadedFrom = optionsKeys.includes('hideDownloadedFrom') ? options.hideDownloadedFrom : false;
+            this.#imageMode = Epub.normalizeImageMode(options.imageMode);
 
             if (this.#cover.coverImages.length > 0) {
                 // in the chapters mode the built-in cover always sits at the first position
@@ -145,10 +168,46 @@ class Epub {
                     chapter.iframes
                 );
                 this.#chapters[chapterKey].readability =
-                    new Readability(this.#chapters[chapterKey].docClone, { charThreshold: (optionsKeys.includes('threshold') ? optionsKeys.threshold : 500), keepComments: this.#keepComments });
+                    new Readability(this.#chapters[chapterKey].docClone, { charThreshold: (optionsKeys.includes('threshold') ? options.threshold : Epub.articleCharThreshold), keepComments: this.#keepComments });
                 this.#chapters[chapterKey].parsedContent = this.#chapters[chapterKey].readability.parse();
             }
         }
+    }
+
+    /**
+     * The e-ink code is only loaded where the book is actually built (the offscreen
+     * document on Chromium, the background page on Firefox, the popup for the
+     * preview). The content script parses pages with this class as well and has no
+     * use for it, so a missing EinkProcessor simply means full colour.
+     *
+     * @param mode
+     * @returns {string}
+     */
+    static normalizeImageMode(mode) {
+        return typeof EinkProcessor === 'undefined' ? 'color' : EinkProcessor.normalizeMode(mode);
+    }
+
+    get imageMode() {
+        return this.#imageMode;
+    }
+
+    /**
+     * Whether the images are rewritten for an e-ink screen. When they are, all of
+     * them end up as PNGs - the dithered dot pattern is the first thing JPEG
+     * compression destroys.
+     *
+     * @returns {boolean}
+     */
+    get imageProcessingEnabled() {
+        return typeof EinkProcessor !== 'undefined' && EinkProcessor.isEnabled(this.#imageMode);
+    }
+
+    get coverImageName() {
+        return this.imageProcessingEnabled ? 'images/cover.png' : 'images/cover.jpg';
+    }
+
+    get coverMediaType() {
+        return this.imageProcessingEnabled ? 'image/png' : 'image/jpeg';
     }
 
     check() {
@@ -199,15 +258,62 @@ class Epub {
         return parsedContent;
     }
 
+    /**
+     * Registers one image of a chapter: the name it gets inside the epub, the
+     * manifest entry that goes with it, and the address it is fetched from.
+     *
+     * Optimised images are always stored as PNG, whatever they were on the page,
+     * so the name and the media type have to follow the chosen mode.
+     *
+     * @param chapterKey
+     * @param url address the image is fetched from, or a data url
+     * @param ext extension the image has on the page
+     * @param imageIndex position of the image within the chapter
+     * @returns {string} name of the image inside the epub
+     */
+    addImageFile(chapterKey, url, ext, imageIndex) {
+        const usedExt = this.imageProcessingEnabled ? 'png' : ext,
+            newName = `images/img_${chapterKey}_${imageIndex}.${usedExt}`,
+            imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName +
+                '" media-type="image/' + usedExt.replace('jpg', 'jpeg') + '" />',
+            chapter = this.#hasChapters ? this.#chapters[chapterKey] : this.#singleChapter;
+        chapter.imageUrls[newName] = url;
+        chapter.imageItems.push(imageItem);
+        return newName;
+    }
+
     zipImages(zip, imageUrls, currentUrl, imageContentPromise) {
         const imageKeys = Object.keys(imageUrls);
-        if (imageKeys.length > 0) {
-            let imageIndex = 1;
-            for (const imageKey of imageKeys) {
-                zip.file('OEBPS/' + imageKey, imageContentPromise(Epub.getAbsoluteUrl(imageUrls[imageKey], currentUrl), false), {binary: true});
-                imageIndex++;
-            }
+        for (const imageKey of imageKeys) {
+            const sourceUrl = imageUrls[imageKey];
+            zip.file(
+                'OEBPS/' + imageKey,
+                imageContentPromise(
+                    Epub.getAbsoluteUrl(sourceUrl, currentUrl), false, Epub.imageMimeType(sourceUrl)
+                ),
+                {binary: true}
+            );
         }
+    }
+
+    /**
+     * The content type of a source image, worked out from its address. The e-ink
+     * pipeline uses it to tell a vector image apart from a bitmap - those have to
+     * be rasterised above their natural size to stay readable.
+     *
+     * @param url
+     * @returns {string}
+     */
+    static imageMimeType(url) {
+        if (url.startsWith('data:')) {
+            // the type runs up to whichever comes first - the parameters or the data
+            const semicolon = url.indexOf(';'),
+                comma = url.indexOf(','),
+                ends = [ semicolon, comma ].filter((position) => position > 5),
+                type = ends.length > 0 ? url.substring(5, Math.min(...ends)) : '';
+            return type.length > 0 ? type : 'image/jpeg';
+        }
+        return 'image/' + Epub.extractExt(url).replace('jpg', 'jpeg').replace('svg', 'svg+xml');
     }
 
     process() {
@@ -240,11 +346,11 @@ class Epub {
             const coverUrl = this.coverImage === this.#defaultCoverUrl ?
                 this.coverImage : Epub.getAbsoluteUrl(this.coverImage, this.coverCurrentUrl);
             //zip.file('OEBPS/images/cover.' + ext, this.images[imgUrl].split(',')[1], { base64: true })
-            zip.file('OEBPS/images/cover.jpg', imageContentPromise(coverUrl, true), { binary: true });
+            zip.file('OEBPS/' + this.coverImageName, imageContentPromise(coverUrl, true), { binary: true });
             if (this.#hasChapters) {
-                this.#cover.coverPath = 'images/cover.jpg';
+                this.#cover.coverPath = this.coverImageName;
             } else {
-                this.#singleCover.coverPath = 'images/cover.jpg';
+                this.#singleCover.coverPath = this.coverImageName;
             }
         }
 
@@ -336,15 +442,7 @@ class Epub {
                 const ext = Epub.extractExt(url);
                 const noStretch = picImage !== null && picImage.length > 0 && picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
                 if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
-                    const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
-                    const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
-                    if (that.#hasChapters) {
-                        that.#chapters[chapterKey].imageUrls[newName] = url;
-                        that.#chapters[chapterKey].imageItems.push(imageItem);
-                    } else {
-                        that.#singleChapter.imageUrls[newName] = url;
-                        that.#singleChapter.imageItems.push(imageItem);
-                    }
+                    const newName = that.addImageFile(chapterKey, url, ext, imageIndex);
                     $(picture).replaceWith('<img src="../' + newName + '" alt="' + (picImage !== null && picImage.length > 0 ? $(picImage).attr('alt') : '') + '" ' + noStretch + ' />');
                     imageIndex++;
                 } else {
@@ -366,15 +464,7 @@ class Epub {
                     const ext = Epub.extractExt(url);
                     const noStretch = picImage !== null && picImage.length > 0 && picImage[0].naturalWidth <= 32 ? 'class="no-stretch"' : '';
                     if (that.#allowedImgExtensions.includes(ext) && (url in images)) {
-                        const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
-                        const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
-                        if (that.#hasChapters) {
-                            that.#chapters[chapterKey].imageUrls[newName] = url;
-                            that.#chapters[chapterKey].imageItems.push(imageItem);
-                        } else {
-                            that.#singleChapter.imageUrls[newName] = url;
-                            that.#singleChapter.imageItems.push(imageItem);
-                        }
+                        const newName = that.addImageFile(chapterKey, url, ext, imageIndex);
                         $(picture).replaceWith('<img src="../' + newName + '" alt="' + (picImage !== null && picImage.length > 0 ? $(picImage).attr('alt') : '') + '" ' + noStretch + ' />');
                         imageIndex++;
                     } else {
@@ -388,15 +478,7 @@ class Epub {
                     const ext = Epub.extractExt(url);
                     const noStretch = image.naturalWidth <= 32 ? 'class="no-stretch"' : '';
                     if (that.#allowedImgExtensions.includes(ext) && (encodedUrl in images)) {
-                        const newName = `images/img_${chapterKey}_${imageIndex}.${ext}`;
-                        const imageItem = '<item id="img_' + chapterKey + '_' + imageIndex + '" href="' + newName + '" media-type="image/' + ext.replace('jpg', 'jpeg') + '" />';
-                        if (that.#hasChapters) {
-                            that.#chapters[chapterKey].imageUrls[newName] = url;
-                            that.#chapters[chapterKey].imageItems.push(imageItem);
-                        } else {
-                            that.#singleChapter.imageUrls[newName] = url;
-                            that.#singleChapter.imageItems.push(imageItem);
-                        }
+                        const newName = that.addImageFile(chapterKey, url, ext, imageIndex);
                         $(image).replaceWith('<img src="../' + newName + '" alt="' + $(image).attr('alt') + '" ' + noStretch + ' />');
                         imageIndex++;
                     } else {
@@ -412,7 +494,16 @@ class Epub {
             let newHeight = bbox.height ? bbox.height : 'auto';
             let svgXml = serializer.serializeToString(elem);
             let imgSrc = 'data:image/svg+xml;base64,' + window.btoa(svgXml);
-            $(elem).replaceWith('<img src="' + imgSrc + '" width="' + newWidth + '" height="' + newHeight + '" alt="img" />');
+            // charts are the reason the e-ink modes exist, and on a lot of pages they
+            // are vector drawings - those are rasterised into a real file rather than
+            // left inline, so that the optimisation has something to work on
+            if (that.imageProcessingEnabled) {
+                const newName = that.addImageFile(chapterKey, imgSrc, 'png', imageIndex);
+                $(elem).replaceWith('<img src="../' + newName + '" alt="img" />');
+                imageIndex++;
+            } else {
+                $(elem).replaceWith('<img src="' + imgSrc + '" width="' + newWidth + '" height="' + newHeight + '" alt="img" />');
+            }
         });
         // <canvas> tags
         $content.find('canvas').each(function (index, elem) {
@@ -533,7 +624,7 @@ class Epub {
             '   <item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav" />\n' +
             items + '   ' + allImageItems +
             (this.coverImage ?
-            '   <item id="cover_img" href="' + this.coverPath + '" media-type="image/jpeg" />\n' : '') +
+            '   <item id="cover_img" href="' + this.coverPath + '" media-type="' + this.coverMediaType + '" />\n' : '') +
             (this.#hasChapters && this.#dividerUrl.length > 0 ?
             '   <item id="divider_img" href="images/divider.png" media-type="image/png" />\n' : '') +
             '</manifest>\n' +
@@ -666,6 +757,32 @@ class Epub {
             '</html>';
     }
 
+    /**
+     * Extra rules for the optimised images. They exist because an e-reader gives an
+     * image whatever background the page has and resamples it to fit - both of which
+     * undo the work: a dithered picture needs to sit on white and to be drawn dot for
+     * dot, or the pattern turns back into the grey fuzz it was meant to replace.
+     *
+     * The white background is dropped again in night mode. An optimised image is
+     * dark ink on light paper by the time it reaches the reader, so painting white
+     * around it would frame it in a glare the rest of the page does not have - the
+     * image is left with the colours it already carries instead.
+     *
+     * @returns {string}
+     */
+    getEinkStyles() {
+        if (!this.imageProcessingEnabled) {
+            return '';
+        }
+        return ' ' +
+            'img, figure, svg { background-color: #ffffff; max-width: 100% !important; ' +
+                'height: auto !important; image-rendering: pixelated; image-rendering: crisp-edges; } ' +
+            'figcaption { font-size: 0.85em; font-weight: bold; text-align: center; margin-top: 4px; } ' +
+            '@media (prefers-color-scheme: dark) { ' +
+                'img, figure, svg { background-color: transparent !important; } ' +
+            '}';
+    }
+
     getBookStyles() {
         let commentsStyles = '';
         if (this.#keepComments) {
@@ -704,7 +821,8 @@ class Epub {
             '#disclaimer { margin-top: 2em; } #disclaimer p, #disclaimer .url { text-indent: 0; margin: 0.5em 0; padding: 0; } ' +
             '.cover-image, .cover-image, .cover-image img { text-align:center; padding:0; margin:0 } ' +
             '.cover-image img { height: 100%; max-width: 100%; text-align: center } ' +
-            '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover }' + commentsStyles;
+            '.bg-image { background-position: bottom; background-repeat: no-repeat; background-size: cover }' +
+            commentsStyles + this.getEinkStyles();
     }
 
     estimateReadingTime(plainText, wpm = 200, inMinutes = true) {
@@ -854,10 +972,17 @@ class Epub {
         // https://stackoverflow.com/questions/57403688/how-can-i-implement-word-wrap-and-carriage-returns-in-canvas-filltext
         // https://stackoverflow.com/questions/49614129/wrap-text-within-rect-without-overflowing-it-fiddle-canvas-html5
 
+        // the cover is optimised after it has been composed, so the title printed on
+        // it gets the same treatment as the picture underneath - that is also what
+        // the popup shows while the mode is being picked
+        if (this.imageProcessingEnabled) {
+            EinkImages.processCanvas(outputImage, this.#imageMode);
+        }
+
         return new Promise((resolve) => {
             outputImage.toBlob((blob) => {
                 resolve(blob);
-            }, 'image/jpeg', 0.85);
+            }, this.coverMediaType, 0.85);
         });
     }
 

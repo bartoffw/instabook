@@ -4,8 +4,10 @@
 
     let imageList = {};
 
-    // more than that turns the cover carousel into an unusable strip of dots
-    const maxCoverCandidates = 12;
+    // the images of the article itself are all offered as covers, but the ones found
+    // elsewhere on the page are mostly noise past the first few (related articles,
+    // ads), so only that many of them make it into the carousel
+    const maxPageCoverCandidates = 3;
 
     console.log('Welcome to Instabook!');
 
@@ -125,12 +127,13 @@ function filterCoverCandidates(covers, pageCovers, currentUrl) {
     });
 
     let filtered = [];
-    const addCandidates = (candidates, keepUnknownSize) => {
+    const addCandidates = (candidates, keepUnknownSize, limit = Infinity) => {
         if (!Array.isArray(candidates)) {
             return;
         }
+        let added = 0;
         for (const cover of candidates) {
-            if (filtered.length >= maxCoverCandidates) {
+            if (added >= limit) {
                 return;
             }
             const url = Epub.getAbsoluteUrl(cover, currentUrl, false);
@@ -141,11 +144,12 @@ function filterCoverCandidates(covers, pageCovers, currentUrl) {
             if (typeof size === 'undefined' ? keepUnknownSize :
                 (size.width >= Epub.minCoverImageSize && size.height >= Epub.minCoverImageSize)) {
                 filtered.push(url);
+                added++;
             }
         }
     };
     addCandidates(covers, true);
-    addCandidates(pageCovers, false);
+    addCandidates(pageCovers, false, maxPageCoverCandidates);
     return filtered;
 }
 

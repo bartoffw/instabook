@@ -27,6 +27,7 @@ see the *Converting a PDF to EPUB* section for details.
 * Pick the cover image from any picture found on the page, or upload one of your own.
 * Build a multi-chapter Ebook out of several pages, then rename, reorder and remove the chapters before downloading.
 * Convert a local PDF file into an EPUB on your own device, with a review screen to check the result first.
+* Prepare the images for an E-ink reader - grayscale or pure black and white, with a live preview on the cover.
 * Optional extras: including the comments of the page, and shortening repeating chapter titles.
 * Works in Firefox and in Chromium based browsers (Chrome, Brave, Vivaldi, Edge).
 
@@ -45,9 +46,40 @@ To use Instabook, follow these steps:
    1. Hovering over the cover preview reveals a small row of buttons. The &#8630; button brings the original title back.
 4. *Optional step:* Choose a different cover image - see the *Choosing the cover image* section below.
 5. *Optional step:* Clicking the "Downloaded from" line at the bottom of the cover removes it from the generated Ebook.
-6. Click "Download".
-7. Wait for the conversion and download process to complete.
-8. Enjoy!
+6. *Optional step:* Pick how the images should be prepared with the arrow next to the "Download" button - see the
+   *Images on an E-ink screen* section below.
+7. Click "Download".
+8. Wait for the conversion and download process to complete.
+9. Enjoy!
+
+### Images on an E-ink screen
+
+Pictures made for a backlit screen rarely survive the trip to an E-reader. Colours that look nothing alike turn into
+the same shade of grey, the panel only has 16 of them to work with, and thin chart lines and axis labels fade into the
+background. CSS filters are no help, as E-reader layout engines routinely ignore them, so Instabook can rewrite the
+images themselves instead.
+
+The arrow next to the "Download" button opens the picker:
+
+| Option | What it does |
+| --- | --- |
+| Color | The images go into the Ebook exactly as they are on the page. This is the default. |
+| Grayscale | The images are redrawn for the 16 shades of grey an E-ink panel actually has. |
+| Mono | Black and white only, which suits text, diagrams and line art. |
+
+Both E-ink options convert brightness the way the eye perceives it, correct the gamma for how an E-ink panel absorbs
+ambient light, sharpen the image so that thin lines and small labels survive, and then dither it with the Atkinson
+algorithm - the one that keeps a white background white instead of speckled. Vector charts are rasterised at twice
+their size first, so their curves and labels stay readable. The processed images are stored as PNG, since JPEG
+compression is the first thing that destroys a dithered pattern.
+
+The cover preview in the popup switches over as soon as you pick an option, so you can see what the book is going to
+look like before downloading it. The choice is shared by every page and is remembered for the next time.
+
+If your reader has a night mode, Instabook leaves the optimised images with the colours they already carry instead of
+painting a white background around them, so they do not end up framed in a glare on a dark page.
+
+The PDF to EPUB converter has its own pipeline and is not covered by this setting yet.
 
 ### Choosing the cover image
 

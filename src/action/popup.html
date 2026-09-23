@@ -61,11 +61,36 @@
                 <span class="badge text-bg-light" id="chapter-count">3</span>
             </button>
         </div>
-        <div class="d-grid" id="button-content">
+        <div class="btn-group dropup w-100" id="button-content">
             <button class="btn btn-primary action-btn" id="convert-btn" disabled>
                 Download
                 <span id="convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
             </button>
+            <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" id="image-mode-btn"
+                    data-bs-toggle="dropdown" aria-expanded="false" title="Images: Color">
+                <span class="visually-hidden">Choose how the images are prepared</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end image-mode-menu" id="image-mode-menu" data-setting="imageMode">
+                <li><h6 class="dropdown-header">Images</h6></li>
+                <li>
+                    <button type="button" class="dropdown-item active" data-image-mode="color">
+                        Color
+                        <small class="d-block text-muted">As they are on the page</small>
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="dropdown-item" data-image-mode="grayscale">
+                        Grayscale
+                        <small class="d-block text-muted">16 shades, for e-ink screens</small>
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="dropdown-item" data-image-mode="mono">
+                        Mono
+                        <small class="d-block text-muted">Black and white only</small>
+                    </button>
+                </li>
+            </ul>
         </div>
         <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
             <div class="offcanvas-header">
@@ -105,11 +130,36 @@
                     </div>
                 </div>
                 <div id="chapters-controls">
-                    <div class="d-grid" id="chapters-button-content">
+                    <div class="btn-group w-100" id="chapters-button-content">
                         <button class="btn btn-primary action-btn" id="chapters-convert-btn" disabled>
                             <span id="chapters-convert-text">Download 0 Chapters</span>
                             <span id="chapters-convert-spinner" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
                         </button>
+                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" id="chapters-image-mode-btn"
+                                data-bs-toggle="dropdown" aria-expanded="false" title="Images: Color">
+                            <span class="visually-hidden">Choose how the images of the chapters are prepared</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end image-mode-menu" id="chapters-image-mode-menu" data-setting="chaptersImageMode">
+                            <li><h6 class="dropdown-header">Images</h6></li>
+                            <li>
+                                <button type="button" class="dropdown-item active" data-image-mode="color">
+                                    Color
+                                    <small class="d-block text-muted">As they are on the page</small>
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item" data-image-mode="grayscale">
+                                    Grayscale
+                                    <small class="d-block text-muted">16 shades, for e-ink screens</small>
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item" data-image-mode="mono">
+                                    Mono
+                                    <small class="d-block text-muted">Black and white only</small>
+                                </button>
+                            </li>
+                        </ul>
                     </div>
                     <h4 class="chapters-divider"><span>Chapters</span></h4>
                     <ul class="list-group list-group-flush" id="chapters-list">
@@ -199,6 +249,7 @@
 <script src="../scripts/bootstrap.bundle.min.js"></script>
 <script src="../scripts/storage.js"></script>
 <script src="../scripts/md5.js"></script>
+<script src="../scripts/eink.js"></script>
 <script src="../scripts/titles.js"></script>
 <script src="./popup.js"></script>
 </body>

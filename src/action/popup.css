@@ -34,6 +34,30 @@ body {
 #chapter-group #add-chapter {
     flex: 0 1 auto;
 }
+/* the image style picker rides along with the Download button as a split button,
+   so it is there when it is wanted without becoming a control of its own */
+#button-content #convert-btn,
+#chapters-button-content #chapters-convert-btn {
+    flex: 1 1 auto;
+}
+#button-content #image-mode-btn,
+#chapters-button-content #chapters-image-mode-btn {
+    flex: 0 0 auto;
+}
+/* the popup clips anything leaving the card, hence the dropup - and the menu is
+   held to the width of the card so the descriptions cannot push it off the edge */
+.image-mode-menu {
+    font-size: 0.85em;
+    min-width: 100%;
+    max-width: 100%;
+}
+.image-mode-menu .dropdown-item small {
+    font-size: 0.85em;
+}
+.image-mode-menu .dropdown-item.active small,
+.image-mode-menu .dropdown-item:active small {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
 #chapters-card-body {
     background: #ffeed6;
     display: none;
@@ -464,8 +488,14 @@ span.move-item .move-down:before {
         min-height: 2.75rem;
     }
     .action-btn,
-    #chapter-group .btn {
+    #chapter-group .btn,
+    #button-content .btn,
+    #chapters-button-content .btn {
         min-height: 2.75rem;
+    }
+    .image-mode-menu .dropdown-item {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
     }
 }
 

@@ -47,7 +47,8 @@ async function handleEpubCreation(msg, hasChapters) {
             dividerUrl: msg.dividerUrl,
             includeComments: msg.includeComments,
             shortenTitles: msg.shortenTitles,
-            hideDownloadedFrom: msg.hideDownloadedFrom
+            hideDownloadedFrom: msg.hideDownloadedFrom,
+            imageMode: msg.imageMode
         });
         epub.process();
         return await prepareEpubFileOffscreen(epub);
@@ -68,7 +69,8 @@ async function handleEpubCreation(msg, hasChapters) {
             dividerUrl: msg.dividerUrl,
             includeComments: msg.includeComments,
             shortenTitles: msg.shortenTitles,
-            hideDownloadedFrom: msg.hideDownloadedFrom
+            hideDownloadedFrom: msg.hideDownloadedFrom,
+            imageMode: msg.imageMode
         });
         epub.process();
         return await prepareEpubFileOffscreen(epub);
@@ -76,22 +78,46 @@ async function handleEpubCreation(msg, hasChapters) {
 }
 
 async function prepareEpubFileOffscreen(epub) {
-    return await epub.prepareEpubFile((imgUrl, isCover) => {
-        return new Promise((resolve, reject) => {
-            if (isCover) {
-                epub.prepareCoverImage(imgUrl).then(response => {
-                    resolve(response);
-                });
+    return await epub.prepareEpubFile((imgUrl, isCover, mimeType = null) => {
+        if (isCover) {
+            return epub.prepareCoverImage(imgUrl);
+        }
+        return fetchImageContent(epub, imgUrl, mimeType);
+    });
+}
+
+/**
+ * Fetches one image of an article. When an e-ink mode is on, the image is redrawn
+ * for the screen it is going to be read on instead (see eink.js) - an image that
+ * cannot be redrawn, an exotic format or one the proxy would not hand over, still
+ * goes into the book untouched rather than taking the whole conversion down.
+ *
+ * The divider and anything else the book itself is built from arrives without a
+ * content type and is always left alone.
+ */
+async function fetchImageContent(epub, imgUrl, mimeType) {
+    if (mimeType !== null && epub.imageProcessingEnabled) {
+        try {
+            return await EinkImages.toBlob(imgUrl, epub.imageMode, mimeType);
+        } catch (error) {
+            console.warn('Could not prepare the image for an e-ink screen:', imgUrl, error);
+        }
+    }
+    return await getBinaryContent(imgUrl);
+}
+
+async function getBinaryContent(imgUrl) {
+    if (imgUrl.startsWith('data:')) {
+        return await (await fetch(imgUrl)).arrayBuffer();
+    }
+    return await new Promise((resolve, reject) => {
+        JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
+            if (err) {
+                reject(err);
             } else {
-                JSZipUtils.getBinaryContent(imgUrl, function (err, data) {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(data);
-                    }
-                });
+                resolve(data);
             }
-        })
+        });
     });
 }
 
