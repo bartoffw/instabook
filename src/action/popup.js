@@ -909,7 +909,7 @@ function reportExecuteScriptError(error) {
 function getErrorText(error) {
     return 'Could not generate the ebook. ' +
         'Please report the problem <a href="https://github.com/bartoffw/instabook/issues/new?labels=bug&' +
-        'title=' + encodeURIComponent('[1.4] Error on ' + pageUrl) + '&' +
+        'title=' + encodeURIComponent('[1.5] Error on ' + pageUrl) + '&' +
         'body=' + encodeURIComponent(error) + '" target="_blank">on GitHub using this link</a>.';
 }
 
